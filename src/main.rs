@@ -8,15 +8,29 @@ use rust_file_backend::services::expiration::expiration_worker;
 use rust_file_backend::{create_app, AppState};
 use aws_sdk_s3::config::Region;
 use std::str::FromStr;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tokio::signal;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
-    tracing_subscriber::fmt::init();
+    
+    // Initialize tracing with EnvFilter
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "rust_file_backend=info,tower_http=info".into()))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    let db_url = env::var("DATABASE_URL")?;
+    info!("🚀 Starting Rust File Backend...");
+
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    info!("📂 Database: {}", db_url);
+    
     let pool = SqlitePoolOptions::new()
-        .max_connections(100) // Increased for high concurrency
+        .max_connections(100)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect_with(
             sqlx::sqlite::SqliteConnectOptions::from_str(&db_url)?
@@ -26,15 +40,18 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    // Run migrations
+    info!("⚙️  Running database migrations...");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await?;
 
     // Setup S3 client
-    let endpoint_url = env::var("MINIO_ENDPOINT")?;
-    let access_key = env::var("MINIO_ACCESS_KEY")?;
-    let secret_key = env::var("MINIO_SECRET_KEY")?;
+    let endpoint_url = env::var("MINIO_ENDPOINT").expect("MINIO_ENDPOINT must be set");
+    let access_key = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY must be set");
+    let secret_key = env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY must be set");
+    let bucket = env::var("MINIO_BUCKET").expect("MINIO_BUCKET must be set");
+    
+    info!("☁️  S3 Storage: {} (Bucket: {})", endpoint_url, bucket);
     
     let config = aws_config::from_env()
         .endpoint_url(&endpoint_url)
@@ -54,7 +71,6 @@ async fn main() -> anyhow::Result<()> {
         .build();
     
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    let bucket = env::var("MINIO_BUCKET")?;
     let storage_service = Arc::new(StorageService::new(s3_client, bucket));
 
     let state = AppState {
@@ -70,12 +86,62 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let app = create_app(state)
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::http::Request<_>| {
+                    tracing::info_span!(
+                        "http_request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                    )
+                })
+                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                    info!("📥 {} {}", request.method(), request.uri());
+                })
+                .on_response(|response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
+                    info!("📤 Finished in {:?} with status {}", latency, response.status());
+                })
+        )
         .layer(axum::extract::DefaultBodyLimit::disable());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::info!("listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    info!("✅ Server ready at http://{}", addr);
+    info!("📖 Swagger UI: http://{}/swagger-ui", addr);
 
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    info!("🛑 Server shut down gracefully.");
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("⌨️  Ctrl+C received, starting graceful shutdown...");
+        },
+        _ = terminate => {
+            info!("💤 SIGTERM received, starting graceful shutdown...");
+        },
+    }
 }
