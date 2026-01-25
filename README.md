@@ -46,6 +46,13 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 - `POST /upload`: Upload a file (requires JWT). Supports `expiration_hours` field.
 - `GET /swagger-ui`: Interactive API documentation.
 
+## Postman Collection
+
+A Postman collection is provided in the root directory: `postman_collection.json`.
+1. Import the file into Postman.
+2. The `baseUrl` is set to `http://127.0.0.1:3000`.
+3. Running the **Login** request will automatically save the JWT token to the collection variables for use in the **Upload** request.
+
 ## License
 
 MIT
