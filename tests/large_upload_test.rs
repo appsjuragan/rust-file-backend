@@ -3,31 +3,40 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use http_body_util::BodyExt; // For checking response body
+use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
+use rust_file_backend::entities::prelude::*;
 use rust_file_backend::services::scanner::NoOpScanner;
 use rust_file_backend::services::storage::StorageService;
 use rust_file_backend::{AppState, create_app};
+use sea_orm::{ConnectionTrait, Database, EntityTrait};
 use serde_json::Value;
-use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use tower::ServiceExt;
 
-#[tokio::test]
-async fn test_large_file_uploads_and_dedup() {
-    // -------------------------------------------------------------------------
-    // 1. Setup Environment (DB, S3, App)
-    // -------------------------------------------------------------------------
+async fn setup_test_db() -> sea_orm::DatabaseConnection {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
 
-    // In-memory SQLite
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
+    let backend = db.get_database_backend();
+    let schema = sea_orm::Schema::new(backend);
+
+    db.execute(backend.build(&schema.create_table_from_entity(Users)))
         .await
-        .unwrap();
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(Tokens)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(StorageFiles)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
+        .await
+        .ok();
 
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+    db
+}
 
-    // S3 Config (MinIO)
+async fn setup_s3() -> Arc<StorageService> {
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
@@ -46,24 +55,25 @@ async fn test_large_file_uploads_and_dedup() {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    // Use a unique bucket or prefix if needed, but "uploads" is standard
-    let storage_service = Arc::new(StorageService::new(
-        s3_client.clone(),
-        "uploads".to_string(),
-    ));
+    Arc::new(StorageService::new(s3_client, "uploads".to_string()))
+}
+
+#[tokio::test]
+async fn test_large_file_uploads_and_dedup() {
+    let db = setup_test_db().await;
+    let storage_service = setup_s3().await;
 
     // Custom Security Config allowing large files (e.g., 500MB)
     let mut sec_config = SecurityConfig::development();
     sec_config.max_file_size = 500 * 1024 * 1024; // 500 MB
 
     let state = AppState {
-        db: pool.clone(),
+        db: db.clone(),
         storage: storage_service.clone(),
         scanner: Arc::new(NoOpScanner),
         config: sec_config.clone(),
     };
 
-    // Create App and apply Body Limit Layer
     let app = create_app(state).layer(axum::extract::DefaultBodyLimit::max(
         sec_config.max_file_size,
     ));
@@ -72,7 +82,6 @@ async fn test_large_file_uploads_and_dedup() {
     // 2. Authentication (Register & Login)
     // -------------------------------------------------------------------------
 
-    // Register
     let response = app
         .clone()
         .oneshot(
@@ -89,7 +98,6 @@ async fn test_large_file_uploads_and_dedup() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    // Login
     let response = app
         .clone()
         .oneshot(
@@ -114,10 +122,6 @@ async fn test_large_file_uploads_and_dedup() {
     // 3. Helper for Upload
     // -------------------------------------------------------------------------
 
-    // We'll define a closure or function to perform upload
-    // using the valid token and app.
-    // Since Step Id 0 asked for 50MB, 200MB, 300MB specifically:
-
     let upload_file = |size_mb: usize, filename: &str| {
         let app = app.clone();
         let token = token.clone();
@@ -125,11 +129,6 @@ async fn test_large_file_uploads_and_dedup() {
         async move {
             println!("Generating {}MB file...", size_mb);
             let size_bytes = size_mb * 1024 * 1024;
-            // Use a pattern based on size to ensure uniqueness between 50/200/300,
-            // but consistent for dedup checks of the same size.
-            // Using a simple repeating byte is efficient.
-            // To differentiate files of same size (if needed), add a seed, but here
-            // 50, 200, 300 are distinct by size.
             let content = vec![(size_mb % 255) as u8; size_bytes];
 
             let boundary = "---------------------------boundary123";
@@ -141,7 +140,6 @@ async fn test_large_file_uploads_and_dedup() {
             );
             let footer = format!("\r\n--{boundary}--\r\n");
 
-            // Construct body: Header + Content + Footer
             let mut full_body = Vec::new();
             full_body.extend_from_slice(header.as_bytes());
             full_body.extend_from_slice(&content);
@@ -196,7 +194,6 @@ async fn test_large_file_uploads_and_dedup() {
     println!("--- Testing 200MB Upload ---");
     let (status, body) = upload_file(200, "file_200mb.dat").await;
     if status != StatusCode::OK {
-        // If it fails with 413, check body limit.
         println!("200MB Upload failed: {:?}", String::from_utf8_lossy(&body));
     }
     assert_eq!(status, StatusCode::OK);
@@ -219,14 +216,12 @@ async fn test_large_file_uploads_and_dedup() {
     // 5. Test Deduplication
     // -------------------------------------------------------------------------
 
-    // Upload 50MB again (Same content as A)
     println!("--- Testing Deduplication (50MB Re-upload) ---");
     let (status, body) = upload_file(50, "file_50mb_copy.dat").await;
     assert_eq!(status, StatusCode::OK);
     let json: Value = serde_json::from_slice(&body).unwrap();
     let id_50_copy = json["file_id"].as_str().unwrap().to_string();
 
-    // The user file IDs should be different
     assert_ne!(id_50, id_50_copy);
     println!("50MB Copy Upload success, New ID: {}", id_50_copy);
 
@@ -234,81 +229,84 @@ async fn test_large_file_uploads_and_dedup() {
     // 6. Verification (DB & MinIO)
     // -------------------------------------------------------------------------
 
-    // A. Verify DB State (Deduplication)
-    // We expect:
-    // - 1 storage_file for the 50MB content (ref_count = 2)
-    // - 1 storage_file for 200MB (ref_count = 1)
-    // - 1 storage_file for 300MB (ref_count = 1)
+    // A. Get user file and associated storage file for 50MB
+    let user_file_50 = UserFiles::find_by_id(&id_50)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    let storage_file_50 = StorageFiles::find_by_id(&user_file_50.storage_file_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
 
-    // Check 50MB storage file
-    let storage_50: (String, i32) = sqlx::query_as(
-        "SELECT s3_key, ref_count FROM storage_files 
-         JOIN user_files ON storage_files.id = user_files.storage_file_id 
-         WHERE user_files.id = ?",
-    )
-    .bind(&id_50)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-
-    let (key_50, ref_50) = storage_50;
-    println!("DB Check 50MB: Key={}, RefCount={}", key_50, ref_50);
-    assert_eq!(ref_50, 2, "50MB file should have ref_count 2");
-
-    // Check that id_50_copy points to the same key
-    let key_50_copy: String = sqlx::query_scalar(
-        "SELECT s3_key FROM storage_files 
-         JOIN user_files ON storage_files.id = user_files.storage_file_id 
-         WHERE user_files.id = ?",
-    )
-    .bind(&id_50_copy)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-
+    println!(
+        "DB Check 50MB: Key={}, RefCount={}",
+        storage_file_50.s3_key, storage_file_50.ref_count
+    );
     assert_eq!(
-        key_50, key_50_copy,
+        storage_file_50.ref_count, 2,
+        "50MB file should have ref_count 2"
+    );
+
+    // Check that id_50_copy points to the same storage file
+    let user_file_50_copy = UserFiles::find_by_id(&id_50_copy)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        user_file_50.storage_file_id, user_file_50_copy.storage_file_id,
         "Both 50MB user files should point to same storage file"
     );
 
     // B. Verify MinIO Existence
-    // We check if the keys exist in the bucket.
-
-    // 50MB File
     assert!(
-        storage_service.file_exists(&key_50).await.unwrap(),
+        storage_service
+            .file_exists(&storage_file_50.s3_key)
+            .await
+            .unwrap(),
         "50MB file validation in S3 failed"
     );
     println!("MinIO: 50MB file verified.");
 
     // 200MB File
-    let key_200: String = sqlx::query_scalar(
-        "SELECT s3_key FROM storage_files 
-         JOIN user_files ON storage_files.id = user_files.storage_file_id 
-         WHERE user_files.id = ?",
-    )
-    .bind(&id_200)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let user_file_200 = UserFiles::find_by_id(&id_200)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    let storage_file_200 = StorageFiles::find_by_id(&user_file_200.storage_file_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
-        storage_service.file_exists(&key_200).await.unwrap(),
+        storage_service
+            .file_exists(&storage_file_200.s3_key)
+            .await
+            .unwrap(),
         "200MB file validation in S3 failed"
     );
     println!("MinIO: 200MB file verified.");
 
     // 300MB File
-    let key_300: String = sqlx::query_scalar(
-        "SELECT s3_key FROM storage_files 
-         JOIN user_files ON storage_files.id = user_files.storage_file_id 
-         WHERE user_files.id = ?",
-    )
-    .bind(&id_300)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let user_file_300 = UserFiles::find_by_id(&id_300)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    let storage_file_300 = StorageFiles::find_by_id(&user_file_300.storage_file_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
-        storage_service.file_exists(&key_300).await.unwrap(),
+        storage_service
+            .file_exists(&storage_file_300.s3_key)
+            .await
+            .unwrap(),
         "300MB file validation in S3 failed"
     );
     println!("MinIO: 300MB file verified.");

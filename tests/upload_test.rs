@@ -3,28 +3,42 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
 use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
+use rust_file_backend::entities::{prelude::*, *};
 use rust_file_backend::services::scanner::NoOpScanner;
 use rust_file_backend::services::storage::StorageService;
 use rust_file_backend::{AppState, create_app};
+use sea_orm::{ColumnTrait, ConnectionTrait, Database, EntityTrait, PaginatorTrait, QueryFilter};
 use serde_json::Value;
-use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use tower::ServiceExt;
 
-#[tokio::test]
-async fn test_upload_flow() {
-    // Setup in-memory DB
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
+async fn setup_test_db() -> sea_orm::DatabaseConnection {
+    let db = Database::connect("sqlite::memory:").await.unwrap();
+
+    // Run migrations using raw SQL since we're in test mode
+    let backend = db.get_database_backend();
+    let schema = sea_orm::Schema::new(backend);
+
+    // Create tables
+    db.execute(backend.build(&schema.create_table_from_entity(Users)))
         .await
-        .unwrap();
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(Tokens)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(StorageFiles)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
+        .await
+        .ok();
 
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+    db
+}
 
-    // Setup S3 client
+async fn setup_s3() -> Arc<StorageService> {
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
@@ -43,10 +57,16 @@ async fn test_upload_flow() {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    let storage_service = Arc::new(StorageService::new(s3_client, "uploads".to_string()));
+    Arc::new(StorageService::new(s3_client, "uploads".to_string()))
+}
+
+#[tokio::test]
+async fn test_upload_flow() {
+    let db = setup_test_db().await;
+    let storage_service = setup_s3().await;
 
     let state = AppState {
-        db: pool.clone(),
+        db: db.clone(),
         storage: storage_service.clone(),
         scanner: Arc::new(NoOpScanner),
         config: SecurityConfig::development(),
@@ -160,67 +180,42 @@ async fn test_upload_flow() {
     let json: Value = serde_json::from_slice(&body).unwrap();
     let second_file_id = json["file_id"].as_str().unwrap();
 
+    // Different user_file IDs but same storage file
     assert_ne!(file_id, second_file_id);
 
     // Verify in DB that both user_files point to the same storage_file
-    let storage_files_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_files")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let storage_files_count = StorageFiles::find().count(&db).await.unwrap();
     assert_eq!(storage_files_count, 1);
 
-    let ref_count: i32 = sqlx::query_scalar("SELECT ref_count FROM storage_files")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(ref_count, 2);
+    let storage_file = StorageFiles::find().one(&db).await.unwrap().unwrap();
+    assert_eq!(storage_file.ref_count, 2);
 
     // Verify file exists in S3
-    let s3_key: String = sqlx::query_scalar("SELECT s3_key FROM storage_files")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert!(storage_service.file_exists(&s3_key).await.unwrap());
+    assert!(
+        storage_service
+            .file_exists(&storage_file.s3_key)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
 async fn test_expiration_logic() {
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    use chrono::{Duration, Utc};
+    use sea_orm::{ActiveModelTrait, Set};
 
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-
-    let config = aws_config::from_env()
-        .endpoint_url("http://127.0.0.1:9000")
-        .region(Region::new("us-east-1"))
-        .credentials_provider(Credentials::new(
-            "minioadmin",
-            "minioadmin",
-            None,
-            None,
-            "static",
-        ))
-        .load()
-        .await;
-
-    let s3_config = aws_sdk_s3::config::Builder::from(&config)
-        .force_path_style(true)
-        .build();
-
-    let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    let storage_service = Arc::new(StorageService::new(s3_client, "uploads".to_string()));
+    let db = setup_test_db().await;
+    let storage_service = setup_s3().await;
 
     // 0. Insert a user
     let user_id = "user_1";
-    sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)")
-        .bind(user_id)
-        .bind("testuser")
-        .bind("hash")
-        .execute(&pool)
-        .await
-        .unwrap();
+    let user = users::ActiveModel {
+        id: Set(user_id.to_string()),
+        username: Set("testuser".to_string()),
+        password_hash: Set("hash".to_string()),
+        ..Default::default()
+    };
+    user.insert(&db).await.unwrap();
 
     // 1. Insert a file that is already expired
     let storage_id = "storage_1";
@@ -234,77 +229,68 @@ async fn test_expiration_logic() {
         .await
         .unwrap();
 
-    sqlx::query(
-        "INSERT INTO storage_files (id, hash, s3_key, size, ref_count) VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(storage_id)
-    .bind(hash)
-    .bind(s3_key)
-    .bind(15)
-    .bind(1)
-    .execute(&pool)
-    .await
-    .unwrap();
+    let storage_file = storage_files::ActiveModel {
+        id: Set(storage_id.to_string()),
+        hash: Set(hash.to_string()),
+        s3_key: Set(s3_key.to_string()),
+        size: Set(15),
+        ref_count: Set(1),
+        ..Default::default()
+    };
+    storage_file.insert(&db).await.unwrap();
 
-    sqlx::query("INSERT INTO user_files (id, user_id, storage_file_id, filename, expires_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(user_file_id)
-        .bind(user_id)
-        .bind(storage_id)
-        .bind("test.txt")
-        .bind(Utc::now() - Duration::hours(1))
-        .execute(&pool)
+    let user_file = user_files::ActiveModel {
+        id: Set(user_file_id.to_string()),
+        user_id: Set(user_id.to_string()),
+        storage_file_id: Set(storage_id.to_string()),
+        filename: Set("test.txt".to_string()),
+        expires_at: Set(Some(Utc::now() - Duration::hours(1))),
+        ..Default::default()
+    };
+    user_file.insert(&db).await.unwrap();
+
+    // 2. Query expired files
+    let expired_files = UserFiles::find()
+        .filter(user_files::Column::ExpiresAt.lt(Utc::now()))
+        .all(&db)
         .await
         .unwrap();
-
-    // 2. Run the worker logic manually
-    let expired_files = sqlx::query_as::<_, rust_file_backend::models::UserFile>(
-        "SELECT id, user_id, storage_file_id, filename, expires_at, created_at FROM user_files WHERE expires_at < ?"
-    )
-    .bind(Utc::now())
-    .fetch_all(&pool)
-    .await
-    .unwrap();
 
     assert_eq!(expired_files.len(), 1);
 
+    // 3. Simulate worker cleanup
     for file in expired_files {
-        let mut tx = pool.begin().await.unwrap();
-        sqlx::query("DELETE FROM user_files WHERE id = ?")
-            .bind(&file.id)
-            .execute(&mut *tx)
+        use sea_orm::ModelTrait;
+
+        // Delete user file
+        file.clone().delete(&db).await.unwrap();
+
+        // Get and update storage file
+        if let Some(sf) = StorageFiles::find_by_id(&file.storage_file_id)
+            .one(&db)
             .await
-            .unwrap();
+            .unwrap()
+        {
+            let new_count = sf.ref_count - 1;
+            let mut active_sf: storage_files::ActiveModel = sf.clone().into();
+            active_sf.ref_count = Set(new_count);
+            let updated_sf = active_sf.update(&db).await.unwrap();
 
-        let sf: rust_file_backend::models::StorageFile = sqlx::query_as(
-            "UPDATE storage_files SET ref_count = ref_count - 1 WHERE id = ? RETURNING id, hash, s3_key, size, ref_count, scan_status, scan_result, scanned_at, mime_type, content_type"
-        )
-        .bind(&file.storage_file_id)
-        .fetch_one(&mut *tx)
-        .await
-        .unwrap();
-
-        if sf.ref_count <= 0 {
-            storage_service.delete_file(&sf.s3_key).await.unwrap();
-            sqlx::query("DELETE FROM storage_files WHERE id = ?")
-                .bind(&file.storage_file_id)
-                .execute(&mut *tx)
-                .await
-                .unwrap();
+            if updated_sf.ref_count <= 0 {
+                storage_service
+                    .delete_file(&updated_sf.s3_key)
+                    .await
+                    .unwrap();
+                updated_sf.delete(&db).await.unwrap();
+            }
         }
-        tx.commit().await.unwrap();
     }
 
-    // 3. Verify cleanup
-    let user_files_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_files")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    // 4. Verify cleanup
+    let user_files_count = UserFiles::find().count(&db).await.unwrap();
     assert_eq!(user_files_count, 0);
 
-    let storage_files_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_files")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let storage_files_count = StorageFiles::find().count(&db).await.unwrap();
     assert_eq!(storage_files_count, 0);
 
     // Verify file is deleted from S3

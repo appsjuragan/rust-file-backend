@@ -1,4 +1,5 @@
 pub mod config;
+pub mod entities;
 pub mod handlers;
 pub mod middleware;
 pub mod models;
@@ -13,7 +14,7 @@ use axum::{
     middleware::from_fn,
     routing::{get, post},
 };
-use sqlx::SqlitePool;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -25,11 +26,11 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::auth::login,
         handlers::files::upload_file,
         handlers::files::pre_check_dedup,
+        handlers::files::download_file,
     ),
     components(
         schemas(
             handlers::auth::AuthRequest,
-            handlers::auth::AuthResponse,
             handlers::auth::AuthResponse,
             handlers::files::UploadResponse,
             handlers::files::PreCheckRequest,
@@ -49,7 +50,7 @@ pub struct ApiDoc;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db: SqlitePool,
+    pub db: DatabaseConnection,
     pub storage: Arc<StorageService>,
     pub scanner: Arc<dyn VirusScanner>,
     pub config: SecurityConfig,
@@ -68,6 +69,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/upload",
             post(handlers::files::upload_file).layer(from_fn(middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files/:id",
+            get(handlers::files::download_file).layer(from_fn(middleware::auth::auth_middleware)),
         )
         .with_state(state)
 }

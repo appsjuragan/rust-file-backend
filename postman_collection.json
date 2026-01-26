@@ -124,6 +124,41 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Download File",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/files/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "REPLACE_WITH_FILE_ID",
+									"description": "The ID of the file to download"
+								}
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		}

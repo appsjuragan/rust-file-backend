@@ -1,12 +1,13 @@
 [package]
 name = "rust-file-backend"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 edition = "2024"
 
 [dependencies]
 axum = { version = "0.7", features = ["multipart"] }
 tokio = { version = "1.0", features = ["full"] }
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "any", "sqlite", "postgres", "chrono", "uuid"] }
+sea-orm = { version = "0.12", features = [ "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-native-tls", "macros", "with-chrono", "with-uuid", "with-json" ] }
 jsonwebtoken = "9.0"
 aws-sdk-s3 = "1.0"
 aws-config = { version = "1.0", features = ["behavior-version-latest"] }
@@ -33,3 +34,4 @@ tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
 tower_governor = { version = "0.8.0", features = ["axum"] }
 governor = "0.10.4"
+log = "0.4"

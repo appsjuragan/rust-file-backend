@@ -1,5 +1,23 @@
 # Release Notes
 
+## Version 0.1.0-beta.3 (2026-01-26)
+
+### New Features
+- **PostgreSQL Support**: Added full support for PostgreSQL as the primary database backend.
+- **SeaORM Migration**: Migrated from raw SQLx to SeaORM for improved type safety and database portability.
+- **Auto-Migration**: Application now automatically creates necessary database tables on startup.
+- **Multi-Database Support**: Seamlessly supports both PostgreSQL and SQLite via configuration.
+
+### Improvements
+- **Code Quality**: Refactored codebase to use SeaORM entities and active models.
+- **Testing**: Enhanced test suite with SeaORM integration and added comprehensive end-to-end `curl` test script (`scripts/test_full_flow.ps1`).
+- **Verification**: Updated `verify_upload` example to support PostgreSQL and integrated it directly into the full flow test script for automated persistence checks.
+- **Security**: Updated security configuration options in `.env.example`.
+
+### Dependency Updates
+- Added `sea-orm` v0.12.
+
+
 ## Version 0.1.0-beta.2 (2026-01-26)
 
 ### New Features

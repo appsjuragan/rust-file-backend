@@ -9,8 +9,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, S
         .and_then(|h| h.to_str().ok());
 
     if let Some(auth_header) = auth_header {
-        if auth_header.starts_with("Bearer ") {
-            let token = &auth_header[7..];
+        if let Some(token) = auth_header.strip_prefix("Bearer ") {
             let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
 
             if let Ok(claims) = validate_jwt(token, &secret) {

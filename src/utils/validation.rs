@@ -258,7 +258,7 @@ pub fn verify_magic_bytes(header: &[u8], claimed_mime: &str) -> Result<()> {
             }
 
             // Check if detected type is compatible with claimed type
-            if claimed_mime.contains(mime_type) || mime_type.contains(&claimed_mime) {
+            if claimed_mime.contains(mime_type) || mime_type.contains(claimed_mime) {
                 return Ok(());
             }
 

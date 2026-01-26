@@ -3,10 +3,8 @@ use dotenvy::dotenv;
 use rust_file_backend::services::expiration::expiration_worker;
 use rust_file_backend::services::storage::StorageService;
 use rust_file_backend::{AppState, create_app};
-use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::signal;
 use tower_http::trace::TraceLayer;
@@ -29,22 +27,73 @@ async fn main() -> anyhow::Result<()> {
     info!("🚀 Starting Rust File Backend...");
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
     info!("📂 Database: {}", db_url);
 
-    let pool = SqlitePoolOptions::new()
-        .max_connections(100)
+    let mut opt = sea_orm::ConnectOptions::new(&db_url);
+    opt.max_connections(100)
+        .min_connections(5)
+        .connect_timeout(std::time::Duration::from_secs(30))
         .acquire_timeout(std::time::Duration::from_secs(30))
-        .connect_with(
-            sqlx::sqlite::SqliteConnectOptions::from_str(&db_url)?
-                .create_if_missing(true)
-                .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-                .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
-                .busy_timeout(std::time::Duration::from_secs(30)),
-        )
-        .await?;
+        .idle_timeout(std::time::Duration::from_secs(600))
+        .max_lifetime(std::time::Duration::from_secs(1800))
+        .sqlx_logging(true)
+        .sqlx_logging_level(log::LevelFilter::Debug);
 
-    info!("⚙️  Running database migrations...");
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    let db = sea_orm::Database::connect(opt).await?;
+
+    info!("✅ Database connected successfully");
+
+    // Auto-migration
+    {
+        use rust_file_backend::entities::{storage_files, tokens, user_files, users};
+        use sea_orm::{ConnectionTrait, Schema};
+
+        let builder = db.get_database_backend();
+        let schema = Schema::new(builder);
+
+        info!("🔄 Running auto-migrations...");
+
+        // Order matters for foreign keys: Users -> Tokens, StorageFiles -> UserFiles
+        let stmts = vec![
+            (
+                "users",
+                schema
+                    .create_table_from_entity(users::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+            (
+                "tokens",
+                schema
+                    .create_table_from_entity(tokens::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+            (
+                "storage_files",
+                schema
+                    .create_table_from_entity(storage_files::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+            (
+                "user_files",
+                schema
+                    .create_table_from_entity(user_files::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+        ];
+
+        for (name, stmt) in stmts {
+            let stmt = builder.build(&stmt);
+            match db.execute(stmt).await {
+                Ok(_) => info!("   - Table '{}' checked/created", name),
+                Err(e) => tracing::warn!("   - Failed to create table '{}': {}", name, e),
+            }
+        }
+    }
 
     // Setup S3 client
     let endpoint_url = env::var("MINIO_ENDPOINT").expect("MINIO_ENDPOINT must be set");
@@ -54,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("☁️  S3 Storage: {} (Bucket: {})", endpoint_url, bucket);
 
-    let config = aws_config::from_env()
+    let aws_config = aws_config::from_env()
         .endpoint_url(&endpoint_url)
         .region(Region::new("us-east-1"))
         .credentials_provider(aws_sdk_s3::config::Credentials::new(
@@ -63,26 +112,26 @@ async fn main() -> anyhow::Result<()> {
         .load()
         .await;
 
-    let s3_config = aws_sdk_s3::config::Builder::from(&config)
+    let s3_config = aws_sdk_s3::config::Builder::from(&aws_config)
         .force_path_style(true)
         .build();
 
     // Load security config
-    let config = rust_file_backend::config::SecurityConfig::from_env();
+    let security_config = rust_file_backend::config::SecurityConfig::from_env();
     info!(
         "🛡️  Security Config: Max Size={}MB, Virus Scan={}, Scanner={}",
-        config.max_file_size / 1024 / 1024,
-        config.enable_virus_scan,
-        config.virus_scanner_type
+        security_config.max_file_size / 1024 / 1024,
+        security_config.enable_virus_scan,
+        security_config.virus_scanner_type
     );
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
     let storage_service = Arc::new(StorageService::new(s3_client, bucket));
     let scanner_service =
-        rust_file_backend::services::scanner::create_scanner(&config.virus_scanner_type);
+        rust_file_backend::services::scanner::create_scanner(&security_config.virus_scanner_type);
 
     // Warm up scanner connection
-    if config.enable_virus_scan {
+    if security_config.enable_virus_scan {
         if scanner_service.health_check().await {
             info!("🦠 Virus scanner connected successfully");
         } else {
@@ -93,29 +142,18 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let state = AppState {
-        db: pool.clone(),
+        db: db.clone(),
         storage: storage_service.clone(),
         scanner: scanner_service.into(),
-        config: config.clone(),
+        config: security_config.clone(),
     };
 
     // Start expiration worker
-    let worker_pool = pool.clone();
+    let worker_db = db.clone();
     let worker_storage = storage_service.clone();
     tokio::spawn(async move {
-        expiration_worker(worker_pool, worker_storage).await;
+        expiration_worker(worker_db, worker_storage).await;
     });
-
-    // Rate limiting configuration
-    // Note: In a real distributed setup, you'd use a Redis-backed rate limiter.
-    // For single instance, in-memory governor is fine.
-    // let governor_conf = Box::new(
-    //     tower_governor::governor::GovernorConfigBuilder::default()
-    //         .period(std::time::Duration::from_secs(3600) / (config.uploads_per_hour.max(1)))
-    //         .burst_size(5)
-    //         .finish()
-    //         .unwrap(),
-    // );
 
     let app = create_app(state)
         .layer(
@@ -142,9 +180,9 @@ async fn main() -> anyhow::Result<()> {
                     },
                 ),
         )
-        // Global rate limiting (IP-based by default with GovernorLayer)
-        // .layer(tower_governor::GovernorLayer::new(governor_conf))
-        .layer(axum::extract::DefaultBodyLimit::max(config.max_file_size));
+        .layer(axum::extract::DefaultBodyLimit::max(
+            security_config.max_file_size,
+        ));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("✅ Server ready at http://{}", addr);

@@ -1,9 +1,11 @@
+use crate::entities::{prelude::*, *};
 use crate::utils::auth::create_jwt;
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 use axum::{Json, extract::State, http::StatusCode};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use std::env;
 use utoipa::ToSchema;
@@ -42,18 +44,19 @@ pub async fn register(
 
     let id = Uuid::new_v4().to_string();
 
-    sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)")
-        .bind(id)
-        .bind(payload.username)
-        .bind(password_hash)
-        .execute(&state.db)
-        .await
-        .map_err(|_e| {
-            (
-                StatusCode::BAD_REQUEST,
-                "Username already exists".to_string(),
-            )
-        })?;
+    let user = users::ActiveModel {
+        id: Set(id),
+        username: Set(payload.username),
+        password_hash: Set(password_hash),
+        ..Default::default()
+    };
+
+    user.insert(&state.db).await.map_err(|_e| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Username already exists".to_string(),
+        )
+    })?;
 
     Ok(StatusCode::CREATED)
 }
@@ -71,14 +74,12 @@ pub async fn login(
     State(state): State<crate::AppState>,
     Json(payload): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, (StatusCode, String)> {
-    let user = sqlx::query_as::<_, crate::models::User>(
-        "SELECT id, username, password_hash, created_at FROM users WHERE username = ?",
-    )
-    .bind(payload.username)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-    .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
+    let user = Users::find()
+        .filter(users::Column::Username.eq(payload.username))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
 
     let argon2 = Argon2::default();
     let parsed_hash = argon2::PasswordHash::new(&user.password_hash)
@@ -89,21 +90,25 @@ pub async fn login(
         .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
 
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-    let token = create_jwt(&user.id, &secret)
+    let token_str = create_jwt(&user.id, &secret)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Store token in DB for expiration/revocation tracking
     let token_id = Uuid::new_v4().to_string();
     let expires_at = chrono::Utc::now() + chrono::Duration::hours(24);
 
-    sqlx::query("INSERT INTO tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)")
-        .bind(token_id)
-        .bind(user.id)
-        .bind(&token)
-        .bind(expires_at)
-        .execute(&state.db)
+    let token_model = tokens::ActiveModel {
+        id: Set(token_id),
+        user_id: Set(user.id),
+        token: Set(token_str.clone()),
+        expires_at: Set(expires_at),
+        ..Default::default()
+    };
+
+    token_model
+        .insert(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(Json(AuthResponse { token }))
+    Ok(Json(AuthResponse { token: token_str }))
 }

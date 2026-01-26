@@ -1,4 +1,4 @@
-# Rust File Backend (Beta 2)
+# Rust File Backend (Beta 3)
 
 A high-performance, thread-safe REST backend for file management with deduplication, expiration, and large file support.
 
@@ -6,10 +6,11 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 
 - **JWT Authentication**: Secure user registration and login.
 - **S3-Compatible Storage**: Integrated with MinIO/S3 using streaming multipart uploads.
+- **Database Support**: PostgreSQL (Default) and SQLite support via SeaORM.
 - **File Deduplication**: SHA-256 based deduplication to save storage space (Single storage, multiple references).
 - **Large File Support**: Capable of handling uploads up to **1GB** using streaming to keep memory usage low.
 - **Automatic Expiration**: Background worker to clean up expired files from DB and S3.
-- **High Concurrency**: Optimized for 50,000+ concurrent connections using streaming and SQLite WAL mode.
+- **High Concurrency**: Optimized for 50,000+ concurrent connections.
 - **API Documentation**: Built-in Swagger UI at `/swagger-ui`.
 
 ## Security Features
@@ -25,12 +26,17 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 1. **Prerequisites**:
    - Rust (latest stable)
    - MinIO or S3-compatible storage
-   - SQLite
+   - PostgreSQL (Recommended) or SQLite
 
 2. **Configuration**:
    Copy `.env.example` to `.env` and update the values:
    ```env
-   DATABASE_URL=sqlite:backend.db
+   # PostgreSQL
+   DATABASE_URL=postgres://filebackend:filebackend@127.0.0.1:5432/filebackend
+   
+   # Or SQLite
+   # DATABASE_URL=sqlite:backend.db
+
    JWT_SECRET=your_secret_key
    MINIO_ENDPOINT=http://127.0.0.1:9000
    MINIO_ACCESS_KEY=minioadmin

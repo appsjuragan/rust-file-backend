@@ -1,17 +1,21 @@
+use crate::entities::{prelude::*, *};
 use crate::services::scanner::ScanResult;
 use crate::utils::auth::Claims;
 use crate::utils::validation::{sanitize_filename, validate_upload};
 use axum::{
     Extension, Json,
-    extract::{Multipart, State},
-    http::StatusCode,
+    body::Body,
+    extract::{Multipart, Path, State},
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use chrono::{Duration, Utc};
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
-use tokio_util::io::StreamReader;
+use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -60,25 +64,20 @@ pub async fn pre_check_dedup(
     Extension(_claims): Extension<Claims>,
     Json(req): Json<PreCheckRequest>,
 ) -> Result<Json<PreCheckResponse>, (StatusCode, String)> {
-    let existing = sqlx::query_as::<_, crate::models::StorageFile>(
-        "SELECT id, hash, s3_key, size, ref_count, scan_status, scan_result, scanned_at, mime_type, content_type FROM storage_files WHERE hash = ? AND size = ?"
-    )
-    .bind(&req.full_hash)
-    .bind(req.size)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let existing = StorageFiles::find()
+        .filter(storage_files::Column::Hash.eq(&req.full_hash))
+        .filter(storage_files::Column::Size.eq(req.size))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if let Some(file) = existing {
-        // Build response based on existing file
         Ok(Json(PreCheckResponse {
             exists: true,
             upload_token: None,
             file_id: Some(file.id),
         }))
     } else {
-        // File doesn't exist, return upload token (implied by client logic, or we could generate one)
-        // For now, simpler: just say it doesn't exist
         Ok(Json(PreCheckResponse {
             exists: false,
             upload_token: Some(Uuid::new_v4().to_string()),
@@ -172,19 +171,18 @@ pub async fn upload_file(
     let upload = upload_result.ok_or((StatusCode::BAD_REQUEST, "No file provided".to_string()))?;
 
     // Check for deduplication
-    let existing_storage_file = sqlx::query_as::<_, crate::models::StorageFile>(
-        "SELECT id, hash, s3_key, size, ref_count, scan_status, scan_result, scanned_at, mime_type, content_type FROM storage_files WHERE hash = ?"
-    )
-    .bind(&upload.hash)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let existing_storage_file = StorageFiles::find()
+        .filter(storage_files::Column::Hash.eq(&upload.hash))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let storage_file_id = if let Some(sf) = existing_storage_file {
-        // Deduplication hit!
-        sqlx::query("UPDATE storage_files SET ref_count = ref_count + 1 WHERE id = ?")
-            .bind(&sf.id)
-            .execute(&state.db)
+        // Deduplication hit! Increment ref_count
+        let mut active: storage_files::ActiveModel = sf.clone().into();
+        active.ref_count = Set(sf.ref_count + 1);
+        active
+            .update(&state.db)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -205,9 +203,6 @@ pub async fn upload_file(
                     )
                 })?;
 
-            // Note: Optimally we would stream directly to scanner.
-            // Here we buffer into memory which is okay for <256MB but not ideal for massive scale.
-            // Future improvement: implement streaming to scanner.
             let bytes = stream
                 .collect()
                 .await
@@ -228,7 +223,6 @@ pub async fn upload_file(
                 }
                 Ok(ScanResult::Error { reason }) => {
                     tracing::error!("Virus scan error for {}: {}", upload.hash, reason);
-                    // Fail open or closed? Security recommendation: Fail closed.
                     let _ = state.storage.delete_file(&upload.s3_key).await;
                     return Err((
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -262,20 +256,29 @@ pub async fn upload_file(
 
         let _ = state.storage.delete_file(&upload.s3_key).await;
 
-        sqlx::query(
-            "INSERT INTO storage_files (id, hash, s3_key, size, ref_count, mime_type, scan_status, scanned_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        )
-        .bind(&id)
-        .bind(&upload.hash)
-        .bind(&permanent_key)
-        .bind(upload.size)
-        .bind(1)
-        .bind("application/octet-stream") // We should persist detected mime, but simplified here
-        .bind(if state.config.enable_virus_scan { "clean" } else { "unchecked" })
-        .bind(Utc::now())
-        .execute(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let new_storage_file = storage_files::ActiveModel {
+            id: Set(id.clone()),
+            hash: Set(upload.hash),
+            s3_key: Set(permanent_key),
+            size: Set(upload.size),
+            ref_count: Set(1),
+            mime_type: Set(Some("application/octet-stream".to_string())),
+            scan_status: Set(Some(
+                if state.config.enable_virus_scan {
+                    "clean"
+                } else {
+                    "unchecked"
+                }
+                .to_string(),
+            )),
+            scanned_at: Set(Some(Utc::now())),
+            ..Default::default()
+        };
+
+        new_storage_file
+            .insert(&state.db)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
         id
     };
@@ -283,17 +286,16 @@ pub async fn upload_file(
     let user_file_id = Uuid::new_v4().to_string();
     let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
-    sqlx::query(
-        "INSERT INTO user_files (id, user_id, storage_file_id, filename, expires_at) VALUES (?, ?, ?, ?, ?)"
-    )
-    .bind(&user_file_id)
-    .bind(&claims.sub)
-    .bind(&storage_file_id)
-    .bind(&filename)
-    .bind(expires_at)
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
+    let new_user_file = user_files::ActiveModel {
+        id: Set(user_file_id.clone()),
+        user_id: Set(claims.sub),
+        storage_file_id: Set(storage_file_id),
+        filename: Set(filename.clone()),
+        expires_at: Set(expires_at),
+        ..Default::default()
+    };
+
+    new_user_file.insert(&state.db).await.map_err(|e| {
         tracing::error!("Failed to insert user_file: {}", e);
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?;
@@ -303,4 +305,79 @@ pub async fn upload_file(
         filename,
         expires_at,
     }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/{id}",
+    params(
+        ("id" = String, Path, description = "User File ID")
+    ),
+    responses(
+        (status = 200, description = "File download stream"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "File not found"),
+        (status = 410, description = "File expired")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn download_file(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(file_id): Path<String>,
+) -> Result<Response, (StatusCode, String)> {
+    // 1. Verify file ownership and existence
+    let user_file = UserFiles::find_by_id(&file_id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            "File not found or access denied".to_string(),
+        ))?;
+
+    // 2. Check expiration
+    if user_file.expires_at.is_some_and(|expires| Utc::now() > expires) {
+        return Err((StatusCode::GONE, "File has expired".to_string()));
+    }
+
+    // 3. Get storage file
+    let storage_file = StorageFiles::find_by_id(&user_file.storage_file_id)
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Storage file not found".to_string()))?;
+
+    // 4. Get stream from S3
+    let stream = state
+        .storage
+        .get_object_stream(&storage_file.s3_key)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to get S3 object stream: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to retrieve file".to_string(),
+            )
+        })?;
+
+    // 5. Return stream response
+    let body = Body::from_stream(ReaderStream::new(stream.into_async_read()));
+
+    let content_type = storage_file
+        .mime_type
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    let headers = [
+        (header::CONTENT_TYPE, content_type),
+        (
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", user_file.filename),
+        ),
+    ];
+
+    Ok((headers, body).into_response())
 }
