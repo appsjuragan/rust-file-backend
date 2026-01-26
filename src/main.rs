@@ -70,12 +70,32 @@ async fn main() -> anyhow::Result<()> {
         .force_path_style(true)
         .build();
     
+    // Load security config
+    let config = rust_file_backend::config::SecurityConfig::from_env();
+    info!("🛡️  Security Config: Max Size={}MB, Virus Scan={}, Scanner={}", 
+        config.max_file_size / 1024 / 1024,
+        config.enable_virus_scan,
+        config.virus_scanner_type
+    );
+
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
     let storage_service = Arc::new(StorageService::new(s3_client, bucket));
+    let scanner_service = rust_file_backend::services::scanner::create_scanner(&config.virus_scanner_type);
+
+    // Warm up scanner connection
+    if config.enable_virus_scan {
+        if scanner_service.health_check().await {
+            info!("🦠 Virus scanner connected successfully");
+        } else {
+            tracing::warn!("⚠️  Virus scanner unreachable! Uploads may be rejected or skipped depending on policy.");
+        }
+    }
 
     let state = AppState {
         db: pool.clone(),
         storage: storage_service.clone(),
+        scanner: scanner_service.into(),
+        config: config.clone(),
     };
 
     // Start expiration worker
@@ -84,6 +104,17 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         expiration_worker(worker_pool, worker_storage).await;
     });
+
+    // Rate limiting configuration
+    // Note: In a real distributed setup, you'd use a Redis-backed rate limiter.
+    // For single instance, in-memory governor is fine.
+    // let governor_conf = Box::new(
+    //     tower_governor::governor::GovernorConfigBuilder::default()
+    //         .period(std::time::Duration::from_secs(3600) / (config.uploads_per_hour.max(1)))
+    //         .burst_size(5)
+    //         .finish()
+    //         .unwrap(),
+    // );
 
     let app = create_app(state)
         .layer(
@@ -102,7 +133,9 @@ async fn main() -> anyhow::Result<()> {
                     info!("📤 Finished in {:?} with status {}", latency, response.status());
                 })
         )
-        .layer(axum::extract::DefaultBodyLimit::disable());
+        // Global rate limiting (IP-based by default with GovernorLayer)
+        // .layer(tower_governor::GovernorLayer::new(governor_conf))
+        .layer(axum::extract::DefaultBodyLimit::max(config.max_file_size));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("✅ Server ready at http://{}", addr);

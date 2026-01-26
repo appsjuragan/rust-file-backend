@@ -26,6 +26,11 @@ pub struct StorageFile {
     pub s3_key: String,
     pub size: i64,
     pub ref_count: i32,
+    pub scan_status: Option<String>,
+    pub scan_result: Option<String>,
+    pub scanned_at: Option<DateTime<Utc>>,
+    pub mime_type: Option<String>,
+    pub content_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, ToSchema)]

@@ -163,4 +163,14 @@ impl StorageService {
     pub async fn get_download_url(&self, _key: &str) -> Result<String> {
         Ok(format!("{}/{}", self.bucket, _key))
     }
+
+    pub async fn get_object_stream(&self, key: &str) -> Result<ByteStream> {
+        let res = self.client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await?;
+        Ok(res.body)
+    }
 }

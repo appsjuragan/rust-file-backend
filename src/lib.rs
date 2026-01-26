@@ -3,15 +3,18 @@ pub mod handlers;
 pub mod middleware;
 pub mod services;
 pub mod utils;
+pub mod config;
 
 use axum::{
-    routing::post,
+    routing::{post, get},
     Router,
     middleware::from_fn,
 };
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use crate::services::storage::StorageService;
+use crate::services::scanner::VirusScanner;
+use crate::config::SecurityConfig;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -21,12 +24,16 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::auth::register,
         handlers::auth::login,
         handlers::files::upload_file,
+        handlers::files::pre_check_dedup,
     ),
     components(
         schemas(
             handlers::auth::AuthRequest,
             handlers::auth::AuthResponse,
+            handlers::auth::AuthResponse,
             handlers::files::UploadResponse,
+            handlers::files::PreCheckRequest,
+            handlers::files::PreCheckResponse,
             models::User,
             models::Token,
             models::StorageFile,
@@ -44,6 +51,8 @@ pub struct ApiDoc;
 pub struct AppState {
     pub db: SqlitePool,
     pub storage: Arc<StorageService>,
+    pub scanner: Arc<dyn VirusScanner>,
+    pub config: SecurityConfig,
 }
 
 pub fn create_app(state: AppState) -> Router {
@@ -51,6 +60,11 @@ pub fn create_app(state: AppState) -> Router {
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/register", post(handlers::auth::register))
         .route("/login", post(handlers::auth::login))
+        .route(
+            "/pre-check",
+            post(handlers::files::pre_check_dedup)
+                .layer(from_fn(middleware::auth::auth_middleware)),
+        )
         .route(
             "/upload",
             post(handlers::files::upload_file)

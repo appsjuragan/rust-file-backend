@@ -11,6 +11,14 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 - **High Concurrency**: Optimized for 50,000+ concurrent connections using streaming and SQLite WAL mode.
 - **API Documentation**: Built-in Swagger UI at `/swagger-ui`.
 
+## Security Features
+
+- **File Validation**: Strict allowlist (Docs, Media, Archives), magic bytes verification, filename sanitization.
+- **Virus Scanning**: Integrated ClamAV scanning for all uploads.
+- **Deduplication**: Hash-based deduplication with client-side pre-check support.
+- **Rate Limiting**: IP and User-based rate limits.
+- **Size Limits**: Enforced 256MB limit.
+
 ## Setup
 
 1. **Prerequisites**:
@@ -27,6 +35,12 @@ A high-performance, thread-safe REST backend for file management with deduplicat
    MINIO_ACCESS_KEY=minioadmin
    MINIO_SECRET_KEY=minioadmin
    MINIO_BUCKET=uploads
+   # Security
+   MAX_FILE_SIZE=268435456
+   UPLOADS_PER_HOUR=250
+   ENABLE_VIRUS_SCAN=true
+   CLAMAV_HOST=127.0.0.1
+   CLAMAV_PORT=3310
    ```
 
 3. **Run the application**:

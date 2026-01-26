@@ -4,6 +4,8 @@ use axum::{
 };
 use rust_file_backend::{create_app, AppState};
 use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::config::SecurityConfig;
+use rust_file_backend::services::scanner::NoOpScanner;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -43,6 +45,8 @@ async fn test_upload_flow() {
     let state = AppState {
         db: pool.clone(),
         storage: storage_service.clone(),
+        scanner: Arc::new(NoOpScanner),
+        config: SecurityConfig::development(),
     };
 
     let app = create_app(state);
@@ -239,7 +243,7 @@ async fn test_expiration_logic() {
         sqlx::query("DELETE FROM user_files WHERE id = ?").bind(&file.id).execute(&mut *tx).await.unwrap();
         
         let sf: rust_file_backend::models::StorageFile = sqlx::query_as(
-            "UPDATE storage_files SET ref_count = ref_count - 1 WHERE id = ? RETURNING id, hash, s3_key, size, ref_count"
+            "UPDATE storage_files SET ref_count = ref_count - 1 WHERE id = ? RETURNING id, hash, s3_key, size, ref_count, scan_status, scan_result, scanned_at, mime_type, content_type"
         )
         .bind(&file.storage_file_id)
         .fetch_one(&mut *tx)
