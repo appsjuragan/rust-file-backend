@@ -1,5 +1,5 @@
+use anyhow::{Result, anyhow};
 use std::path::Path;
-use anyhow::{anyhow, Result};
 
 /// Maximum file size: 256 MB
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024; // 1 GB
@@ -53,27 +53,33 @@ pub const ALLOWED_MIME_TYPES: &[&str] = &[
 /// Magic byte signatures for file type verification
 const MAGIC_SIGNATURES: &[(&[u8], &str)] = &[
     // Documents
-    (&[0x25, 0x50, 0x44, 0x46], "application/pdf"),           // %PDF
-    (&[0xD0, 0xCF, 0x11, 0xE0], "application/msword"),        // OLE (doc, xls, ppt)
-    (&[0x50, 0x4B, 0x03, 0x04], "application/zip"),           // ZIP (also docx, xlsx, pptx)
+    (&[0x25, 0x50, 0x44, 0x46], "application/pdf"), // %PDF
+    (&[0xD0, 0xCF, 0x11, 0xE0], "application/msword"), // OLE (doc, xls, ppt)
+    (&[0x50, 0x4B, 0x03, 0x04], "application/zip"), // ZIP (also docx, xlsx, pptx)
     // Images
-    (&[0xFF, 0xD8, 0xFF], "image/jpeg"),                      // JPEG
-    (&[0x89, 0x50, 0x4E, 0x47], "image/png"),                 // PNG
-    (&[0x47, 0x49, 0x46, 0x38], "image/gif"),                 // GIF
-    (&[0x52, 0x49, 0x46, 0x46], "image/webp"),                // WEBP (RIFF)
-    (&[0x42, 0x4D], "image/bmp"),                             // BMP
+    (&[0xFF, 0xD8, 0xFF], "image/jpeg"),       // JPEG
+    (&[0x89, 0x50, 0x4E, 0x47], "image/png"),  // PNG
+    (&[0x47, 0x49, 0x46, 0x38], "image/gif"),  // GIF
+    (&[0x52, 0x49, 0x46, 0x46], "image/webp"), // WEBP (RIFF)
+    (&[0x42, 0x4D], "image/bmp"),              // BMP
     // Audio
-    (&[0x49, 0x44, 0x33], "audio/mpeg"),                      // MP3 with ID3
-    (&[0xFF, 0xFB], "audio/mpeg"),                            // MP3 without ID3
-    (&[0xFF, 0xFA], "audio/mpeg"),                            // MP3 variant
-    (&[0x4F, 0x67, 0x67, 0x53], "audio/ogg"),                 // OGG
-    (&[0x66, 0x4C, 0x61, 0x43], "audio/flac"),                // FLAC
+    (&[0x49, 0x44, 0x33], "audio/mpeg"),       // MP3 with ID3
+    (&[0xFF, 0xFB], "audio/mpeg"),             // MP3 without ID3
+    (&[0xFF, 0xFA], "audio/mpeg"),             // MP3 variant
+    (&[0x4F, 0x67, 0x67, 0x53], "audio/ogg"),  // OGG
+    (&[0x66, 0x4C, 0x61, 0x43], "audio/flac"), // FLAC
     // Video
-    (&[0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70], "video/mp4"), // MP4 ftyp
-    (&[0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70], "video/mp4"), // MP4 variant
+    (
+        &[0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70],
+        "video/mp4",
+    ), // MP4 ftyp
+    (
+        &[0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
+        "video/mp4",
+    ), // MP4 variant
     // Archives
-    (&[0x1F, 0x8B], "application/gzip"),                      // GZIP
-    (&[0x52, 0x61, 0x72, 0x21], "application/vnd.rar"),       // RAR
+    (&[0x1F, 0x8B], "application/gzip"),                // GZIP
+    (&[0x52, 0x61, 0x72, 0x21], "application/vnd.rar"), // RAR
     (&[0x37, 0x7A, 0xBC, 0xAF], "application/x-7z-compressed"), // 7z
 ];
 
@@ -82,16 +88,14 @@ const BLOCKED_EXTENSIONS: &[&str] = &[
     // Executables
     "exe", "dll", "so", "dylib", "bin", "com", "bat", "cmd", "ps1", "sh", "bash",
     // Scripts/Code
-    "js", "ts", "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx",
-    "jsp", "jspx", "cfm", "go", "rs", "java", "class", "jar", "war", "c", "cpp",
-    "h", "hpp", "cs", "vb", "vbs", "lua", "r", "swift", "kt", "scala", "groovy",
-    // Web
+    "js", "ts", "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx", "jsp", "jspx",
+    "cfm", "go", "rs", "java", "class", "jar", "war", "c", "cpp", "h", "hpp", "cs", "vb", "vbs",
+    "lua", "r", "swift", "kt", "scala", "groovy", // Web
     "html", "htm", "xhtml", "shtml", "svg", "xml", "xsl", "xslt",
     // Config/Data that could be dangerous
     "htaccess", "htpasswd", "json", "yaml", "yml", "toml", "ini", "conf", "config",
     // Container/VM
-    "iso", "img", "vmdk", "vhd", "ova", "ovf",
-    // Macro-enabled documents
+    "iso", "img", "vmdk", "vhd", "ova", "ovf", // Macro-enabled documents
     "docm", "xlsm", "pptm", "dotm", "xltm", "potm",
 ];
 
@@ -125,12 +129,20 @@ pub fn validate_file_size(size: usize) -> Result<()> {
 
 /// Validates MIME type against allowlist
 pub fn validate_mime_type(content_type: &str) -> Result<()> {
-    let normalized = content_type.split(';').next().unwrap_or("").trim().to_lowercase();
-    
-    if ALLOWED_MIME_TYPES.iter().any(|&allowed| allowed == normalized) {
+    let normalized = content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+
+    if ALLOWED_MIME_TYPES
+        .iter()
+        .any(|&allowed| allowed == normalized)
+    {
         return Ok(());
     }
-    
+
     Err(anyhow!(ValidationError {
         code: "INVALID_MIME_TYPE",
         message: format!(
@@ -148,19 +160,19 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("");
-    
+
     if name.is_empty() {
         return Err(anyhow!(ValidationError {
             code: "INVALID_FILENAME",
             message: "Filename cannot be empty".to_string(),
         }));
     }
-    
+
     // Check for path traversal attempts
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         tracing::warn!("Path traversal attempt detected: {}", filename);
     }
-    
+
     // Remove dangerous characters, keep only safe ones
     let sanitized: String = name
         .chars()
@@ -172,14 +184,14 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
             }
         })
         .collect();
-    
+
     // Limit length
     let sanitized = if sanitized.len() > 255 {
         sanitized[..255].to_string()
     } else {
         sanitized
     };
-    
+
     // Check for blocked extensions
     if let Some(ext) = Path::new(&sanitized).extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
@@ -190,7 +202,7 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
             }));
         }
     }
-    
+
     // Prevent hidden files
     if sanitized.starts_with('.') {
         return Err(anyhow!(ValidationError {
@@ -198,7 +210,7 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
             message: "Hidden files (starting with '.') are not allowed".to_string(),
         }));
     }
-    
+
     Ok(sanitized)
 }
 
@@ -210,7 +222,7 @@ pub fn verify_magic_bytes(header: &[u8], claimed_mime: &str) -> Result<()> {
             message: "File appears to be empty".to_string(),
         }));
     }
-    
+
     // Check for executable content in first bytes
     if is_executable_content(header) {
         return Err(anyhow!(ValidationError {
@@ -218,7 +230,7 @@ pub fn verify_magic_bytes(header: &[u8], claimed_mime: &str) -> Result<()> {
             message: "File contains executable content which is not allowed".to_string(),
         }));
     }
-    
+
     // For text files, we can't verify magic bytes reliably
     if claimed_mime.starts_with("text/") {
         // Check it's actually text (no binary content in first bytes)
@@ -230,26 +242,26 @@ pub fn verify_magic_bytes(header: &[u8], claimed_mime: &str) -> Result<()> {
         }
         return Ok(());
     }
-    
+
     // Find matching signature
     for (signature, mime_type) in MAGIC_SIGNATURES {
         if header.len() >= signature.len() && header.starts_with(signature) {
             // Special case: ZIP-based formats (docx, xlsx, pptx, zip)
             if *mime_type == "application/zip" {
                 // ZIP signature matches many formats, allow if claimed is zip-based
-                if claimed_mime.contains("zip") 
+                if claimed_mime.contains("zip")
                     || claimed_mime.contains("openxmlformats")
                     || claimed_mime == "application/zip"
                 {
                     return Ok(());
                 }
             }
-            
+
             // Check if detected type is compatible with claimed type
             if claimed_mime.contains(mime_type) || mime_type.contains(&claimed_mime) {
                 return Ok(());
             }
-            
+
             // Allow generic category matches (e.g., detected audio/mpeg for claimed audio/mp3)
             let claimed_category = claimed_mime.split('/').next().unwrap_or("");
             let detected_category = mime_type.split('/').next().unwrap_or("");
@@ -258,14 +270,14 @@ pub fn verify_magic_bytes(header: &[u8], claimed_mime: &str) -> Result<()> {
             }
         }
     }
-    
+
     // If no signature matched but MIME type is allowed, log warning but allow
     // (some formats don't have reliable magic bytes)
     tracing::debug!(
         "No magic bytes match for claimed MIME type '{}', allowing anyway",
         claimed_mime
     );
-    
+
     Ok(())
 }
 
@@ -274,17 +286,17 @@ pub fn is_executable_content(header: &[u8]) -> bool {
     if header.len() < 4 {
         return false;
     }
-    
+
     // ELF binary (Linux)
     if header.starts_with(&[0x7F, 0x45, 0x4C, 0x46]) {
         return true;
     }
-    
+
     // PE/COFF (Windows .exe, .dll)
     if header.starts_with(&[0x4D, 0x5A]) {
         return true;
     }
-    
+
     // Mach-O (macOS)
     if header.starts_with(&[0xFE, 0xED, 0xFA, 0xCE])
         || header.starts_with(&[0xFE, 0xED, 0xFA, 0xCF])
@@ -293,12 +305,12 @@ pub fn is_executable_content(header: &[u8]) -> bool {
     {
         return true;
     }
-    
+
     // Shebang (shell scripts)
     if header.starts_with(b"#!") {
         return true;
     }
-    
+
     false
 }
 
@@ -311,63 +323,69 @@ pub fn validate_upload(
 ) -> Result<String> {
     // 1. Size check
     validate_file_size(size)?;
-    
+
     // 2. Sanitize filename (also checks extension)
     let sanitized_filename = sanitize_filename(filename)?;
-    
+
     // 3. MIME type check
     let mime = content_type.unwrap_or("application/octet-stream");
     validate_mime_type(mime)?;
-    
+
     // 4. Magic bytes verification
     verify_magic_bytes(header, mime)?;
-    
+
     Ok(sanitized_filename)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_validate_file_size() {
         assert!(validate_file_size(1024).is_ok());
         assert!(validate_file_size(MAX_FILE_SIZE).is_ok());
         assert!(validate_file_size(MAX_FILE_SIZE + 1).is_err());
     }
-    
+
     #[test]
     fn test_validate_mime_type() {
         assert!(validate_mime_type("image/jpeg").is_ok());
         assert!(validate_mime_type("application/pdf").is_ok());
         assert!(validate_mime_type("application/zip").is_ok());
         assert!(validate_mime_type("video/mp4").is_ok());
-        
+
         // Should reject code files
         assert!(validate_mime_type("application/javascript").is_err());
         assert!(validate_mime_type("text/html").is_err());
         assert!(validate_mime_type("application/x-python").is_err());
     }
-    
+
     #[test]
     fn test_sanitize_filename() {
         assert_eq!(sanitize_filename("test.pdf").unwrap(), "test.pdf");
         assert_eq!(sanitize_filename("my file.doc").unwrap(), "my file.doc");
-        assert_eq!(sanitize_filename("test<script>.pdf").unwrap(), "test_script_.pdf");
-        
+        assert_eq!(
+            sanitize_filename("test<script>.pdf").unwrap(),
+            "test_script_.pdf"
+        );
+
         // Path traversal
         assert_eq!(sanitize_filename("../../../etc/passwd").unwrap(), "passwd");
-        assert_eq!(sanitize_filename("..\\..\\windows\\system32").unwrap(), "system32");
-        
+        assert_eq!(
+            sanitize_filename("..\\..\\windows\\system32").unwrap(),
+            "system32"
+        );
+
         // Blocked extensions
         assert!(sanitize_filename("virus.exe").is_err());
         assert!(sanitize_filename("script.php").is_err());
         assert!(sanitize_filename("hack.js").is_err());
-        
+
         // Hidden files
         assert!(sanitize_filename(".htaccess").is_err());
     }
-    
+
     #[test]
     fn test_is_executable_content() {
         // ELF header
@@ -380,7 +398,7 @@ mod tests {
         assert!(!is_executable_content(b"Hello World"));
         assert!(!is_executable_content(&[0x89, 0x50, 0x4E, 0x47])); // PNG
     }
-    
+
     #[test]
     fn test_verify_magic_bytes() {
         // JPEG
@@ -391,7 +409,7 @@ mod tests {
         assert!(verify_magic_bytes(b"%PDF-1.5", "application/pdf").is_ok());
         // ZIP
         assert!(verify_magic_bytes(&[0x50, 0x4B, 0x03, 0x04], "application/zip").is_ok());
-        
+
         // Executable disguised as image
         assert!(verify_magic_bytes(&[0x4D, 0x5A, 0x00, 0x00], "image/jpeg").is_err());
     }

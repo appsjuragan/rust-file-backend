@@ -1,4 +1,4 @@
-use rust_file_backend::services::scanner::{ClamAvScanner, VirusScanner, ScanResult};
+use rust_file_backend::services::scanner::{ClamAvScanner, ScanResult, VirusScanner};
 
 #[tokio::test]
 async fn test_clamav_connection_and_scan() {
@@ -12,7 +12,7 @@ async fn test_clamav_connection_and_scan() {
     let clean_data = b"Hello, this is a clean file.";
     let result = scanner.scan(clean_data).await.expect("Scan failed");
     match result {
-        ScanResult::Clean => {},
+        ScanResult::Clean => {}
         _ => panic!("Expected clean result, got {:?}", result),
     }
 
@@ -23,8 +23,11 @@ async fn test_clamav_connection_and_scan() {
     match result {
         ScanResult::Infected { threat_name: msg } => {
             println!("Detected virus: {}", msg);
-            assert!(msg.contains("Eicar") || msg.contains("EICAR"), "Should detect Eicar");
-        },
+            assert!(
+                msg.contains("Eicar") || msg.contains("EICAR"),
+                "Should detect Eicar"
+            );
+        }
         _ => panic!("Expected infected result for EICAR"),
     }
 }

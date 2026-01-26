@@ -1,8 +1,8 @@
+use anyhow::Result;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
-use anyhow::Result;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 pub struct StorageService {
@@ -34,29 +34,28 @@ impl StorageService {
 
     /// Uploads a stream to S3 while calculating its SHA256 hash on the fly.
     /// This is highly memory efficient and avoids local disk I/O.
-    pub async fn upload_stream_with_hash<R>(
-        &self,
-        key: &str,
-        mut reader: R,
-    ) -> Result<UploadResult> 
-    where 
+    pub async fn upload_stream_with_hash<R>(&self, key: &str, mut reader: R) -> Result<UploadResult>
+    where
         R: AsyncRead + Unpin + Send,
     {
-        let multipart_upload_res = self.client
+        let multipart_upload_res = self
+            .client
             .create_multipart_upload()
             .bucket(&self.bucket)
             .key(key)
             .send()
             .await?;
 
-        let upload_id = multipart_upload_res.upload_id().ok_or_else(|| anyhow::anyhow!("No upload ID"))?;
+        let upload_id = multipart_upload_res
+            .upload_id()
+            .ok_or_else(|| anyhow::anyhow!("No upload ID"))?;
         let mut chunk_index = 1;
         let mut completed_parts = Vec::new();
         let mut hasher = Sha256::new();
         let mut total_size = 0;
-        
+
         // 10MB chunks are a good balance for 50k concurrency vs memory usage
-        let chunk_size = 10 * 1024 * 1024; 
+        let chunk_size = 10 * 1024 * 1024;
         let mut buffer = vec![0u8; chunk_size];
 
         loop {
@@ -66,7 +65,7 @@ impl StorageService {
                 if read == 0 {
                     break;
                 }
-                hasher.update(&buffer[n..n+read]);
+                hasher.update(&buffer[n..n + read]);
                 n += read;
             }
 
@@ -76,7 +75,8 @@ impl StorageService {
 
             total_size += n as i64;
             let body = ByteStream::from(buffer[..n].to_vec());
-            let upload_part_res = self.client
+            let upload_part_res = self
+                .client
                 .upload_part()
                 .bucket(&self.bucket)
                 .key(key)
@@ -90,7 +90,7 @@ impl StorageService {
                 CompletedPart::builder()
                     .e_tag(upload_part_res.e_tag().unwrap_or_default())
                     .part_number(chunk_index)
-                    .build()
+                    .build(),
             );
 
             chunk_index += 1;
@@ -110,7 +110,7 @@ impl StorageService {
             .await?;
 
         let hash = hex::encode(hasher.finalize());
-        
+
         Ok(UploadResult {
             hash,
             size: total_size,
@@ -140,13 +140,14 @@ impl StorageService {
     }
 
     pub async fn file_exists(&self, key: &str) -> Result<bool> {
-        let res = self.client
+        let res = self
+            .client
             .head_object()
             .bucket(&self.bucket)
             .key(key)
             .send()
             .await;
-        
+
         match res {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -165,7 +166,8 @@ impl StorageService {
     }
 
     pub async fn get_object_stream(&self, key: &str) -> Result<ByteStream> {
-        let res = self.client
+        let res = self
+            .client
             .get_object()
             .bucket(&self.bucket)
             .key(key)

@@ -1,17 +1,17 @@
+use aws_sdk_s3::config::Credentials;
+use aws_sdk_s3::config::Region;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use rust_file_backend::{create_app, AppState};
-use rust_file_backend::services::storage::StorageService;
+use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
 use rust_file_backend::services::scanner::NoOpScanner;
+use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::{AppState, create_app};
 use sqlx::sqlite::SqlitePoolOptions;
-use http_body_util::BodyExt;
 use std::sync::Arc;
 use tower::ServiceExt;
-use aws_sdk_s3::config::Credentials;
-use aws_sdk_s3::config::Region;
 
 #[tokio::test]
 async fn test_security_upload_restrictions() {
@@ -21,26 +21,29 @@ async fn test_security_upload_restrictions() {
         .await
         .unwrap();
 
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Setup S3 client (Mock/MinIO)
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
-        .credentials_provider(Credentials::new("minioadmin", "minioadmin", None, None, "static"))
+        .credentials_provider(Credentials::new(
+            "minioadmin",
+            "minioadmin",
+            None,
+            None,
+            "static",
+        ))
         .load()
         .await;
-    
+
     let s3_config = aws_sdk_s3::config::Builder::from(&config)
         .force_path_style(true)
         .build();
-    
+
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
     let storage_service = Arc::new(StorageService::new(s3_client, "uploads".to_string()));
-    
+
     // Security Config
     let mut sec_config = SecurityConfig::default();
     sec_config.enable_virus_scan = false; // Disable for test to avoid needing ClamAV
@@ -56,25 +59,31 @@ async fn test_security_upload_restrictions() {
     let app = create_app(state);
 
     // 1. Register & Login to get token
-    let _ = app.clone()
+    let _ = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/register")
                 .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"username": "sec_user", "password": "password123"}"#))
+                .body(Body::from(
+                    r#"{"username": "sec_user", "password": "password123"}"#,
+                ))
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    let response = app.clone()
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/login")
                 .header("Content-Type", "application/json")
-                .body(Body::from(r#"{"username": "sec_user", "password": "password123"}"#))
+                .body(Body::from(
+                    r#"{"username": "sec_user", "password": "password123"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -95,13 +104,17 @@ async fn test_security_upload_restrictions() {
         boundary = boundary
     );
 
-    let response = app.clone()
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/upload")
                 .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+                .header(
+                    "Content-Type",
+                    format!("multipart/form-data; boundary={}", boundary),
+                )
                 .body(Body::from(bad_filename_body))
                 .unwrap(),
         )
@@ -124,13 +137,17 @@ async fn test_security_upload_restrictions() {
         boundary = boundary
     );
 
-    let response = app.clone()
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/upload")
                 .header("Authorization", format!("Bearer {}", token))
-                .header("Content-Type", format!("multipart/form-data; boundary={}", boundary))
+                .header(
+                    "Content-Type",
+                    format!("multipart/form-data; boundary={}", boundary),
+                )
                 .body(Body::from(exe_body))
                 .unwrap(),
         )

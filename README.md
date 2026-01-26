@@ -1,13 +1,14 @@
-# Rust File Backend
+# Rust File Backend (Beta 2)
 
-A high-performance, thread-safe REST backend for file management with deduplication and expiration features.
+A high-performance, thread-safe REST backend for file management with deduplication, expiration, and large file support.
 
 ## Features
 
 - **JWT Authentication**: Secure user registration and login.
 - **S3-Compatible Storage**: Integrated with MinIO/S3 using streaming multipart uploads.
-- **File Deduplication**: SHA-256 based deduplication to save storage space.
-- **Automatic Expiration**: Background worker to clean up expired files.
+- **File Deduplication**: SHA-256 based deduplication to save storage space (Single storage, multiple references).
+- **Large File Support**: Capable of handling uploads up to **1GB** using streaming to keep memory usage low.
+- **Automatic Expiration**: Background worker to clean up expired files from DB and S3.
 - **High Concurrency**: Optimized for 50,000+ concurrent connections using streaming and SQLite WAL mode.
 - **API Documentation**: Built-in Swagger UI at `/swagger-ui`.
 
@@ -17,7 +18,7 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 - **Virus Scanning**: Integrated ClamAV scanning for all uploads.
 - **Deduplication**: Hash-based deduplication with client-side pre-check support.
 - **Rate Limiting**: IP and User-based rate limits.
-- **Size Limits**: Enforced 256MB limit.
+- **Size Limits**: Enforced 1GB limit (Configurable).
 
 ## Setup
 
@@ -36,7 +37,7 @@ A high-performance, thread-safe REST backend for file management with deduplicat
    MINIO_SECRET_KEY=minioadmin
    MINIO_BUCKET=uploads
    # Security
-   MAX_FILE_SIZE=268435456
+   MAX_FILE_SIZE=1073741824 # 1GB
    UPLOADS_PER_HOUR=250
    ENABLE_VIRUS_SCAN=true
    CLAMAV_HOST=127.0.0.1
@@ -50,7 +51,11 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 
 4. **Run tests**:
    ```bash
+   # Run all tests
    cargo test
+   
+   # Run specific large file validation (Requires MinIO)
+   cargo test --test large_upload_test
    ```
 
 ## API Endpoints
@@ -58,7 +63,16 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 - `POST /register`: Register a new user.
 - `POST /login`: Login and receive a JWT token.
 - `POST /upload`: Upload a file (requires JWT). Supports `expiration_hours` field.
+- `POST /pre-check`: Check if file already exists (deduplication) before upload.
 - `GET /swagger-ui`: Interactive API documentation.
+
+## Verification
+
+An example script is included to verify uploads in both the internal Database and MinIO:
+
+```bash
+cargo run --example verify_upload
+```
 
 ## Postman Collection
 

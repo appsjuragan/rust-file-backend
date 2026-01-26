@@ -1,17 +1,10 @@
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-    http::StatusCode,
-};
 use crate::utils::auth::validate_jwt;
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 use std::env;
 
-pub async fn auth_middleware(
-    mut req: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    let auth_header = req.headers()
+pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, StatusCode> {
+    let auth_header = req
+        .headers()
         .get("Authorization")
         .and_then(|h| h.to_str().ok());
 
@@ -19,7 +12,7 @@ pub async fn auth_middleware(
         if auth_header.starts_with("Bearer ") {
             let token = &auth_header[7..];
             let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-            
+
             if let Ok(claims) = validate_jwt(token, &secret) {
                 req.extensions_mut().insert(claims);
                 return Ok(next.run(req).await);

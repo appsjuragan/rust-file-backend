@@ -1,20 +1,19 @@
-use axum::{
-    extract::{State, Multipart},
-    http::StatusCode,
-    Json,
-    Extension,
-};
-use serde::Serialize;
-use crate::utils::auth::Claims;
-use uuid::Uuid;
-use chrono::{Utc, Duration};
-use utoipa::ToSchema;
-use tokio_util::io::StreamReader;
-use futures::{TryStreamExt, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncRead};
-use crate::utils::validation::{validate_upload, sanitize_filename};
 use crate::services::scanner::ScanResult;
+use crate::utils::auth::Claims;
+use crate::utils::validation::{sanitize_filename, validate_upload};
+use axum::{
+    Extension, Json,
+    extract::{Multipart, State},
+    http::StatusCode,
+};
+use chrono::{Duration, Utc};
+use futures::{StreamExt, TryStreamExt};
 use serde::Deserialize;
+use serde::Serialize;
+use tokio::io::AsyncReadExt;
+use tokio_util::io::StreamReader;
+use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
 pub struct UploadResponse {
@@ -109,48 +108,60 @@ pub async fn upload_file(
     let mut expiration_hours: Option<i64> = None;
     let mut upload_result = None;
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
+    {
         let name = field.name().unwrap_or_default().to_string();
-        
+
         if name == "file" {
             let original_filename = field.file_name().unwrap_or("unnamed").to_string();
             let content_type = field.content_type().map(|s| s.to_string());
-            
+
             // 1. Sanitize filename
             filename = sanitize_filename(&original_filename)
                 .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
             // 2. Peek into stream for magic bytes
-            let body_with_io_error = field.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err));
+            let body_with_io_error =
+                field.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err));
             let mut reader = StreamReader::new(body_with_io_error);
-            
+
             let mut header_buffer = [0u8; 1024]; // Read up to 1KB header
-            let n = reader.read(&mut header_buffer).await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Read error: {}", e)))?;
+            let n = reader.read(&mut header_buffer).await.map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Read error: {}", e),
+                )
+            })?;
             let header = &header_buffer[..n];
 
             // 3. Early Validation (MIME + Magic Bytes)
             validate_upload(&filename, content_type.as_deref(), 0, header)
-                 .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+                .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
             // Reconstruct stream
             let header_cursor = std::io::Cursor::new(header.to_vec());
             let chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
-            
+
             // 4. Upload to Staging
             let staging_key = format!("staging/{}", Uuid::new_v4());
-            let res = state.storage.upload_stream_with_hash(&staging_key, chained_reader).await
+            let res = state
+                .storage
+                .upload_stream_with_hash(&staging_key, chained_reader)
+                .await
                 .map_err(|e| {
                     tracing::error!("S3 staging upload failed: {:?}", e);
                     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
                 })?;
-            
+
             // 5. Post-upload Size Validation
             if let Err(e) = crate::utils::validation::validate_file_size(res.size as usize) {
                 let _ = state.storage.delete_file(&staging_key).await;
                 return Err((StatusCode::PAYLOAD_TOO_LARGE, e.to_string()));
             }
-            
+
             upload_result = Some(res);
         } else if name == "expiration_hours" {
             let text = field.text().await.unwrap_or_default();
@@ -176,52 +187,79 @@ pub async fn upload_file(
             .execute(&state.db)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        
+
         let _ = state.storage.delete_file(&upload.s3_key).await;
         sf.id
     } else {
         // New unique file!
         // 6. Virus Scanning on Staging File
         if state.config.enable_virus_scan {
-            let stream = state.storage.get_object_stream(&upload.s3_key).await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to open for scanning: {}", e)))?;
-            
-            // Note: Optimally we would stream directly to scanner. 
+            let stream = state
+                .storage
+                .get_object_stream(&upload.s3_key)
+                .await
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to open for scanning: {}", e),
+                    )
+                })?;
+
+            // Note: Optimally we would stream directly to scanner.
             // Here we buffer into memory which is okay for <256MB but not ideal for massive scale.
             // Future improvement: implement streaming to scanner.
-            let bytes = stream.collect().await
+            let bytes = stream
+                .collect()
+                .await
                 .map(|b| b.into_bytes())
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-            
+
             match state.scanner.scan(&bytes).await {
                 Ok(ScanResult::Clean) => {
                     tracing::info!("Virus scan passed for {}", upload.hash);
-                },
+                }
                 Ok(ScanResult::Infected { threat_name }) => {
                     tracing::warn!("Virus detected in {}: {}", upload.hash, threat_name);
                     let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((StatusCode::BAD_REQUEST, format!("File rejected: Virus detected ({})", threat_name)));
-                },
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        format!("File rejected: Virus detected ({})", threat_name),
+                    ));
+                }
                 Ok(ScanResult::Error { reason }) => {
                     tracing::error!("Virus scan error for {}: {}", upload.hash, reason);
                     // Fail open or closed? Security recommendation: Fail closed.
                     let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((StatusCode::INTERNAL_SERVER_ERROR, "Virus scan failed to complete".to_string()));
-                },
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Virus scan failed to complete".to_string(),
+                    ));
+                }
                 Err(e) => {
                     tracing::error!("Virus scan failed: {}", e);
                     let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((StatusCode::INTERNAL_SERVER_ERROR, "Scanner unavailable".to_string()));
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Scanner unavailable".to_string(),
+                    ));
                 }
             }
         }
 
         let id = Uuid::new_v4().to_string();
         let permanent_key = format!("{}/{}", upload.hash, filename);
-        
-        state.storage.copy_object(&upload.s3_key, &permanent_key).await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("S3 move failed: {}", e)))?;
-        
+
+        state
+            .storage
+            .copy_object(&upload.s3_key, &permanent_key)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("S3 move failed: {}", e),
+                )
+            })?;
+
         let _ = state.storage.delete_file(&upload.s3_key).await;
 
         sqlx::query(
@@ -238,7 +276,7 @@ pub async fn upload_file(
         .execute(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        
+
         id
     };
 

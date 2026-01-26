@@ -1,20 +1,20 @@
-pub mod models;
+pub mod config;
 pub mod handlers;
 pub mod middleware;
+pub mod models;
 pub mod services;
 pub mod utils;
-pub mod config;
 
+use crate::config::SecurityConfig;
+use crate::services::scanner::VirusScanner;
+use crate::services::storage::StorageService;
 use axum::{
-    routing::{post, get},
     Router,
     middleware::from_fn,
+    routing::{get, post},
 };
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use crate::services::storage::StorageService;
-use crate::services::scanner::VirusScanner;
-use crate::config::SecurityConfig;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -67,8 +67,7 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route(
             "/upload",
-            post(handlers::files::upload_file)
-                .layer(from_fn(middleware::auth::auth_middleware)),
+            post(handlers::files::upload_file).layer(from_fn(middleware::auth::auth_middleware)),
         )
         .with_state(state)
 }

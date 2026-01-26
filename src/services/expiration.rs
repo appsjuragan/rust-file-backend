@@ -1,13 +1,13 @@
+use crate::services::storage::StorageService;
+use chrono::Utc;
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use crate::services::storage::StorageService;
-use tokio::time::{sleep, Duration};
-use chrono::Utc;
+use tokio::time::{Duration, sleep};
 
 pub async fn expiration_worker(db: SqlitePool, storage: Arc<StorageService>) {
     loop {
         tracing::info!("Running expiration worker...");
-        
+
         let expired_files = sqlx::query_as::<_, crate::models::UserFile>(
             "SELECT id, user_id, storage_file_id, filename, expires_at, created_at FROM user_files WHERE expires_at < ? LIMIT 1000"
         )
@@ -18,7 +18,7 @@ pub async fn expiration_worker(db: SqlitePool, storage: Arc<StorageService>) {
         if let Ok(files) = expired_files {
             for file in files {
                 tracing::info!("Expiring file: {}", file.id);
-                
+
                 // Start transaction
                 let mut tx = match db.begin().await {
                     Ok(tx) => tx,
@@ -29,9 +29,10 @@ pub async fn expiration_worker(db: SqlitePool, storage: Arc<StorageService>) {
                 if let Err(_e) = sqlx::query("DELETE FROM user_files WHERE id = ?")
                     .bind(&file.id)
                     .execute(&mut *tx)
-                    .await {
-                        continue;
-                    }
+                    .await
+                {
+                    continue;
+                }
 
                 // Decrement ref_count and get storage info
                 let storage_file = sqlx::query_as::<_, crate::models::StorageFile>(
