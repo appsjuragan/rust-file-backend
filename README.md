@@ -20,6 +20,11 @@ A high-performance, thread-safe REST backend for file management with deduplicat
 - **Deduplication**: Hash-based deduplication with client-side pre-check support.
 - **Rate Limiting**: IP and User-based rate limits.
 - **Size Limits**: Enforced 1GB limit (Configurable).
+- **Metadata Extraction**: Automatic extraction of rich metadata for:
+  - **Images**: EXIF data (camera model, dates, ISO), dimensions.
+  - **Documents (Office)**: Word count, page count, editing time, author, last modifier, version.
+  - **PDF**: Page count, author, subject, title.
+  - **Audio/Video**: Duration, bitrate, codec information.
 
 ## Setup
 

@@ -3,3 +3,4 @@
 /backend.db-shm
 /backend.db-wal
 .env
+scripts/test_metadata/
