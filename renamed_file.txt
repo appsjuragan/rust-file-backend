@@ -1,3 +1,0 @@
-This is a test file for the file upload feature.
-It contains some text to verify the content.
-End of file.

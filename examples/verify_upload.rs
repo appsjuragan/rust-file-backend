@@ -1,7 +1,7 @@
 use aws_sdk_s3::config::{Credentials, Region};
 use dotenvy::dotenv;
 use rust_file_backend::services::storage::StorageService;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
 
 #[tokio::main]
@@ -12,7 +12,7 @@ async fn main() {
     // 1. Connect to DB
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     println!("Connecting to DB: {}", db_url);
-    let pool = PgPoolOptions::new()
+    let pool = SqlitePoolOptions::new()
         .connect(&db_url)
         .await
         .expect("Failed to connect to DB");
