@@ -33,22 +33,25 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<StorageServi
                 }
 
                 // Decrement ref_count
-                if let Ok(Some(sf)) = StorageFiles::find_by_id(&file.storage_file_id)
-                    .one(&txn)
-                    .await
-                {
-                    use sea_orm::ActiveValue::Set;
-                    let new_count = sf.ref_count - 1;
-                    let mut active_sf: storage_files::ActiveModel = sf.clone().into();
-                    active_sf.ref_count = Set(new_count);
+                // Decrement ref_count
+                if let Some(storage_id) = file.storage_file_id.clone() {
+                    if let Ok(Some(sf)) = StorageFiles::find_by_id(storage_id)
+                        .one(&txn)
+                        .await
+                    {
+                        use sea_orm::ActiveValue::Set;
+                        let new_count = sf.ref_count - 1;
+                        let mut active_sf: storage_files::ActiveModel = sf.clone().into();
+                        active_sf.ref_count = Set(new_count);
 
-                    if let Ok(updated_sf) = active_sf.update(&txn).await {
-                        if updated_sf.ref_count <= 0 {
-                            // Delete from S3
-                            if let Err(e) = storage.delete_file(&updated_sf.s3_key).await {
-                                tracing::error!("Failed to delete from S3: {}", e);
+                        if let Ok(updated_sf) = active_sf.update(&txn).await {
+                            if updated_sf.ref_count <= 0 {
+                                // Delete from S3
+                                if let Err(e) = storage.delete_file(&updated_sf.s3_key).await {
+                                    tracing::error!("Failed to delete from S3: {}", e);
+                                }
+                                let _ = updated_sf.delete(&txn).await;
                             }
-                            let _ = updated_sf.delete(&txn).await;
                         }
                     }
                 }

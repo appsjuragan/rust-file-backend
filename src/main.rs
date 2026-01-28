@@ -93,6 +93,23 @@ async fn main() -> anyhow::Result<()> {
                 Err(e) => tracing::warn!("   - Failed to create table '{}': {}", name, e),
             }
         }
+
+        // Manual migration for new features (Folders)
+        // We use raw SQL because SeaORM's create_table_from_entity is additive-only for tables, not columns
+        info!("🔄 Checking for schema updates...");
+        
+        let schema_updates = vec![
+            "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) DEFAULT NULL",
+            "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS is_folder BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE user_files ALTER COLUMN storage_file_id DROP NOT NULL", 
+        ];
+
+        for query in schema_updates {
+            match db.execute(sea_orm::Statement::from_string(db.get_database_backend(), query.to_owned())).await {
+               Ok(_) => info!("   - Executed schema update: {}", query),
+               Err(e) => tracing::warn!("   - Schema update warning (might already exist/invalid): {} -> {}", query, e),
+            }
+        }
     }
 
     // Setup S3 client

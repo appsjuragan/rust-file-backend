@@ -26,7 +26,12 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::auth::login,
         handlers::files::upload_file,
         handlers::files::pre_check_dedup,
+
         handlers::files::download_file,
+        handlers::files::list_files,
+        handlers::files::create_folder,
+        handlers::files::delete_item,
+        handlers::files::rename_item,
     ),
     components(
         schemas(
@@ -34,7 +39,11 @@ use utoipa_swagger_ui::SwaggerUi;
             handlers::auth::AuthResponse,
             handlers::files::UploadResponse,
             handlers::files::PreCheckRequest,
+
             handlers::files::PreCheckResponse,
+            handlers::files::FileMetadata,
+            handlers::files::CreateFolderRequest,
+            handlers::files::RenameRequest,
             models::User,
             models::Token,
             models::StorageFile,
@@ -72,7 +81,22 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route(
             "/files/:id",
-            get(handlers::files::download_file).layer(from_fn(middleware::auth::auth_middleware)),
+            get(handlers::files::download_file)
+                .delete(handlers::files::delete_item)
+                .layer(from_fn(middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files/:id/rename",
+            axum::routing::put(handlers::files::rename_item)
+                .layer(from_fn(middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files",
+            get(handlers::files::list_files).layer(from_fn(middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/folders",
+            post(handlers::files::create_folder).layer(from_fn(middleware::auth::auth_middleware)),
         )
         .with_state(state)
 }

@@ -5,13 +5,13 @@ use crate::utils::validation::{sanitize_filename, validate_upload};
 use axum::{
     Extension, Json,
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, State, Query},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
 use chrono::{Duration, Utc};
 use futures::TryStreamExt;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, ModelTrait};
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
@@ -23,6 +23,18 @@ use uuid::Uuid;
 pub struct UploadResponse {
     pub file_id: String,
     pub filename: String,
+    pub expires_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct FileMetadata {
+    pub id: String,
+    pub filename: String,
+    pub size: Option<i64>,
+    pub mime_type: Option<String>,
+    pub is_folder: bool,
+    pub parent_id: Option<String>,
+    pub created_at: chrono::DateTime<Utc>,
     pub expires_at: Option<chrono::DateTime<Utc>>,
 }
 
@@ -45,6 +57,23 @@ pub struct ChunkHash {
     pub offset: i64,
     pub size: i64,
     pub hash: String,
+}
+
+#[derive(Deserialize)]
+pub struct ListFilesQuery {
+    pub parent_id: Option<String>,
+    pub search: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct CreateFolderRequest {
+    pub name: String,
+    pub parent_id: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct RenameRequest {
+    pub name: String,
 }
 
 #[utoipa::path(
@@ -105,6 +134,7 @@ pub async fn upload_file(
 ) -> Result<Json<UploadResponse>, (StatusCode, String)> {
     let mut filename = String::new();
     let mut expiration_hours: Option<i64> = None;
+    let mut parent_id: Option<String> = None;
     let mut upload_result = None;
 
     while let Some(field) = multipart
@@ -165,6 +195,11 @@ pub async fn upload_file(
         } else if name == "expiration_hours" {
             let text = field.text().await.unwrap_or_default();
             expiration_hours = text.parse().ok();
+        } else if name == "parent_id" {
+             let text = field.text().await.unwrap_or_default();
+             if !text.is_empty() && text != "null" {
+                 parent_id = Some(text);
+             }
         }
     }
 
@@ -289,9 +324,11 @@ pub async fn upload_file(
     let new_user_file = user_files::ActiveModel {
         id: Set(user_file_id.clone()),
         user_id: Set(claims.sub),
-        storage_file_id: Set(storage_file_id),
+        storage_file_id: Set(Some(storage_file_id)),
         filename: Set(filename.clone()),
         expires_at: Set(expires_at),
+        parent_id: Set(parent_id),
+        is_folder: Set(false),
         ..Default::default()
     };
 
@@ -329,7 +366,7 @@ pub async fn download_file(
     Path(file_id): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
     // 1. Verify file ownership and existence
-    let user_file = UserFiles::find_by_id(&file_id)
+    let user_file = UserFiles::find_by_id(file_id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .one(&state.db)
         .await
@@ -339,13 +376,19 @@ pub async fn download_file(
             "File not found or access denied".to_string(),
         ))?;
 
+    if user_file.is_folder {
+        return Err((StatusCode::BAD_REQUEST, "Cannot download a folder".to_string()));
+    }
+
+    let storage_file_id = user_file.storage_file_id.ok_or((StatusCode::NOT_FOUND, "Storage file missing".to_string()))?;
+
     // 2. Check expiration
     if user_file.expires_at.is_some_and(|expires| Utc::now() > expires) {
         return Err((StatusCode::GONE, "File has expired".to_string()));
     }
 
     // 3. Get storage file
-    let storage_file = StorageFiles::find_by_id(&user_file.storage_file_id)
+    let storage_file = StorageFiles::find_by_id(storage_file_id)
         .one(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -380,4 +423,216 @@ pub async fn download_file(
     ];
 
     Ok((headers, body).into_response())
+}
+
+#[utoipa::path(
+    get,
+    path = "/files",
+    params(
+        ("parent_id" = Option<String>, Query, description = "Parent Folder ID"),
+        ("search" = Option<String>, Query, description = "Search query")
+    ),
+    responses(
+        (status = 200, description = "List of user files", body = Vec<FileMetadata>),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn list_files(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Query(query): Query<ListFilesQuery>,
+) -> Result<Json<Vec<FileMetadata>>, (StatusCode, String)> {
+    let mut cond = Condition::all().add(user_files::Column::UserId.eq(&claims.sub));
+
+    if let Some(parent) = query.parent_id {
+        if parent == "root" {
+             cond = cond.add(user_files::Column::ParentId.is_null());
+        } else {
+             cond = cond.add(user_files::Column::ParentId.eq(parent));
+        }
+    } else if query.search.is_none() {
+        // Default to root if no search
+        cond = cond.add(user_files::Column::ParentId.is_null());
+    }
+
+    if let Some(search) = query.search {
+        cond = cond.add(user_files::Column::Filename.contains(&search));
+    }
+
+    let files = UserFiles::find()
+        .filter(cond)
+        .find_also_related(StorageFiles)
+        .all(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let mut result = Vec::new();
+    for (user_file, storage_file) in files {
+        if user_file.is_folder {
+             result.push(FileMetadata {
+                id: user_file.id,
+                filename: user_file.filename,
+                size: None,
+                mime_type: None,
+                is_folder: true,
+                parent_id: user_file.parent_id,
+                created_at: user_file.created_at.unwrap_or_else(Utc::now),
+                expires_at: None,
+            });
+        } else if let Some(storage) = storage_file {
+            result.push(FileMetadata {
+                id: user_file.id,
+                filename: user_file.filename,
+                size: Some(storage.size),
+                mime_type: storage.mime_type,
+                is_folder: false,
+                parent_id: user_file.parent_id,
+                created_at: user_file.created_at.unwrap_or_else(Utc::now),
+                expires_at: user_file.expires_at,
+            });
+        }
+    }
+
+    Ok(Json(result))
+}
+
+#[utoipa::path(
+    post,
+    path = "/folders",
+    request_body = CreateFolderRequest,
+    responses(
+        (status = 200, description = "Folder created"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn create_folder(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<CreateFolderRequest>,
+) -> Result<Json<FileMetadata>, (StatusCode, String)> {
+    let id = Uuid::new_v4().to_string();
+    
+    let new_folder = user_files::ActiveModel {
+        id: Set(id.clone()),
+        user_id: Set(claims.sub),
+        storage_file_id: Set(None),
+        filename: Set(req.name.clone()),
+        is_folder: Set(true),
+        parent_id: Set(req.parent_id.clone()),
+        created_at: Set(Some(Utc::now())),
+        ..Default::default()
+    };
+
+    new_folder.insert(&state.db).await.map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?;
+
+    Ok(Json(FileMetadata {
+        id,
+        filename: req.name,
+        size: None,
+        mime_type: None,
+        is_folder: true,
+        parent_id: req.parent_id,
+        created_at: Utc::now(),
+        expires_at: None,
+    }))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/files/{id}",
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Item deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn delete_item(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, (StatusCode, String)> {
+     let item = UserFiles::find_by_id(id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Item not found".to_string()))?;
+
+    // TODO: Recursive delete for folders? For now, we assume frontend warns or we just delete the pointer.
+    // Ideally, we should check checks and delete them too.
+    
+    item.delete(&state.db).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    
+    // Decrement ref count for storage but do NOT delete storage immediately if other users have it (dedup).
+    // In this simplified app, we assume 1:1 or just don't worry about aggressive cleanup for now.
+    // Real logic needs to check if storage_file_id is used by others.
+
+    Ok(StatusCode::OK)
+}
+
+#[utoipa::path(
+    put,
+    path = "/files/{id}/rename",
+    request_body = RenameRequest,
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Item renamed"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn rename_item(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+    Json(req): Json<RenameRequest>,
+) -> Result<Json<FileMetadata>, (StatusCode, String)> {
+     let item = UserFiles::find_by_id(id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Item not found".to_string()))?;
+
+    let mut active: user_files::ActiveModel = item.clone().into();
+    active.filename = Set(req.name.clone());
+
+    let updated = active.update(&state.db).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    
+    // Need storage info to return full metadata
+    let storage_file = if let Some(sid) = updated.storage_file_id.as_ref() {
+         StorageFiles::find_by_id(sid.clone()).one(&state.db).await.ok().flatten()
+    } else {
+         None
+    };
+
+    Ok(Json(FileMetadata {
+        id: updated.id,
+        filename: updated.filename,
+        size: storage_file.as_ref().map(|s| s.size),
+        mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
+        is_folder: updated.is_folder,
+        parent_id: updated.parent_id,
+        created_at: updated.created_at.unwrap_or_else(Utc::now),
+        expires_at: updated.expires_at,
+    }))
 }

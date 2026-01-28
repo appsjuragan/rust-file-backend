@@ -7,7 +7,9 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub user_id: String,
-    pub storage_file_id: String,
+    pub storage_file_id: Option<String>,
+    pub parent_id: Option<String>,
+    pub is_folder: bool,
     pub filename: String,
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
