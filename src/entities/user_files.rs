@@ -13,6 +13,7 @@ pub struct Model {
     pub filename: String,
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
+    pub deleted_at: Option<DateTimeUtc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -21,16 +22,16 @@ pub enum Relation {
         belongs_to = "super::storage_files::Entity",
         from = "Column::StorageFileId",
         to = "super::storage_files::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
+        on_update = "Cascade",
+        on_delete = "SetNull"
     )]
     StorageFiles,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
         to = "super::users::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
+        on_update = "Cascade",
+        on_delete = "Cascade"
     )]
     Users,
     #[sea_orm(has_many = "super::file_tags::Entity")]

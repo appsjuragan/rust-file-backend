@@ -122,12 +122,14 @@ async fn main() -> anyhow::Result<()> {
         let schema_updates = vec![
             "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) DEFAULT NULL",
             "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS is_folder BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP DEFAULT NULL",
             "ALTER TABLE user_files ALTER COLUMN storage_file_id DROP NOT NULL", 
             // Indexes for robust search
             "CREATE INDEX IF NOT EXISTS idx_user_files_user_id ON user_files(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_user_files_parent_id ON user_files(parent_id)",
             "CREATE INDEX IF NOT EXISTS idx_user_files_filename ON user_files(filename)",
             "CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_user_files_deleted_at ON user_files(deleted_at)",
             "CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category)",
             "CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id)",
         ];

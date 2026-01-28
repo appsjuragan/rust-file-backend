@@ -253,6 +253,7 @@ async fn test_expiration_logic() {
         user_id: Set(user_id.to_string()),
         storage_file_id: Set(Some(storage_id.to_string())),
         filename: Set("test.txt".to_string()),
+        is_folder: Set(false),
         expires_at: Set(Some(Utc::now() - Duration::hours(1))),
         ..Default::default()
     };

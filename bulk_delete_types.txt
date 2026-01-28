@@ -1,0 +1,11 @@
+// Add after RenameRequest struct (around line 87)
+
+#[derive(Deserialize, ToSchema)]
+pub struct BulkDeleteRequest {
+    pub item_ids: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BulkDeleteResponse {
+    pub deleted_count: usize,
+}

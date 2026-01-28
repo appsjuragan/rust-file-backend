@@ -2,8 +2,8 @@ use crate::entities::{prelude::*, *};
 use crate::services::storage::StorageService;
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
-    QuerySelect, TransactionTrait,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QuerySelect,
 };
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
@@ -22,41 +22,13 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<StorageServi
             for file in files {
                 tracing::info!("Expiring file: {}", file.id);
 
-                let txn = match db.begin().await {
-                    Ok(tx) => tx,
-                    Err(_) => continue,
-                };
-
-                // Delete user file entry
-                if file.clone().delete(&txn).await.is_err() {
-                    continue;
+                if let Err(e) = crate::services::storage_lifecycle::StorageLifecycleService::soft_delete_user_file(
+                    &db,
+                    &storage,
+                    &file,
+                ).await {
+                    tracing::error!("Failed to expire file {}: {}", file.id, e);
                 }
-
-                // Decrement ref_count
-                // Decrement ref_count
-                if let Some(storage_id) = file.storage_file_id.clone() {
-                    if let Ok(Some(sf)) = StorageFiles::find_by_id(storage_id)
-                        .one(&txn)
-                        .await
-                    {
-                        use sea_orm::ActiveValue::Set;
-                        let new_count = sf.ref_count - 1;
-                        let mut active_sf: storage_files::ActiveModel = sf.clone().into();
-                        active_sf.ref_count = Set(new_count);
-
-                        if let Ok(updated_sf) = active_sf.update(&txn).await {
-                            if updated_sf.ref_count <= 0 {
-                                // Delete from S3
-                                if let Err(e) = storage.delete_file(&updated_sf.s3_key).await {
-                                    tracing::error!("Failed to delete from S3: {}", e);
-                                }
-                                let _ = updated_sf.delete(&txn).await;
-                            }
-                        }
-                    }
-                }
-
-                let _ = txn.commit().await;
             }
         }
 

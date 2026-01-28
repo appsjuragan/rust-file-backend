@@ -32,6 +32,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::files::create_folder,
         handlers::files::delete_item,
         handlers::files::rename_item,
+        handlers::files::bulk_delete,
     ),
     components(
         schemas(
@@ -44,6 +45,8 @@ use utoipa_swagger_ui::SwaggerUi;
             handlers::files::FileMetadataResponse,
             handlers::files::CreateFolderRequest,
             handlers::files::RenameRequest,
+            handlers::files::BulkDeleteRequest,
+            handlers::files::BulkDeleteResponse,
         )
     ),
     tags(
@@ -93,6 +96,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/folders",
             post(handlers::files::create_folder).layer(from_fn(middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files/bulk-delete",
+            post(handlers::files::bulk_delete).layer(from_fn(middleware::auth::auth_middleware)),
         )
         .with_state(state)
 }

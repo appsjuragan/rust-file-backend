@@ -12,7 +12,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use futures::TryStreamExt;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, ModelTrait, QuerySelect, RelationTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, QuerySelect, RelationTrait};
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
@@ -84,6 +84,16 @@ pub struct CreateFolderRequest {
 #[derive(Deserialize, ToSchema)]
 pub struct RenameRequest {
     pub name: String,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct BulkDeleteRequest {
+    pub item_ids: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BulkDeleteResponse {
+    pub deleted_count: usize,
 }
 
 #[utoipa::path(
@@ -380,12 +390,13 @@ pub async fn download_file(
     // 1. Verify file ownership and existence
     let user_file = UserFiles::find_by_id(file_id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((
             StatusCode::NOT_FOUND,
-            "File not found or access denied".to_string(),
+            "File not found, access denied, or already deleted".to_string(),
         ))?;
 
     if user_file.is_folder {
@@ -457,7 +468,9 @@ pub async fn list_files(
     Extension(claims): Extension<Claims>,
     Query(query): Query<ListFilesQuery>,
 ) -> Result<Json<Vec<FileMetadataResponse>>, (StatusCode, String)> {
-    let mut cond = Condition::all().add(user_files::Column::UserId.eq(&claims.sub));
+    let mut cond = Condition::all()
+        .add(user_files::Column::UserId.eq(&claims.sub))
+        .add(user_files::Column::DeletedAt.is_null()); // Exclude soft-deleted items
 
     // Basic filters
     if let Some(parent) = query.parent_id {
@@ -627,24 +640,37 @@ pub async fn delete_item(
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-     let item = UserFiles::find_by_id(id)
+    use crate::services::storage_lifecycle::StorageLifecycleService;
+
+    let item = UserFiles::find_by_id(id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null()) // Only non-deleted items
         .one(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::NOT_FOUND, "Item not found".to_string()))?;
+        .ok_or((StatusCode::NOT_FOUND, "Item not found or already deleted".to_string()))?;
 
-    // TODO: Recursive delete for folders? For now, we assume frontend warns or we just delete the pointer.
-    // Ideally, we should check checks and delete them too.
-    
-    item.delete(&state.db).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
-    // Decrement ref count for storage but do NOT delete storage immediately if other users have it (dedup).
-    // In this simplified app, we assume 1:1 or just don't worry about aggressive cleanup for now.
-    // Real logic needs to check if storage_file_id is used by others.
+    if item.is_folder {
+        // Recursively delete folder and all children
+        StorageLifecycleService::delete_folder_recursive(&state.db, &state.storage, &item.id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to delete folder recursively: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            })?;
+    }
+
+    // Soft delete the item and decrement ref count
+    StorageLifecycleService::soft_delete_user_file(&state.db, &state.storage, &item)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to soft delete user file: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
     Ok(StatusCode::OK)
 }
+
 
 #[utoipa::path(
     put,
@@ -670,10 +696,11 @@ pub async fn rename_item(
 ) -> Result<Json<FileMetadataResponse>, (StatusCode, String)> {
      let item = UserFiles::find_by_id(id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::NOT_FOUND, "Item not found".to_string()))?;
+        .ok_or((StatusCode::NOT_FOUND, "Item not found or already deleted".to_string()))?;
 
     let mut active: user_files::ActiveModel = item.clone().into();
     active.filename = Set(req.name.clone());
@@ -804,3 +831,41 @@ async fn save_metadata_and_tags(
     Ok(())
 }
 
+#[utoipa::path(
+    post,
+    path = "/files/bulk-delete",
+    request_body = BulkDeleteRequest,
+    responses(
+        (status = 200, description = "Items deleted", body = BulkDeleteResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 400, description = "Bad request")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn bulk_delete(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<BulkDeleteRequest>,
+) -> Result<Json<BulkDeleteResponse>, (StatusCode, String)> {
+    use crate::services::storage_lifecycle::StorageLifecycleService;
+
+    if req.item_ids.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No items provided".to_string()));
+    }
+
+    let deleted_count = StorageLifecycleService::bulk_delete(
+        &state.db,
+        &state.storage,
+        &claims.sub,
+        req.item_ids,
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!("Bulk delete failed: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?;
+
+    Ok(Json(BulkDeleteResponse { deleted_count }))
+}

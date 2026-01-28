@@ -37,3 +37,4 @@ governor = "0.10.4"
 log = "0.4"
 infer = "0.15"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+async-recursion = "1.0"
