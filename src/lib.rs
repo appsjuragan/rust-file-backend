@@ -34,6 +34,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::delete_item,
         api::handlers::files::rename_item,
         api::handlers::files::bulk_delete,
+        api::handlers::health::health_check,
     ),
     components(
         schemas(
@@ -48,6 +49,7 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::RenameRequest,
             api::handlers::files::BulkDeleteRequest,
             api::handlers::files::BulkDeleteResponse,
+            api::handlers::health::HealthResponse,
         )
     ),
     tags(
@@ -69,6 +71,9 @@ pub struct AppState {
 pub fn create_app(state: AppState) -> Router {
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/health", get(api::handlers::health::health_check))
+        .layer(from_fn(api::middleware::metrics::metrics_middleware))
+        .layer(from_fn(api::middleware::request_id::request_id_middleware))
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
         .route(
