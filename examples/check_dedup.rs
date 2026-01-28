@@ -1,5 +1,4 @@
 use dotenvy::dotenv;
-use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
 
 #[derive(sqlx::FromRow, Debug)]
@@ -25,7 +24,8 @@ async fn main() {
     let target_hash = target_hash_raw.map(|h| h.to_lowercase());
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = SqlitePoolOptions::new()
+    sqlx::any::install_default_drivers();
+    let pool = sqlx::any::AnyPoolOptions::new()
         .connect(&db_url)
         .await
         .expect("Failed to connect to DB");
