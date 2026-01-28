@@ -1,90 +1,103 @@
 # Architecture Documentation
 
 ## 1. High-Level System Overview
-The Rust File Backend is a high-performance, secure file management system designed for enterprise-grade scalability. It provides a robust API for file storage, retrieval, and organization with built-in security and optimization features.
+The Rust File Backend is built on a **Hexagonal Architecture** (Ports and Adapters) to ensure strict separation between business logic and infrastructure. This design allows for high testability, maintainability, and the ability to swap infrastructure components without touching core domain logic.
 
-### Primary Components:
-*   **API Layer (Axum)**: Orchestrates HTTP requests, handles routing, and manages middleware (Auth, Rate Limiting, Tracing).
-*   **Storage Layer (S3/MinIO)**: Abstracted storage interface supporting S3-compatible backends.
-*   **Authentication/Authorization**: JWT-based security with user-scoped access control.
-*   **File Streaming & Deduplication**: Efficiently handles large uploads via streaming and optimizes storage using SHA-256 content hashes.
-*   **Virus Scanning Subsystem**: Pluggable scanning architecture (e.g., ClamAV) to ensure file safety before persistence.
-*   **Metadata & Analysis**: Automatic technical metadata extraction (MIME, dimensions, EXIF) during the upload pipeline.
-*   **Lifecycle Management**: Manages reference counting for deduplicated files and handles soft-deletion/cleanup.
-
----
-
-## 2. Architectural Decisions
-
-### Why Async / Tokio?
-Chosen for its industry-standard performance in I/O-bound applications. Tokio allows the system to handle thousands of concurrent file streams with minimal memory overhead, which is critical for a file-heavy backend.
-
-### Why SeaORM?
-Provides a type-safe, async ORM that simplifies database interactions. It allows us to maintain a clean separation between database entities and business logic while supporting both PostgreSQL and SQLite.
-
-### Streaming Multipart Upload
-To support multi-gigabyte files on low-memory instances, the system implements a **buffer-free streaming pipeline**. Files are read from the HTTP multipart stream and passed directly to the S3 storage backend using multipart upload APIs.
-
-### Content-Based Deduplication
-Storage is optimized by using SHA-256 hashes as unique identifiers.
-1.  File is uploaded to a temporary staging area.
-2.  Hash is calculated during the stream.
-3.  If the hash exists in the database, the new `user_file` simply points to the existing `storage_file` (incrementing a `ref_count`).
-4.  If unique, the file is moved to permanent storage.
+### Explicit Architectural Layers:
+*   **Domain Layer (`src/entities`)**: Contains the core data models and business rules. This layer has zero dependencies on external libraries or other layers.
+*   **Application Layer (`src/services`)**: Implements use cases (e.g., "Process Upload", "Delete Folder"). It orchestrates domain entities and interacts with infrastructure via **Ports (Traits)**.
+*   **Ports / Interfaces**: Explicit traits (e.g., `StorageService`, `VirusScanner`) that define the contract for infrastructure.
+*   **Infrastructure Layer (`src/infrastructure`)**: Concrete implementations of Ports (Adapters), such as `S3StorageService` or `ClamAVScanner`.
+*   **Interface Layer (`src/api`)**: The entry point for the system. Handles HTTP/REST concerns, serialization, and maps errors to the outside world.
+*   **Background Workers**: Async tasks for non-blocking operations like storage lifecycle cleanup and scheduled retention jobs.
 
 ---
 
-## 3. Key Invariants and Boundaries
+## 2. Security Zones & Middleware Pipeline
+Every request passes through a multi-stage security and observability pipeline before reaching the application layer.
 
-*   **Domain Isolation**: `src/services` contains pure business logic. It is decoupled from the HTTP layer and should not depend on `axum` types.
-*   **Infrastructure Decoupling**: Infrastructure components (DB, S3, Scanner) are accessed via traits. This ensures the system can be tested with mocks and allows for easy swapping of backends (e.g., moving from ClamAV to a different scanner).
-*   **Thin Handlers**: HTTP handlers in `src/api` are responsible only for request parsing, service orchestration, and error mapping. They do not contain business logic.
-*   **Storage Immutability**: Once a `storage_file` is written to the permanent bucket, it is immutable. Changes to file metadata or names only affect the `user_files` table.
+| Zone | Component | Responsibility |
+| :--- | :--- | :--- |
+| **Zone 1: Perimeter** | `CORS` / `Rate Limit` | Protects against unauthorized origins and DoS attacks (via `tower-governor`). |
+| **Zone 2: AuthN** | `JWT Middleware` | Validates identity tokens and extracts `Claims`. |
+| **Zone 3: Observability** | `Tracing` / `Metrics` | Injects `Request-ID` and records latency/throughput metrics. |
+| **Zone 4: AuthZ** | `Ownership Check` | Ensures users can only access or modify their own files/folders. |
 
 ---
 
-## 4. System Diagram
+## 3. Detailed System Diagram (Hexagonal)
 
 ```mermaid
 graph TD
-    Client[Client/Browser] -->|HTTP/REST| API[API Layer - Axum]
-    API -->|Auth/JWT| Middleware[Middleware]
-    Middleware -->|Orchestrate| Services[Service Layer]
-    
-    subgraph Services
-        FS[File Service]
-        SL[Lifecycle Service]
-        MS[Metadata Service]
+    subgraph "Interface Layer (Adapters)"
+        Client[REST Client] -->|JSON/Multipart| Handlers[HTTP Handlers]
     end
-    
-    Services -->|Traits| Infra[Infrastructure Layer]
-    
-    subgraph Infra
-        DB[(PostgreSQL/SQLite)]
-        S3[S3/MinIO Storage]
-        AV[Virus Scanner]
+
+    subgraph "Security & Observability Pipeline"
+        Handlers --> RL[Rate Limiter]
+        RL --> AN[AuthN - JWT]
+        AN --> TR[Tracing/Metrics]
+        TR --> AZ[AuthZ - Ownership]
     end
-    
-    FS -->|Stream| S3
-    FS -->|Scan| AV
-    FS -->|Persist| DB
+
+    subgraph "Application Layer (Domain Logic)"
+        AZ --> FS[File Service]
+        AZ --> SL[Lifecycle Service]
+        FS --> MS[Metadata Service]
+    end
+
+    subgraph "Ports (Interfaces)"
+        FS -.->|Trait| P_Storage[StorageService]
+        FS -.->|Trait| P_Scan[VirusScanner]
+        SL -.->|Trait| P_DB[DatabaseConnection]
+    end
+
+    subgraph "Infrastructure Layer (Adapters)"
+        P_Storage --> S3[S3/MinIO Adapter]
+        P_Scan --> ClamAV[ClamAV Adapter]
+        P_DB --> Postgres[PostgreSQL Adapter]
+    end
+
+    subgraph "Background Workers"
+        Worker[Lifecycle Worker] -->|Async| SL
+    end
 ```
 
 ---
 
-## 5. Non-Functional Goals
+## 4. Async & Event-Driven Components
 
-### Resiliency
-*   **Retries**: S3 operations and database connections implement exponential backoff.
-*   **Graceful Degradation**: If the virus scanner is unavailable, the system can be configured to fail-closed (secure) or fail-open (development).
+### Virus Scanning Pipeline
+Scanning is handled as a critical step in the upload pipeline but is designed to be pluggable.
+*   **Sync-over-Async**: The `FileService` awaits the `VirusScanner` port.
+*   **Pluggable Adapters**: In development, a `NoOpScanner` is used; in production, a `ClamAVScanner` communicates over TCP/Unix sockets to a dedicated scanning cluster.
 
-### Rate Limiting
-Integrated `tower-governor` provides per-IP and per-user rate limiting to prevent DoS attacks and API abuse.
+### Storage Lifecycle & Cleanup
+The system uses a **Reference Counting** mechanism to manage deduplicated storage.
+*   **Soft Deletion**: `DELETE` requests only mark `user_files` as deleted.
+*   **Async Cleanup**: A background process (or triggered task) decrements `ref_count` on `storage_files`. When `ref_count == 0`, the physical file is purged from S3/MinIO asynchronously to ensure low latency for the user.
 
-### Monitoring & Tracing
-Full instrumentation using the `tracing` crate. Every request is assigned a unique ID, and logs are structured to allow easy correlation across services.
+---
 
-### Security Hardening
-*   **Path Traversal Protection**: Filenames are strictly sanitized before storage.
-*   **Magic Byte Validation**: File types are verified using content sniffing, not just file extensions.
-*   **Soft Deletes**: User files are soft-deleted to prevent accidental data loss, while the underlying storage is cleaned up only when the last reference is removed.
+## 5. Cross-Cutting Concerns
+
+### Config & Secrets Management
+*   **Environment-Based**: Configuration is loaded via `dotenvy` and mapped to a strongly-typed `Config` struct.
+*   **Secret Masking**: Sensitive values (JWT secrets, S3 keys) are never logged and are stored in memory using `Arc<Config>`.
+
+### Tracing & Observability
+*   **Structured Logging**: Uses `tracing-subscriber` with JSON output for ELK/Loki compatibility.
+*   **Span Propagation**: Spans track a file from the initial multipart chunk read to the final S3 commit, providing deep visibility into performance bottlenecks.
+
+### Metrics
+*   **Business Metrics**: Tracks total storage used, deduplication ratio, and virus detection rates.
+*   **Technical Metrics**: Tracks HTTP 5xx rates, S3 latency, and database pool utilization.
+
+---
+
+## 6. Architectural Invariants (The "Golden Rules")
+
+1.  **No Direct Infra Access**: Services **must not** instantiate concrete infrastructure types (e.g., `S3Client`). They must receive `Arc<dyn Port>`.
+2.  **Statelessness**: The API layer is completely stateless. All state is persisted in the Infrastructure layer.
+3.  **Unidirectional Dependencies**: Dependencies always point inward. Infrastructure depends on Ports; Ports depend on Domain. Domain depends on nothing.
+4.  **Streaming First**: All file operations must use `AsyncRead`/`AsyncWrite` to maintain a constant memory footprint regardless of file size.
