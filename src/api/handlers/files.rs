@@ -21,6 +21,7 @@ use serde::Serialize;
 use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 #[derive(Serialize, ToSchema)]
 pub struct UploadResponse {
@@ -85,7 +86,8 @@ pub struct CreateFolderRequest {
 
 #[derive(Deserialize, ToSchema)]
 pub struct RenameRequest {
-    pub name: String,
+    pub name: Option<String>,
+    pub parent_id: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -236,6 +238,7 @@ pub async fn upload_file(
 pub async fn download_file(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
+    headers: header::HeaderMap,
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
@@ -270,8 +273,57 @@ pub async fn download_file(
         .await?
         .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
-    // 4. Get stream from S3
-    let stream = state
+    let content_type = storage_file
+        .mime_type
+        .clone()
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    // 4. Check for Range header
+    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
+
+    if let Some(range) = range_header {
+        // 5. Get partial stream from S3
+        let s3_res = state
+            .storage
+            .get_object_range(&storage_file.s3_key, range)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get S3 object range: {}", e);
+                AppError::Internal("Failed to retrieve file range".to_string())
+            })?;
+
+        let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
+
+        let mut response = (
+            [
+                (header::CONTENT_TYPE, content_type),
+                (header::ACCEPT_RANGES, "bytes".to_string()),
+            ],
+            body,
+        )
+            .into_response();
+
+        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
+
+        if let Some(content_range) = s3_res.content_range {
+            response.headers_mut().insert(
+                header::CONTENT_RANGE,
+                content_range.parse().unwrap_or(header::HeaderValue::from_static("")),
+            );
+        }
+
+        if let Some(content_length) = s3_res.content_length {
+            response.headers_mut().insert(
+                header::CONTENT_LENGTH,
+                content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
+            );
+        }
+        
+        return Ok(response);
+    }
+
+    // 6. Get full stream from S3
+    let s3_res = state
         .storage
         .get_object_stream(&storage_file.s3_key)
         .await
@@ -280,22 +332,37 @@ pub async fn download_file(
             AppError::Internal("Failed to retrieve file".to_string())
         })?;
 
-    // 5. Return stream response
-    let body = Body::from_stream(ReaderStream::new(stream.into_async_read()));
+    // 7. Return stream response
+    let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
 
-    let content_type = storage_file
-        .mime_type
-        .unwrap_or_else(|| "application/octet-stream".to_string());
+    let ascii_filename = user_file.filename.chars().filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\').collect::<String>();
+    let fallback_filename = if ascii_filename.is_empty() { "file" } else { &ascii_filename };
+    
+    // RFC 5987 percent-encoding (more permissive than NON_ALPHANUMERIC)
+    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
+    let content_disposition = format!(
+        "attachment; filename=\"{}\"; filename*=UTF-8''{}",
+        fallback_filename,
+        encoded_filename
+    );
 
-    let headers = [
-        (header::CONTENT_TYPE, content_type),
-        (
-            header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", user_file.filename),
-        ),
-    ];
+    let mut response = (
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::ACCEPT_RANGES, "bytes".to_string()),
+            (header::CONTENT_DISPOSITION, content_disposition),
+        ],
+        body,
+    ).into_response();
 
-    Ok((headers, body).into_response())
+    if let Some(content_length) = s3_res.content_length {
+        response.headers_mut().insert(
+            header::CONTENT_LENGTH,
+            content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
+        );
+    }
+
+    Ok(response)
 }
 
 #[utoipa::path(
@@ -447,11 +514,14 @@ pub async fn create_folder(
 ) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
 
+    let sanitized_name = sanitize_filename(&req.name)
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let new_folder = user_files::ActiveModel {
         id: Set(id.clone()),
         user_id: Set(claims.sub),
         storage_file_id: Set(None),
-        filename: Set(req.name.clone()),
+        filename: Set(sanitized_name.clone()),
         is_folder: Set(true),
         parent_id: Set(req.parent_id.clone()),
         created_at: Set(Some(Utc::now())),
@@ -531,7 +601,7 @@ pub async fn delete_item(
             AppError::Internal(e.to_string())
         })?;
 
-    Ok(StatusCode::OK)
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
@@ -567,7 +637,18 @@ pub async fn rename_item(
         ))?;
 
     let mut active: user_files::ActiveModel = item.clone().into();
-    active.filename = Set(req.name.clone());
+    if let Some(name) = req.name {
+        let sanitized_name = sanitize_filename(&name)
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        active.filename = Set(sanitized_name);
+    }
+    if let Some(parent_id) = req.parent_id {
+        if parent_id == "root" || parent_id == "0" {
+            active.parent_id = Set(None);
+        } else {
+            active.parent_id = Set(Some(parent_id));
+        }
+    }
 
     let updated = active.update(&state.db).await?;
 

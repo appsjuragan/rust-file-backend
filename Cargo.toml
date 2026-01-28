@@ -44,3 +44,5 @@ lopdf = "0.39.0"
 quick-xml = "0.39.0"
 zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
 thiserror = "2.0.18"
+serde_urlencoded = "0.7.1"
+percent-encoding = "2.3"

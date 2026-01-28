@@ -19,6 +19,8 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use tower_http::cors::{Any, CorsLayer};
+// use axum::http::{Method, header};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -112,5 +114,15 @@ pub fn create_app(state: AppState) -> Router {
             post(api::handlers::files::bulk_delete)
                 .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+                .expose_headers(Any),
+        )
+        .layer(axum::extract::DefaultBodyLimit::max(
+            state.config.max_file_size,
+        ))
         .with_state(state)
 }

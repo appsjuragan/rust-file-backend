@@ -174,20 +174,35 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
     }
 
     // Remove dangerous characters, keep only safe ones
+    // We allow most Unicode characters but block path separators and reserved characters
     let sanitized: String = name
         .chars()
         .map(|c| {
-            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' || c == ' ' {
-                c
-            } else {
+            if c.is_control()
+                || c == '/'
+                || c == '\\'
+                || c == ':'
+                || c == '*'
+                || c == '?'
+                || c == '"'
+                || c == '<'
+                || c == '>'
+                || c == '|'
+            {
                 '_'
+            } else {
+                c
             }
         })
         .collect();
 
-    // Limit length
+    // Limit length safely for UTF-8
     let sanitized = if sanitized.len() > 255 {
-        sanitized[..255].to_string()
+        let mut end = 255;
+        while !sanitized.is_char_boundary(end) {
+            end -= 1;
+        }
+        sanitized[..end].to_string()
     } else {
         sanitized
     };
@@ -369,6 +384,8 @@ mod tests {
             sanitize_filename("test<script>.pdf").unwrap(),
             "test_script_.pdf"
         );
+        assert_eq!(sanitize_filename("测试.txt").unwrap(), "测试.txt");
+        assert_eq!(sanitize_filename("日本語.mp4").unwrap(), "日本語.mp4");
 
         // Path traversal
         assert_eq!(sanitize_filename("../../../etc/passwd").unwrap(), "passwd");

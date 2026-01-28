@@ -96,10 +96,7 @@ async fn main() -> anyhow::Result<()> {
                         );
                     },
                 ),
-        )
-        .layer(axum::extract::DefaultBodyLimit::max(
-            security_config.max_file_size,
-        ));
+        );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("✅ Server ready at http://{}", addr);

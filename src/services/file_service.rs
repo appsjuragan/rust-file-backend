@@ -9,6 +9,7 @@ use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio_util::io::StreamReader;
 use uuid::Uuid;
 
 pub struct FileService {
@@ -112,21 +113,24 @@ impl FileService {
             sf.id
         } else {
             // New unique file!
+            
+            // 1. Download file from staging for processing
             let stream = self
                 .storage
                 .get_object_stream(&staged.s3_key)
                 .await
                 .map_err(|e| AppError::Internal(format!("Failed to open for processing: {}", e)))?;
 
-            let bytes = stream
+            let bytes = stream.body
                 .collect()
                 .await
                 .map(|b| b.into_bytes())
                 .map_err(|e| AppError::Internal(e.to_string()))?;
 
-            // Virus Scanning
+            // 2. Virus Scanning
             if self.config.enable_virus_scan {
-                match self.scanner.scan(&bytes).await {
+                let reader = Box::pin(std::io::Cursor::new(bytes.clone()));
+                match self.scanner.scan(reader).await {
                     Ok(ScanResult::Clean) => {
                         tracing::info!("Virus scan passed for {}", staged.hash);
                     }
@@ -146,7 +150,7 @@ impl FileService {
                 }
             }
 
-            // Metadata Analysis
+            // 3. Metadata Analysis
             let analysis = MetadataService::analyze(&bytes, &filename);
             let mime_type = analysis.metadata["mime_type"]
                 .as_str()

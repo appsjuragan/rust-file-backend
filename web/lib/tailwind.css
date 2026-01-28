@@ -1,0 +1,298 @@
+/*
+React File Manager | MIT License | https://github.com/thelicato/react-file-manager
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+
+  /* CommonModal */
+  .rfm-modal-container {
+    @apply absolute h-auto rounded-lg shadow-lg bg-white z-[999] cursor-grab px-16 py-4 border-[1px] border-gray-200 text-center top-[10%] left-[40%];
+  }
+
+  .rfm-modal-title {
+    @apply text-xl font-semibold text-slate-900;
+  }
+
+  .rfm-modal-icon {
+    @apply absolute right-4 top-4 w-6 h-6 fill-gray-400 cursor-pointer transition-colors duration-200 hover:fill-gray-600;
+  }
+
+  /* FileIcon */
+  .rfm-file-icon-container {
+    @apply flex flex-col justify-center items-center overflow-hidden cursor-pointer transition-colors duration-300 hover:bg-sky-100 active:bg-sky-300 p-2 rounded-lg dark:hover:bg-gray-600;
+  }
+
+  .rfm-file-icon-svg {
+    @apply w-24 h-24;
+  }
+
+  .rfm-file-icon-extension {
+    @apply absolute text-slate-100 select-none;
+  }
+
+  .rfm-file-icon-name {
+    @apply w-24 text-center text-ellipsis overflow-hidden whitespace-nowrap select-none;
+  }
+
+  /* Content header */
+  .rfm-workspace-header {
+    @apply w-full h-6 flex gap-4 justify-between;
+  }
+
+  .rfm-header-container {
+    @apply flex justify-center items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600;
+  }
+
+  .rfm-header-icon {
+    @apply w-6 h-6 transition-all duration-200 cursor-pointer;
+  }
+
+  .rfm-header-icon--selected {
+    @apply bg-slate-700 dark:bg-sky-500 text-white rounded-lg;
+  }
+
+  .rfm-workspace-list-align-txt {
+    @apply text-left last:text-right pr-2;
+  }
+
+  .rfm-workspace-list-th {
+    @apply rfm-workspace-list-align-txt last:justify-end last:flex;
+  }
+
+  .rfm-workspace-list-th-content {
+    @apply flex;
+  }
+
+  .rfm-header-sort-icon {
+    @apply w-6 h-6;
+  }
+
+  .rfm-workspace-list-icon-row {
+    @apply cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 active:bg-gray-200 transition-all duration-200;
+  }
+
+  .rfm-workspace-list-icon-td {
+    @apply flex gap-1 py-2;
+  }
+
+  .rfm-workspace-list-icon {
+    @apply w-6 h-6;
+  }
+
+  .rfm-workspace-list-add-folder {
+    @apply w-full p-2 text-slate-100 rounded-lg bg-sky-500 hover:bg-sky-700 transition-all duration-200 cursor-pointer;
+  }
+
+  .rfm-workspace-actions {
+    @apply flex gap-4 mt-8;
+  }
+
+  .rfm-btn-primary {
+    @apply px-6 py-2 text-white rounded-lg bg-sky-500 hover:bg-sky-700 transition-all duration-200 cursor-pointer font-medium;
+  }
+
+  .rfm-folder-path-container {
+    @apply flex gap-4;
+  }
+
+  .rfm-folder-path-svg {
+    @apply w-6 h-6 fill-white bg-slate-400 p-1 rounded-full cursor-pointer transition-colors duration-200 hover:bg-slate-600;
+  }
+
+  .rfm-folder-path-span {
+    @apply select-none;
+  }
+
+  /* Navbar (Legacy) */
+  .rfm-navbar {
+    @apply bg-gray-200 dark:bg-gray-900 w-1/6 py-4 select-none;
+  }
+
+  .rfm-navbar-root-link {
+    @apply uppercase text-lg text-gray-500 dark:text-gray-300 transition-colors duration-200 hover:text-gray-700 active:text-gray-900 font-semibold p-4 cursor-pointer;
+  }
+
+  .rfm-navbar-list {
+    @apply mt-4;
+  }
+
+  .rfm-navbar-list-element {
+    @apply text-gray-700 dark:text-slate-100 dark:hover:bg-gray-700 w-full transition-colors duration-200 px-4 py-2 hover:bg-gray-300 cursor-pointer active:bg-gray-400;
+  }
+
+  /* NewFolderIcon */
+  .rfm-folder-icon-container {
+    @apply border-dashed border-[3px] border-slate-300 w-24 h-24 p-2 flex justify-center items-center self-center rounded-lg cursor-pointer mb-10;
+  }
+
+  .rfm-folder-icon-span {
+    @apply text-slate-300 text-3xl select-none;
+  }
+
+  /* NewFolderModal */
+  .rfm-new-folder-modal-form {
+    @apply flex flex-col gap-6 my-6;
+  }
+
+  .rfm-new-folder-modal-input {
+    @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-gray-500 focus:border-gray-500 block w-full p-2;
+  }
+
+  .rfm-new-folder-modal-btn {
+    @apply text-white bg-sky-500 hover:bg-sky-700 focus:ring-4 focus:outline-none focus:ring-sky-600 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center;
+  }
+
+  /* UploadFileModal */
+  .rfm-upload-file-modal-title {
+    @apply text-base;
+  }
+
+  .rfm-upload-file-modal-container {
+    @apply flex flex-row gap-4 justify-center items-center mt-4;
+  }
+
+  .rfm-upload-file-modal-btn {
+    @apply text-white focus:ring-4 focus:outline-none font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center;
+  }
+
+  .rfm-upload-file-modal-btn-confirm {
+    @apply bg-emerald-500 hover:bg-emerald-700 focus:ring-emerald-600;
+  }
+
+  .rfm-upload-file-modal-btn-cancel {
+    @apply bg-rose-500 hover:bg-rose-700 focus:ring-rose-600;
+  }
+
+  /* Workspace */
+  .rfm-workspace {
+    @apply bg-white relative flex flex-col w-full gap-8 p-4 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+  }
+
+  .rfm-workspace-dropzone {
+    @apply bg-sky-100;
+  }
+
+  .rfm-workspace-file-listing {
+    @apply flex flex-col gap-4;
+  }
+
+  /* FileManager Layout */
+  .rfm-main-container {
+    @apply flex flex-col box-border h-full w-full;
+  }
+
+  .rfm-content-container {
+    @apply flex flex-row flex-1 overflow-hidden;
+  }
+
+  /* Sidebar */
+  .rfm-sidebar {
+    @apply w-64 bg-slate-100 border-r border-slate-200 flex flex-col overflow-y-auto select-none;
+  }
+
+  .rfm-sidebar-item {
+    @apply flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors duration-200 hover:bg-slate-200;
+  }
+
+  .rfm-sidebar-item.active {
+    @apply bg-slate-300 font-semibold;
+  }
+
+  .rfm-sidebar-item-text {
+    @apply text-slate-700 text-sm;
+  }
+
+  .rfm-sidebar-icon {
+    @apply w-5 h-5;
+  }
+
+  .rfm-sidebar-list {
+    @apply flex flex-col mt-2;
+  }
+
+  .rfm-sidebar-header {
+    @apply px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider;
+  }
+
+  /* Preview */
+  .rfm-preview-content {
+    @apply mt-4 flex justify-center items-center overflow-hidden rounded-lg bg-slate-50;
+    max-height: 70vh;
+    min-width: 300px;
+  }
+
+  .rfm-preview-image {
+    @apply max-w-full max-h-full object-contain;
+  }
+
+  .rfm-preview-video,
+  .rfm-preview-audio {
+    @apply w-full;
+  }
+
+  .rfm-preview-pdf {
+    @apply w-full h-[60vh] border-none;
+  }
+
+  .rfm-preview-no-support {
+    @apply p-8 text-slate-500 text-center;
+  }
+
+  /* Upload Toast */
+  .rfm-upload-toast {
+    @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[1000] transition-all duration-300;
+  }
+
+  .rfm-upload-toast--minimized {
+    @apply h-12;
+  }
+
+  .rfm-upload-toast-header {
+    @apply flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100;
+  }
+
+  .rfm-upload-toast-title {
+    @apply text-sm font-semibold text-slate-700 truncate pr-4;
+  }
+
+  .rfm-upload-toast-actions {
+    @apply flex items-center gap-1;
+  }
+
+  .rfm-upload-toast-btn {
+    @apply p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-500;
+  }
+
+  .rfm-upload-toast-body {
+    @apply p-4;
+  }
+
+  .rfm-upload-progress-container {
+    @apply h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-2;
+  }
+
+  .rfm-upload-progress-bar {
+    @apply h-full bg-sky-500 transition-all duration-300 ease-out;
+  }
+
+  .rfm-upload-progress-text {
+    @apply text-xs font-bold text-slate-500;
+  }
+
+  /* Context Menu */
+  .rfm-context-menu {
+    @apply fixed bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] py-1 min-w-[160px] overflow-hidden;
+  }
+
+  .rfm-context-menu-item {
+    @apply px-4 py-2 text-sm text-slate-700 cursor-pointer transition-colors duration-200 hover:bg-slate-100 active:bg-slate-200;
+  }
+
+  .rfm-context-menu-item.disabled {
+    @apply text-slate-400 cursor-default hover:bg-transparent;
+  }
+}

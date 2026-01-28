@@ -199,7 +199,7 @@ async fn test_single_file_deletion() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // 4. Verify Deletion
     // User file should be soft-deleted (deleted_at set)
@@ -355,7 +355,7 @@ async fn test_deduplicated_file_partial_deletion() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // 5. Verify Partial Deletion
     // First user file should be soft-deleted
@@ -537,7 +537,7 @@ async fn test_deduplicated_file_final_deletion() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // 6. Verify Final Deletion
     // Both user files should be soft-deleted

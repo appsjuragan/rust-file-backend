@@ -13,11 +13,14 @@ pub enum ScanResult {
     Error { reason: String },
 }
 
+use tokio::io::AsyncRead;
+use std::pin::Pin;
+
 /// Trait for virus scanning implementations
 #[async_trait::async_trait]
 pub trait VirusScanner: Send + Sync {
-    /// Scan file content for malware
-    async fn scan(&self, data: &[u8]) -> Result<ScanResult>;
+    /// Scan file content for malware using a stream
+    async fn scan(&self, mut reader: Pin<Box<dyn AsyncRead + Send>>) -> Result<ScanResult>;
 
     /// Check if the scanner is available/healthy
     async fn health_check(&self) -> bool;
@@ -58,29 +61,41 @@ impl ClamAvScanner {
 
 #[async_trait::async_trait]
 impl VirusScanner for ClamAvScanner {
-    async fn scan(&self, data: &[u8]) -> Result<ScanResult> {
+    async fn scan(&self, mut reader: Pin<Box<dyn AsyncRead + Send>>) -> Result<ScanResult> {
         let mut stream = self.connect().await?;
 
         // Use INSTREAM command for streaming data to clamd
         // Format: zINSTREAM\0 <length:u32 big-endian> <data> ... <0:u32>
         stream.write_all(b"zINSTREAM\0").await?;
 
-        // Send data in chunks (max 2GB per chunk, but we'll use 10MB)
-        const CHUNK_SIZE: usize = 10 * 1024 * 1024;
+        // Send data in chunks
+        const CHUNK_SIZE: usize = 32 * 1024 * 1024; // 32MB chunks
+        let mut buffer = vec![0u8; CHUNK_SIZE];
 
-        for chunk in data.chunks(CHUNK_SIZE) {
-            let len = (chunk.len() as u32).to_be_bytes();
+        loop {
+            // Add a timeout for each read/write operation if needed, 
+            // but the whole scan is what usually takes time.
+            let n = reader.read(&mut buffer).await?;
+            if n == 0 {
+                break;
+            }
+
+            let len = (n as u32).to_be_bytes();
             stream.write_all(&len).await?;
-            stream.write_all(chunk).await?;
+            stream.write_all(&buffer[..n]).await?;
         }
 
         // Send zero-length chunk to indicate end of stream
         stream.write_all(&0u32.to_be_bytes()).await?;
         stream.flush().await?;
 
-        // Read response
+        // Read response with a generous timeout (5 minutes for large files)
         let mut response = Vec::new();
-        stream.read_to_end(&mut response).await?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(300),
+            stream.read_to_end(&mut response)
+        ).await
+        .map_err(|_| anyhow!("ClamAV scan timed out after 5 minutes"))??;
 
         let response_str = String::from_utf8_lossy(&response);
         let response_str = response_str.trim_end_matches('\0').trim();
@@ -88,13 +103,9 @@ impl VirusScanner for ClamAvScanner {
         tracing::debug!("ClamAV response: {}", response_str);
 
         // Parse response
-        // Clean: "stream: OK"
-        // Infected: "stream: <virus_name> FOUND"
-        // Error: "stream: <error> ERROR"
         if response_str.ends_with("OK") {
             Ok(ScanResult::Clean)
         } else if response_str.contains("FOUND") {
-            // Extract virus name
             let parts: Vec<&str> = response_str.split(':').collect();
             let threat = if parts.len() > 1 {
                 parts[1].trim().replace(" FOUND", "")
@@ -144,7 +155,7 @@ pub struct NoOpScanner;
 
 #[async_trait::async_trait]
 impl VirusScanner for NoOpScanner {
-    async fn scan(&self, _data: &[u8]) -> Result<ScanResult> {
+    async fn scan(&self, _reader: Pin<Box<dyn AsyncRead + Send>>) -> Result<ScanResult> {
         tracing::warn!("NoOpScanner: Skipping virus scan (development mode)");
         Ok(ScanResult::Clean)
     }
@@ -161,7 +172,7 @@ pub struct AlwaysInfectedScanner;
 #[cfg(test)]
 #[async_trait::async_trait]
 impl VirusScanner for AlwaysInfectedScanner {
-    async fn scan(&self, _data: &[u8]) -> Result<ScanResult> {
+    async fn scan(&self, _reader: Pin<Box<dyn AsyncRead + Send>>) -> Result<ScanResult> {
         Ok(ScanResult::Infected {
             threat_name: "Test.Virus.EICAR".to_string(),
         })
@@ -191,7 +202,9 @@ mod tests {
     #[tokio::test]
     async fn test_noop_scanner() {
         let scanner = NoOpScanner;
-        let result = scanner.scan(b"test content").await.unwrap();
+        let content = b"test content";
+        let reader = Box::pin(std::io::Cursor::new(content));
+        let result = scanner.scan(reader).await.unwrap();
         assert!(matches!(result, ScanResult::Clean));
         assert!(scanner.health_check().await);
     }
@@ -199,7 +212,9 @@ mod tests {
     #[tokio::test]
     async fn test_always_infected_scanner() {
         let scanner = AlwaysInfectedScanner;
-        let result = scanner.scan(b"test content").await.unwrap();
+        let content = b"test content";
+        let reader = Box::pin(std::io::Cursor::new(content));
+        let result = scanner.scan(reader).await.unwrap();
         assert!(matches!(result, ScanResult::Infected { .. }));
     }
 
