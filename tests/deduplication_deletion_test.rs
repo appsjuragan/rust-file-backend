@@ -6,8 +6,9 @@ use axum::{
 use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
 use rust_file_backend::entities::{prelude::*, *};
+use rust_file_backend::services::file_service::FileService;
 use rust_file_backend::services::scanner::NoOpScanner;
-use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::services::storage::{S3StorageService, StorageService};
 use rust_file_backend::services::storage_lifecycle::StorageLifecycleService;
 use rust_file_backend::{AppState, create_app};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, EntityTrait, PaginatorTrait, Set};
@@ -61,7 +62,7 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db
 }
 
-async fn setup_s3() -> Arc<StorageService> {
+async fn setup_s3() -> Arc<dyn StorageService> {
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
@@ -80,7 +81,7 @@ async fn setup_s3() -> Arc<StorageService> {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    Arc::new(StorageService::new(s3_client, "uploads".to_string()))
+    Arc::new(S3StorageService::new(s3_client, "uploads".to_string()))
 }
 
 /// Test Case 1: Single file deletion - ref_count = 1, verify S3 cleanup
@@ -88,12 +89,22 @@ async fn setup_s3() -> Arc<StorageService> {
 async fn test_single_file_deletion() {
     let db = setup_test_db().await;
     let storage_service = setup_s3().await;
+    let scanner_service = Arc::new(NoOpScanner);
+    let config = SecurityConfig::development();
+
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        config.clone(),
+    ));
 
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
-        config: SecurityConfig::development(),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
+        config: config.clone(),
     };
 
     let app = create_app(state);
@@ -167,7 +178,12 @@ async fn test_single_file_deletion() {
     // Verify file exists in DB and S3
     let storage_file = StorageFiles::find().one(&db).await.unwrap().unwrap();
     assert_eq!(storage_file.ref_count, 1);
-    assert!(storage_service.file_exists(&storage_file.s3_key).await.unwrap());
+    assert!(
+        storage_service
+            .file_exists(&storage_file.s3_key)
+            .await
+            .unwrap()
+    );
 
     // 3. Delete File
     let response = app
@@ -187,7 +203,11 @@ async fn test_single_file_deletion() {
 
     // 4. Verify Deletion
     // User file should be soft-deleted (deleted_at set)
-    let user_file = UserFiles::find_by_id(file_id).one(&db).await.unwrap().unwrap();
+    let user_file = UserFiles::find_by_id(file_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(user_file.deleted_at.is_some());
 
     // Storage file should be deleted from DB
@@ -195,7 +215,12 @@ async fn test_single_file_deletion() {
     assert_eq!(storage_files_count, 0);
 
     // File should be deleted from S3
-    assert!(!storage_service.file_exists(&storage_file.s3_key).await.unwrap());
+    assert!(
+        !storage_service
+            .file_exists(&storage_file.s3_key)
+            .await
+            .unwrap()
+    );
 }
 
 /// Test Case 2: Deduplicated file partial deletion - ref_count = 2 → 1, verify S3 NOT deleted
@@ -204,11 +229,22 @@ async fn test_deduplicated_file_partial_deletion() {
     let db = setup_test_db().await;
     let storage_service = setup_s3().await;
 
+    let scanner_service = Arc::new(NoOpScanner);
+    let config = SecurityConfig::development();
+
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        config.clone(),
+    ));
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
-        config: SecurityConfig::development(),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
+        config: config.clone(),
     };
 
     let app = create_app(state);
@@ -253,7 +289,7 @@ async fn test_deduplicated_file_partial_deletion() {
         "--{boundary}\r\n\
         Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n\
         Content-Type: text/plain\r\n\r\n\
-        Hello World\r\n\
+        Hello World Partial\r\n\
         --{boundary}--\r\n",
         boundary = boundary
     );
@@ -323,11 +359,19 @@ async fn test_deduplicated_file_partial_deletion() {
 
     // 5. Verify Partial Deletion
     // First user file should be soft-deleted
-    let user_file_1 = UserFiles::find_by_id(&file_id_1).one(&db).await.unwrap().unwrap();
+    let user_file_1 = UserFiles::find_by_id(&file_id_1)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(user_file_1.deleted_at.is_some());
 
     // Second user file should still exist and not be deleted
-    let user_file_2 = UserFiles::find_by_id(&file_id_2).one(&db).await.unwrap().unwrap();
+    let user_file_2 = UserFiles::find_by_id(&file_id_2)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(user_file_2.deleted_at.is_none());
 
     // Storage file should still exist with ref_count = 1
@@ -335,7 +379,12 @@ async fn test_deduplicated_file_partial_deletion() {
     assert_eq!(storage_file.ref_count, 1);
 
     // File should STILL exist in S3
-    assert!(storage_service.file_exists(&storage_file.s3_key).await.unwrap());
+    assert!(
+        storage_service
+            .file_exists(&storage_file.s3_key)
+            .await
+            .unwrap()
+    );
 }
 
 /// Test Case 3: Deduplicated file final deletion - ref_count = 1 → 0, verify S3 cleanup
@@ -344,11 +393,22 @@ async fn test_deduplicated_file_final_deletion() {
     let db = setup_test_db().await;
     let storage_service = setup_s3().await;
 
+    let scanner_service = Arc::new(NoOpScanner);
+    let config = SecurityConfig::development();
+
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        config.clone(),
+    ));
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
-        config: SecurityConfig::development(),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
+        config: config.clone(),
     };
 
     let app = create_app(state);
@@ -393,7 +453,7 @@ async fn test_deduplicated_file_final_deletion() {
         "--{boundary}\r\n\
         Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n\
         Content-Type: text/plain\r\n\r\n\
-        Hello World\r\n\
+        Hello World Final\r\n\
         --{boundary}--\r\n",
         boundary = boundary
     );
@@ -481,10 +541,18 @@ async fn test_deduplicated_file_final_deletion() {
 
     // 6. Verify Final Deletion
     // Both user files should be soft-deleted
-    let user_file_1 = UserFiles::find_by_id(&file_id_1).one(&db).await.unwrap().unwrap();
+    let user_file_1 = UserFiles::find_by_id(&file_id_1)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(user_file_1.deleted_at.is_some());
 
-    let user_file_2 = UserFiles::find_by_id(&file_id_2).one(&db).await.unwrap().unwrap();
+    let user_file_2 = UserFiles::find_by_id(&file_id_2)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(user_file_2.deleted_at.is_some());
 
     // Storage file should be deleted from DB
@@ -527,7 +595,10 @@ async fn test_folder_deletion_with_files() {
     // Create a storage file
     let storage_id = "storage_1";
     let s3_key = "test/file.txt";
-    storage_service.upload_file(s3_key, b"test content".to_vec()).await.unwrap();
+    storage_service
+        .upload_file(s3_key, b"test content".to_vec())
+        .await
+        .unwrap();
 
     let storage_file = storage_files::ActiveModel {
         id: Set(storage_id.to_string()),
@@ -553,21 +624,33 @@ async fn test_folder_deletion_with_files() {
     file.insert(&db).await.unwrap();
 
     // Delete folder recursively
-    StorageLifecycleService::delete_folder_recursive(&db, &storage_service, folder_id)
+    StorageLifecycleService::delete_folder_recursive(&db, storage_service.as_ref(), folder_id)
         .await
         .unwrap();
 
     // Soft delete the folder itself
-    let folder_model = UserFiles::find_by_id(folder_id).one(&db).await.unwrap().unwrap();
-    StorageLifecycleService::soft_delete_user_file(&db, &storage_service, &folder_model)
+    let folder_model = UserFiles::find_by_id(folder_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    StorageLifecycleService::soft_delete_user_file(&db, storage_service.as_ref(), &folder_model)
         .await
         .unwrap();
 
     // Verify both folder and file are soft-deleted
-    let folder = UserFiles::find_by_id(folder_id).one(&db).await.unwrap().unwrap();
+    let folder = UserFiles::find_by_id(folder_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(folder.deleted_at.is_some());
 
-    let file = UserFiles::find_by_id(file_id).one(&db).await.unwrap().unwrap();
+    let file = UserFiles::find_by_id(file_id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(file.deleted_at.is_some());
 
     // Verify storage file is deleted
@@ -584,11 +667,22 @@ async fn test_bulk_delete() {
     let db = setup_test_db().await;
     let storage_service = setup_s3().await;
 
+    let scanner_service = Arc::new(NoOpScanner);
+    let config = SecurityConfig::development();
+
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        config.clone(),
+    ));
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
-        config: SecurityConfig::development(),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
+        config: config.clone(),
     };
 
     let app = create_app(state);
@@ -638,7 +732,9 @@ async fn test_bulk_delete() {
             Content-Type: text/plain\r\n\r\n\
             Content {}\r\n\
             --{boundary}--\r\n",
-            i, i, boundary = boundary
+            i,
+            i,
+            boundary = boundary
         );
 
         let response = app
@@ -690,7 +786,11 @@ async fn test_bulk_delete() {
 
     // 4. Verify all files are soft-deleted
     for file_id in &file_ids {
-        let user_file = UserFiles::find_by_id(file_id).one(&db).await.unwrap().unwrap();
+        let user_file = UserFiles::find_by_id(file_id)
+            .one(&db)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(user_file.deleted_at.is_some());
     }
 

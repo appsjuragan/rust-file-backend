@@ -1,6 +1,7 @@
 use rust_file_backend::services::scanner::{ClamAvScanner, ScanResult, VirusScanner};
 
 #[tokio::test]
+#[ignore]
 async fn test_clamav_connection_and_scan() {
     // 1. Setup Scanner checking localhost:3310
     let scanner = ClamAvScanner::new("127.0.0.1".to_string(), 3310);

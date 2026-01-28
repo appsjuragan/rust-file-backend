@@ -32,7 +32,6 @@ impl Related<super::file_metadata::Entity> for Entity {
     }
 }
 
-
 impl Related<super::user_files::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserFiles.def()

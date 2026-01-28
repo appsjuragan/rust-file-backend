@@ -1,13 +1,13 @@
+use lofty::file::AudioFile;
+use lofty::file::TaggedFileExt;
+use lofty::probe::Probe;
+use lofty::tag::Accessor;
+use quick_xml::events::Event;
+use quick_xml::reader::Reader;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashSet;
-use lofty::file::TaggedFileExt;
-use lofty::probe::Probe;
-use lofty::file::AudioFile;
-use lofty::tag::Accessor;
 use zip::ZipArchive;
-use quick_xml::reader::Reader;
-use quick_xml::events::Event;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetadataResult {
@@ -21,24 +21,26 @@ pub struct MetadataService;
 impl MetadataService {
     pub fn analyze(bytes: &[u8], filename: &str) -> MetadataResult {
         let mut tags = HashSet::new();
-        let extension = filename.split('.').last().unwrap_or("").to_lowercase();
-        
+        let extension = filename.split('.').next_back().unwrap_or("").to_lowercase();
+
         // 1. Detect MIME type using infer
         let kind = infer::get(bytes);
-        let mime_type = kind.map(|k| k.mime_type()).unwrap_or("application/octet-stream");
-        
+        let mime_type = kind
+            .map(|k| k.mime_type())
+            .unwrap_or("application/octet-stream");
+
         tags.insert(extension.clone());
-        
+
         if mime_type.starts_with("image/") {
             return Self::analyze_image(bytes, mime_type, tags);
         } else if mime_type.starts_with("video/") || mime_type.starts_with("audio/") {
-             return Self::analyze_multimedia(bytes, mime_type, tags);
+            return Self::analyze_multimedia(bytes, mime_type, tags);
         } else if mime_type == "application/pdf" {
-             return Self::analyze_pdf(bytes, mime_type, tags);
-        } else if Self::is_office_xml(&mime_type, &extension) {
-             return Self::analyze_office_xml(bytes, mime_type, tags);
+            return Self::analyze_pdf(bytes, mime_type, tags);
+        } else if Self::is_office_xml(mime_type, &extension) {
+            return Self::analyze_office_xml(bytes, mime_type, tags);
         } else if mime_type == "text/plain" || extension == "txt" || extension == "md" {
-             return Self::analyze_text(bytes, mime_type, tags);
+            return Self::analyze_text(bytes, mime_type, tags);
         }
 
         MetadataResult {
@@ -52,27 +54,28 @@ impl MetadataService {
     }
 
     fn is_office_xml(mime: &str, ext: &str) -> bool {
-        mime.contains("openxmlformats") || 
-        ["docx", "xlsx", "pptx", "odt", "ods"].contains(&ext)
+        mime.contains("openxmlformats") || ["docx", "xlsx", "pptx", "odt", "ods"].contains(&ext)
     }
 
     fn analyze_image(bytes: &[u8], mime_type: &str, mut tags: HashSet<String>) -> MetadataResult {
         tags.insert("image".to_string());
-        
+
         let mut meta = json!({
             "mime_type": mime_type,
         });
 
         // 1. Basic Image Props (Width/Height) using image crate
-        if let Ok(reader) = image::io::Reader::new(std::io::Cursor::new(bytes)).with_guessed_format() {
-            if let Ok(img) = reader.decode() {
-                let (w, h) = (img.width(), img.height());
-                meta["width"] = json!(w);
-                meta["height"] = json!(h);
-                
-                if w > 1920 || h > 1080 {
-                    tags.insert("high-res".to_string());
-                }
+        if let Some(img) = image::io::Reader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .ok()
+            .and_then(|reader| reader.decode().ok())
+        {
+            let (w, h) = (img.width(), img.height());
+            meta["width"] = json!(w);
+            meta["height"] = json!(h);
+
+            if w > 1920 || h > 1080 {
+                tags.insert("high-res".to_string());
             }
         }
 
@@ -80,19 +83,24 @@ impl MetadataService {
         let exif_reader = exif::Reader::new();
         if let Ok(exif) = exif_reader.read_from_container(&mut std::io::Cursor::new(bytes)) {
             let mut exif_map = serde_json::Map::new();
-            
+
             for field in exif.fields() {
                 let key = field.tag.to_string();
                 let value = field.display_value().with_unit(&exif).to_string();
-                
+
                 // Filter for interesting tags to avoid clutter
-                if key.contains("ISO") || key.contains("Model") || key.contains("DateTime") || key.contains("FNumber") || key.contains("ExposureTime") {
+                if key.contains("ISO")
+                    || key.contains("Model")
+                    || key.contains("DateTime")
+                    || key.contains("FNumber")
+                    || key.contains("ExposureTime")
+                {
                     exif_map.insert(key.clone(), Value::String(value.clone()));
                 }
-                
+
                 // Add specific tags based on metadata
                 if key.contains("Model") {
-                     tags.insert(value.replace(" ", "-").to_lowercase());
+                    tags.insert(value.replace(" ", "-").to_lowercase());
                 }
             }
             meta["exif"] = Value::Object(exif_map);
@@ -106,7 +114,11 @@ impl MetadataService {
         }
     }
 
-    fn analyze_multimedia(bytes: &[u8], mime_type: &str, mut tags: HashSet<String>) -> MetadataResult {
+    fn analyze_multimedia(
+        bytes: &[u8],
+        mime_type: &str,
+        mut tags: HashSet<String>,
+    ) -> MetadataResult {
         let category = if mime_type.starts_with("video/") {
             tags.insert("video".to_string());
             "video"
@@ -114,7 +126,7 @@ impl MetadataService {
             tags.insert("audio".to_string());
             "audio"
         };
-        
+
         let mut meta = json!({
             "mime_type": mime_type,
             "size_bytes": bytes.len(),
@@ -123,27 +135,33 @@ impl MetadataService {
         // Lofty for Audio/Video
         let mut cursor = std::io::Cursor::new(bytes);
         if let Ok(probe) = Probe::new(&mut cursor).guess_file_type() {
-             // Use mut tagged_file to access primary_tag_mut if needed
-             if let Ok(mut tagged_file) = probe.read() {
+            // Use mut tagged_file to access primary_tag_mut if needed
+            if let Ok(mut tagged_file) = probe.read() {
                 let properties = tagged_file.properties();
                 meta["duration_seconds"] = json!(properties.duration().as_secs());
-                
+
                 // Audio bitrate if available
                 if let Some(bitrate) = properties.audio_bitrate() {
-                     meta["bitrate"] = json!(bitrate);
+                    meta["bitrate"] = json!(bitrate);
                 }
-                
+
                 // Use primary_tag_mut if primary_tag is unavailable
                 if let Some(tag) = tagged_file.primary_tag_mut() {
-                    if let Some(title) = tag.title() { meta["title"] = json!(title.to_string()); }
-                    if let Some(artist) = tag.artist() { meta["artist"] = json!(artist.to_string()); }
-                    if let Some(album) = tag.album() { meta["album"] = json!(album.to_string()); }
-                    
+                    if let Some(title) = tag.title() {
+                        meta["title"] = json!(title.to_string());
+                    }
+                    if let Some(artist) = tag.artist() {
+                        meta["artist"] = json!(artist.to_string());
+                    }
+                    if let Some(album) = tag.album() {
+                        meta["album"] = json!(album.to_string());
+                    }
+
                     if tag.title().is_some() || tag.artist().is_some() {
                         tags.insert("tagged".to_string());
                     }
                 }
-             }
+            }
         }
 
         MetadataResult {
@@ -156,33 +174,37 @@ impl MetadataService {
     fn analyze_pdf(bytes: &[u8], mime_type: &str, mut tags: HashSet<String>) -> MetadataResult {
         tags.insert("pdf".to_string());
         tags.insert("document".to_string());
-        
+
         let mut meta = json!({
             "mime_type": mime_type,
             "size_bytes": bytes.len(),
         });
 
         if let Ok(doc) = lopdf::Document::load_mem(bytes) {
-             meta["page_count"] = json!(doc.get_pages().len());
-             
-             // Extract Info dictionary
-             if let Ok(info_val) = doc.trailer.get(b"Info") { // Fix: trailer.get returns Result
-                if let Ok(id) = info_val.as_reference() {
-                     if let Ok(obj) = doc.get_object(id) {
-                         if let Ok(info_dict) = obj.as_dict() {
-                             for (key, val) in info_dict.iter() {
-                                 let key_str = String::from_utf8_lossy(key).to_string();
-                                 if let Ok(s) = val.as_str() {
-                                     let val_str = String::from_utf8_lossy(s).to_string();
-                                     if !val_str.is_empty() && ["Title", "Author", "Subject", "Creator"].contains(&key_str.as_str()) {
-                                         meta[key_str.to_lowercase()] = json!(val_str);
-                                     }
-                                 }
-                             }
+            meta["page_count"] = json!(doc.get_pages().len());
+
+            // Extract Info dictionary
+            if let Ok(info_val) = doc.trailer.get(b"Info") {
+                // Fix: trailer.get returns Result
+                if let Ok(info_dict) = info_val
+                    .as_reference()
+                    .and_then(|id| doc.get_object(id))
+                    .and_then(|obj| obj.as_dict())
+                {
+                    for (key, val) in info_dict.iter() {
+                        let key_str = String::from_utf8_lossy(key).to_string();
+                        if let Ok(s) = val.as_str() {
+                            let val_str = String::from_utf8_lossy(s).to_string();
+                            if !val_str.is_empty()
+                                && ["Title", "Author", "Subject", "Creator"]
+                                    .contains(&key_str.as_str())
+                            {
+                                meta[key_str.to_lowercase()] = json!(val_str);
+                            }
                         }
                     }
                 }
-             }
+            }
         }
 
         MetadataResult {
@@ -192,7 +214,11 @@ impl MetadataService {
         }
     }
 
-    fn analyze_office_xml(bytes: &[u8], mime_type: &str, mut tags: HashSet<String>) -> MetadataResult {
+    fn analyze_office_xml(
+        bytes: &[u8],
+        mime_type: &str,
+        mut tags: HashSet<String>,
+    ) -> MetadataResult {
         tags.insert("office".to_string());
         tags.insert("document".to_string());
 
@@ -215,19 +241,32 @@ impl MetadataService {
                     loop {
                         match reader.read_event_into(&mut buf) {
                             Ok(Event::Start(e)) => {
-                                current_tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
-                            },
+                                current_tag =
+                                    String::from_utf8_lossy(e.name().as_ref()).to_string();
+                            }
                             Ok(Event::Text(e)) => {
                                 let txt = String::from_utf8_lossy(e.as_ref()).to_string();
                                 if !txt.is_empty() {
-                                    if current_tag.ends_with(":title") { meta["title"] = json!(txt); }
-                                    if current_tag.ends_with(":creator") { meta["author"] = json!(txt); }
-                                    if current_tag.ends_with(":lastModifiedBy") { meta["last_saved_by"] = json!(txt); }
-                                    if current_tag.ends_with(":revision") { meta["revision"] = json!(txt); }
-                                    if current_tag.ends_with(":created") { meta["created_at"] = json!(txt); }
-                                    if current_tag.ends_with(":modified") { meta["modified_at"] = json!(txt); }
+                                    if current_tag.ends_with(":title") {
+                                        meta["title"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with(":creator") {
+                                        meta["author"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with(":lastModifiedBy") {
+                                        meta["last_saved_by"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with(":revision") {
+                                        meta["revision"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with(":created") {
+                                        meta["created_at"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with(":modified") {
+                                        meta["modified_at"] = json!(txt);
+                                    }
                                 }
-                            },
+                            }
                             Ok(Event::Eof) => break,
                             Err(_) => break,
                             _ => (),
@@ -249,20 +288,38 @@ impl MetadataService {
                     loop {
                         match reader.read_event_into(&mut buf) {
                             Ok(Event::Start(e)) => {
-                                current_tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
-                            },
+                                current_tag =
+                                    String::from_utf8_lossy(e.name().as_ref()).to_string();
+                            }
                             Ok(Event::Text(e)) => {
                                 let txt = String::from_utf8_lossy(e.as_ref()).to_string();
                                 if !txt.is_empty() {
-                                    if current_tag.ends_with("Pages") { meta["page_count"] = json!(txt.parse::<i32>().unwrap_or(0)); }
-                                    if current_tag.ends_with("Words") { meta["word_count"] = json!(txt.parse::<i32>().unwrap_or(0)); }
-                                    if current_tag.ends_with("TotalTime") { meta["total_editing_time"] = json!(txt.parse::<i32>().unwrap_or(0)); }
-                                    if current_tag.ends_with("Application") { meta["application"] = json!(txt); }
-                                    if current_tag.ends_with("Slides") { meta["slide_count"] = json!(txt.parse::<i32>().unwrap_or(0)); }
-                                    if current_tag.ends_with("Paragraphs") { meta["paragraph_count"] = json!(txt.parse::<i32>().unwrap_or(0)); }
-                                    if current_tag.ends_with("AppVersion") { meta["app_version"] = json!(txt); }
+                                    if current_tag.ends_with("Pages") {
+                                        meta["page_count"] = json!(txt.parse::<i32>().unwrap_or(0));
+                                    }
+                                    if current_tag.ends_with("Words") {
+                                        meta["word_count"] = json!(txt.parse::<i32>().unwrap_or(0));
+                                    }
+                                    if current_tag.ends_with("TotalTime") {
+                                        meta["total_editing_time"] =
+                                            json!(txt.parse::<i32>().unwrap_or(0));
+                                    }
+                                    if current_tag.ends_with("Application") {
+                                        meta["application"] = json!(txt);
+                                    }
+                                    if current_tag.ends_with("Slides") {
+                                        meta["slide_count"] =
+                                            json!(txt.parse::<i32>().unwrap_or(0));
+                                    }
+                                    if current_tag.ends_with("Paragraphs") {
+                                        meta["paragraph_count"] =
+                                            json!(txt.parse::<i32>().unwrap_or(0));
+                                    }
+                                    if current_tag.ends_with("AppVersion") {
+                                        meta["app_version"] = json!(txt);
+                                    }
                                 }
-                            },
+                            }
                             Ok(Event::Eof) => break,
                             Err(_) => break,
                             _ => (),
@@ -306,7 +363,7 @@ mod tests {
     fn test_analyze_text() {
         let content = b"Hello world! This is a test file.";
         let result = MetadataService::analyze(content, "test.txt");
-        
+
         assert_eq!(result.category, "text");
         assert!(result.suggested_tags.contains(&"txt".to_string()));
         assert!(result.suggested_tags.contains(&"text".to_string()));

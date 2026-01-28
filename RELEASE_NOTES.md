@@ -1,5 +1,20 @@
 # Release Notes
 
+## Version 0.1.0-beta.4 (2026-01-28)
+
+### Architectural Improvements
+- **Modular Architecture**: Restructured the codebase into `api`, `services`, and `infrastructure` layers for better separation of concerns.
+- **Service Layer**: Extracted business logic into dedicated services (`FileService`, `StorageService`, `StorageLifecycleService`), decoupling it from HTTP handlers.
+- **Dependency Injection**: Implemented dependency injection using traits for `StorageService` and `VirusScanner`, enabling easier testing and flexibility.
+- **Centralized Error Handling**: Introduced a unified `AppError` type for consistent error reporting across the API.
+
+### Testing
+- **Integration Tests**: Added `tests/api_integration_test.rs` with a `MockStorageService` to validate the full API flow (Register -> Login -> Upload -> Download -> Delete) without external dependencies.
+- **Test Suite Updates**: Updated existing tests (`upload_test.rs`, `deduplication_deletion_test.rs`, etc.) to align with the new modular architecture.
+
+### CI/CD
+- **GitHub Actions**: Added `.github/workflows/ci.yml` for automated testing, formatting, and linting on every push and pull request.
+
 ## Version 0.1.0-beta.3 (2026-01-26)
 
 ### New Features

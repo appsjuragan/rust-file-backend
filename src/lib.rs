@@ -1,12 +1,13 @@
+pub mod api;
 pub mod config;
 pub mod entities;
-pub mod handlers;
-pub mod middleware;
+pub mod infrastructure;
 pub mod models;
 pub mod services;
 pub mod utils;
 
 use crate::config::SecurityConfig;
+use crate::services::file_service::FileService;
 use crate::services::scanner::VirusScanner;
 use crate::services::storage::StorageService;
 use axum::{
@@ -22,31 +23,31 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        handlers::auth::register,
-        handlers::auth::login,
-        handlers::files::upload_file,
-        handlers::files::pre_check_dedup,
+        api::handlers::auth::register,
+        api::handlers::auth::login,
+        api::handlers::files::upload_file,
+        api::handlers::files::pre_check_dedup,
 
-        handlers::files::download_file,
-        handlers::files::list_files,
-        handlers::files::create_folder,
-        handlers::files::delete_item,
-        handlers::files::rename_item,
-        handlers::files::bulk_delete,
+        api::handlers::files::download_file,
+        api::handlers::files::list_files,
+        api::handlers::files::create_folder,
+        api::handlers::files::delete_item,
+        api::handlers::files::rename_item,
+        api::handlers::files::bulk_delete,
     ),
     components(
         schemas(
-            handlers::auth::AuthRequest,
-            handlers::auth::AuthResponse,
-            handlers::files::UploadResponse,
-            handlers::files::PreCheckRequest,
+            api::handlers::auth::AuthRequest,
+            api::handlers::auth::AuthResponse,
+            api::handlers::files::UploadResponse,
+            api::handlers::files::PreCheckRequest,
 
-            handlers::files::PreCheckResponse,
-            handlers::files::FileMetadataResponse,
-            handlers::files::CreateFolderRequest,
-            handlers::files::RenameRequest,
-            handlers::files::BulkDeleteRequest,
-            handlers::files::BulkDeleteResponse,
+            api::handlers::files::PreCheckResponse,
+            api::handlers::files::FileMetadataResponse,
+            api::handlers::files::CreateFolderRequest,
+            api::handlers::files::RenameRequest,
+            api::handlers::files::BulkDeleteRequest,
+            api::handlers::files::BulkDeleteResponse,
         )
     ),
     tags(
@@ -59,47 +60,52 @@ pub struct ApiDoc;
 #[derive(Clone)]
 pub struct AppState {
     pub db: DatabaseConnection,
-    pub storage: Arc<StorageService>,
+    pub storage: Arc<dyn StorageService>,
     pub scanner: Arc<dyn VirusScanner>,
+    pub file_service: Arc<FileService>,
     pub config: SecurityConfig,
 }
 
 pub fn create_app(state: AppState) -> Router {
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/register", post(handlers::auth::register))
-        .route("/login", post(handlers::auth::login))
+        .route("/register", post(api::handlers::auth::register))
+        .route("/login", post(api::handlers::auth::login))
         .route(
             "/pre-check",
-            post(handlers::files::pre_check_dedup)
-                .layer(from_fn(middleware::auth::auth_middleware)),
+            post(api::handlers::files::pre_check_dedup)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/upload",
-            post(handlers::files::upload_file).layer(from_fn(middleware::auth::auth_middleware)),
+            post(api::handlers::files::upload_file)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/files/:id",
-            get(handlers::files::download_file)
-                .delete(handlers::files::delete_item)
-                .layer(from_fn(middleware::auth::auth_middleware)),
+            get(api::handlers::files::download_file)
+                .delete(api::handlers::files::delete_item)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/files/:id/rename",
-            axum::routing::put(handlers::files::rename_item)
-                .layer(from_fn(middleware::auth::auth_middleware)),
+            axum::routing::put(api::handlers::files::rename_item)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/files",
-            get(handlers::files::list_files).layer(from_fn(middleware::auth::auth_middleware)),
+            get(api::handlers::files::list_files)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/folders",
-            post(handlers::files::create_folder).layer(from_fn(middleware::auth::auth_middleware)),
+            post(api::handlers::files::create_folder)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
             "/files/bulk-delete",
-            post(handlers::files::bulk_delete).layer(from_fn(middleware::auth::auth_middleware)),
+            post(api::handlers::files::bulk_delete)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .with_state(state)
 }

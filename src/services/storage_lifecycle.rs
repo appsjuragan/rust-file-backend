@@ -1,6 +1,6 @@
 use crate::entities::{prelude::*, *};
 use crate::services::storage::StorageService;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, Set,
     TransactionTrait,
@@ -11,11 +11,11 @@ pub struct StorageLifecycleService;
 
 impl StorageLifecycleService {
     /// Decrement ref_count for a storage file and delete from S3 if count reaches 0
-    /// 
+    ///
     /// Returns true if the storage file was deleted from both DB and S3
     pub async fn decrement_ref_count(
         db: &DatabaseConnection,
-        storage: &StorageService,
+        storage: &dyn StorageService,
         storage_file_id: &str,
     ) -> Result<bool> {
         let txn = db.begin().await?;
@@ -38,10 +38,7 @@ impl StorageLifecycleService {
         let updated = active.update(&txn).await?;
 
         let deleted = if new_count <= 0 {
-            tracing::info!(
-                "ref_count reached 0, deleting from S3: {}",
-                updated.s3_key
-            );
+            tracing::info!("ref_count reached 0, deleting from S3: {}", updated.s3_key);
 
             // Delete from S3
             storage.delete_file(&updated.s3_key).await?;
@@ -68,13 +65,13 @@ impl StorageLifecycleService {
     }
 
     /// Recursively delete a folder and all its children, managing ref counts
-    /// 
+    ///
     /// This performs soft delete on user_files (sets deleted_at) and decrements
     /// ref_count on storage_files, triggering S3 cleanup when ref_count reaches 0
     #[async_recursion::async_recursion]
     pub async fn delete_folder_recursive(
         db: &DatabaseConnection,
-        storage: &StorageService,
+        storage: &dyn StorageService,
         folder_id: &str,
     ) -> Result<()> {
         tracing::info!("Recursively deleting folder: {}", folder_id);
@@ -105,7 +102,7 @@ impl StorageLifecycleService {
     /// Soft delete a user_file and decrement storage ref_count
     pub async fn soft_delete_user_file(
         db: &DatabaseConnection,
-        storage: &StorageService,
+        storage: &dyn StorageService,
         user_file: &user_files::Model,
     ) -> Result<()> {
         tracing::info!("Soft deleting user_file: {}", user_file.id);
@@ -124,11 +121,11 @@ impl StorageLifecycleService {
     }
 
     /// Bulk delete multiple files/folders
-    /// 
+    ///
     /// Returns the number of items deleted
     pub async fn bulk_delete(
         db: &DatabaseConnection,
-        storage: &StorageService,
+        storage: &dyn StorageService,
         user_id: &str,
         item_ids: Vec<String>,
     ) -> Result<usize> {

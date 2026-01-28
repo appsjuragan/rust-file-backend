@@ -44,7 +44,6 @@ impl Related<super::file_tags::Entity> for Entity {
     }
 }
 
-
 impl Related<super::storage_files::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::StorageFiles.def()

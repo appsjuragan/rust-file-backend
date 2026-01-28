@@ -1,3 +1,4 @@
+use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
 use crate::utils::auth::create_jwt;
 use argon2::{
@@ -34,12 +35,12 @@ pub struct AuthResponse {
 pub async fn register(
     State(state): State<crate::AppState>,
     Json(payload): Json<AuthRequest>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, AppError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
         .hash_password(payload.password.as_bytes(), &salt)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|e| AppError::Internal(e.to_string()))?
         .to_string();
 
     let id = Uuid::new_v4().to_string();
@@ -51,12 +52,9 @@ pub async fn register(
         ..Default::default()
     };
 
-    user.insert(&state.db).await.map_err(|_e| {
-        (
-            StatusCode::BAD_REQUEST,
-            "Username already exists".to_string(),
-        )
-    })?;
+    user.insert(&state.db)
+        .await
+        .map_err(|_e| AppError::BadRequest("Username already exists".to_string()))?;
 
     Ok(StatusCode::CREATED)
 }
@@ -73,25 +71,23 @@ pub async fn register(
 pub async fn login(
     State(state): State<crate::AppState>,
     Json(payload): Json<AuthRequest>,
-) -> Result<Json<AuthResponse>, (StatusCode, String)> {
+) -> Result<Json<AuthResponse>, AppError> {
     let user = Users::find()
         .filter(users::Column::Username.eq(payload.username))
         .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
+        .await?
+        .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?;
 
     let argon2 = Argon2::default();
     let parsed_hash = argon2::PasswordHash::new(&user.password_hash)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     argon2
         .verify_password(payload.password.as_bytes(), &parsed_hash)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
+        .map_err(|_| AppError::Unauthorized("Invalid credentials".to_string()))?;
 
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-    let token_str = create_jwt(&user.id, &secret)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let token_str = create_jwt(&user.id, &secret).map_err(|e| AppError::Internal(e.to_string()))?;
 
     // Store token in DB for expiration/revocation tracking
     let token_id = Uuid::new_v4().to_string();
@@ -102,13 +98,10 @@ pub async fn login(
         user_id: Set(user.id),
         token: Set(token_str.clone()),
         expires_at: Set(expires_at),
-        ..Default::default()
+
     };
 
-    token_model
-        .insert(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    token_model.insert(&state.db).await?;
 
     Ok(Json(AuthResponse { token: token_str }))
 }

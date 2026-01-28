@@ -1,14 +1,10 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt};
-
-pub struct StorageService {
-    client: Client,
-    bucket: String,
-}
 
 pub struct UploadResult {
     pub hash: String,
@@ -16,12 +12,35 @@ pub struct UploadResult {
     pub s3_key: String,
 }
 
-impl StorageService {
+#[async_trait]
+pub trait StorageService: Send + Sync {
+    async fn upload_file(&self, key: &str, data: Vec<u8>) -> Result<()>;
+    async fn upload_stream_with_hash<'a>(
+        &self,
+        key: &str,
+        reader: Box<dyn AsyncRead + Unpin + Send + 'a>,
+    ) -> Result<UploadResult>;
+    async fn copy_object(&self, source_key: &str, dest_key: &str) -> Result<()>;
+    async fn delete_file(&self, key: &str) -> Result<()>;
+    async fn file_exists(&self, key: &str) -> Result<bool>;
+    async fn get_download_url(&self, key: &str) -> Result<String>;
+    async fn get_object_stream(&self, key: &str) -> Result<ByteStream>;
+}
+
+pub struct S3StorageService {
+    client: Client,
+    bucket: String,
+}
+
+impl S3StorageService {
     pub fn new(client: Client, bucket: String) -> Self {
         Self { client, bucket }
     }
+}
 
-    pub async fn upload_file(&self, key: &str, data: Vec<u8>) -> Result<()> {
+#[async_trait]
+impl StorageService for S3StorageService {
+    async fn upload_file(&self, key: &str, data: Vec<u8>) -> Result<()> {
         self.client
             .put_object()
             .bucket(&self.bucket)
@@ -32,12 +51,11 @@ impl StorageService {
         Ok(())
     }
 
-    /// Uploads a stream to S3 while calculating its SHA256 hash on the fly.
-    /// This is highly memory efficient and avoids local disk I/O.
-    pub async fn upload_stream_with_hash<R>(&self, key: &str, mut reader: R) -> Result<UploadResult>
-    where
-        R: AsyncRead + Unpin + Send,
-    {
+    async fn upload_stream_with_hash<'a>(
+        &self,
+        key: &str,
+        mut reader: Box<dyn AsyncRead + Unpin + Send + 'a>,
+    ) -> Result<UploadResult> {
         let multipart_upload_res = self
             .client
             .create_multipart_upload()
@@ -54,7 +72,6 @@ impl StorageService {
         let mut hasher = Sha256::new();
         let mut total_size = 0;
 
-        // 10MB chunks are a good balance for 50k concurrency vs memory usage
         let chunk_size = 10 * 1024 * 1024;
         let mut buffer = vec![0u8; chunk_size];
 
@@ -118,7 +135,7 @@ impl StorageService {
         })
     }
 
-    pub async fn copy_object(&self, source_key: &str, dest_key: &str) -> Result<()> {
+    async fn copy_object(&self, source_key: &str, dest_key: &str) -> Result<()> {
         self.client
             .copy_object()
             .bucket(&self.bucket)
@@ -129,7 +146,7 @@ impl StorageService {
         Ok(())
     }
 
-    pub async fn delete_file(&self, key: &str) -> Result<()> {
+    async fn delete_file(&self, key: &str) -> Result<()> {
         self.client
             .delete_object()
             .bucket(&self.bucket)
@@ -139,7 +156,7 @@ impl StorageService {
         Ok(())
     }
 
-    pub async fn file_exists(&self, key: &str) -> Result<bool> {
+    async fn file_exists(&self, key: &str) -> Result<bool> {
         let res = self
             .client
             .head_object()
@@ -161,11 +178,11 @@ impl StorageService {
         }
     }
 
-    pub async fn get_download_url(&self, _key: &str) -> Result<String> {
-        Ok(format!("{}/{}", self.bucket, _key))
+    async fn get_download_url(&self, key: &str) -> Result<String> {
+        Ok(format!("{}/{}", self.bucket, key))
     }
 
-    pub async fn get_object_stream(&self, key: &str) -> Result<ByteStream> {
+    async fn get_object_stream(&self, key: &str) -> Result<ByteStream> {
         let res = self
             .client
             .get_object()

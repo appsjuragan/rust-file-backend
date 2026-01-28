@@ -1,8 +1,24 @@
 use aws_sdk_s3::config::{Credentials, Region};
 use dotenvy::dotenv;
-use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::services::storage::{StorageService, S3StorageService};
+
 use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
+
+#[derive(sqlx::FromRow)]
+struct UserRow {
+    id: String,
+    username: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct FileRow {
+    user_file_id: String,
+    filename: String,
+    s3_key: String,
+    size: i64,
+    hash: String,
+}
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +34,8 @@ async fn main() {
         .expect("Failed to connect to DB");
 
     // 2. Setup S3
-    let endpoint = env::var("MINIO_ENDPOINT").unwrap_or_else(|_| "http://localhost:9000".to_string());
+    let endpoint =
+        env::var("MINIO_ENDPOINT").unwrap_or_else(|_| "http://localhost:9000".to_string());
     let access_key = env::var("MINIO_ACCESS_KEY").unwrap_or_else(|_| "minioadmin".to_string());
     let secret_key = env::var("MINIO_SECRET_KEY").unwrap_or_else(|_| "minioadmin".to_string());
     let bucket = env::var("MINIO_BUCKET").unwrap_or_else(|_| "uploads".to_string());
@@ -28,11 +45,7 @@ async fn main() {
         .endpoint_url(&endpoint)
         .region(Region::new(region))
         .credentials_provider(Credentials::new(
-            access_key,
-            secret_key,
-            None,
-            None,
-            "static",
+            access_key, secret_key, None, None, "static",
         ))
         .load()
         .await;
@@ -42,10 +55,10 @@ async fn main() {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    let storage_service = StorageService::new(s3_client, bucket);
+    let storage_service = S3StorageService::new(s3_client, bucket);
 
     // 3. Check User
-    let user = sqlx::query!("SELECT id, username FROM users WHERE username = 'curluser'")
+    let user: Option<UserRow> = sqlx::query_as("SELECT id, username FROM users WHERE username = 'curluser'")
         .fetch_optional(&pool)
         .await
         .unwrap();
@@ -54,13 +67,13 @@ async fn main() {
         println!("User Found: {} ({})", u.username, u.id);
 
         // 4. Check Files
-        let files = sqlx::query!(
+        let files: Vec<FileRow> = sqlx::query_as(
             "SELECT uf.id as user_file_id, uf.filename, sf.s3_key, sf.size, sf.hash 
              FROM user_files uf
              JOIN storage_files sf ON uf.storage_file_id = sf.id
-             WHERE uf.user_id = $1",
-            u.id
+             WHERE uf.user_id = $1"
         )
+        .bind(&u.id)
         .fetch_all(&pool)
         .await
         .unwrap();
@@ -68,7 +81,7 @@ async fn main() {
         println!("Found {} files for user.", files.len());
 
         if files.is_empty() {
-             println!("WARNING: No files found for user!");
+            println!("WARNING: No files found for user!");
         }
 
         for file in files {

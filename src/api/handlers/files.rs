@@ -1,21 +1,23 @@
+use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
-use crate::services::scanner::ScanResult;
-use crate::services::metadata::MetadataService;
 use crate::utils::auth::Claims;
-use crate::utils::validation::{sanitize_filename, validate_upload};
+use crate::utils::validation::sanitize_filename;
 use axum::{
     Extension, Json,
     body::Body,
-    extract::{Multipart, Path, State, Query},
+    extract::{Multipart, Path, Query, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use futures::TryStreamExt;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, QuerySelect, RelationTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, RelationTrait,
+    Set,
+};
 use serde::Deserialize;
 use serde::Serialize;
-use tokio::io::AsyncReadExt;
+
 use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -112,13 +114,12 @@ pub async fn pre_check_dedup(
     State(state): State<crate::AppState>,
     Extension(_claims): Extension<Claims>,
     Json(req): Json<PreCheckRequest>,
-) -> Result<Json<PreCheckResponse>, (StatusCode, String)> {
+) -> Result<Json<PreCheckResponse>, AppError> {
     let existing = StorageFiles::find()
         .filter(storage_files::Column::Hash.eq(&req.full_hash))
         .filter(storage_files::Column::Size.eq(req.size))
         .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .await?;
 
     if let Some(file) = existing {
         Ok(Json(PreCheckResponse {
@@ -151,16 +152,16 @@ pub async fn upload_file(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     mut multipart: Multipart,
-) -> Result<Json<UploadResponse>, (StatusCode, String)> {
+) -> Result<Json<UploadResponse>, AppError> {
     let mut filename = String::new();
     let mut expiration_hours: Option<i64> = None;
     let mut parent_id: Option<String> = None;
-    let mut upload_result = None;
+    let mut staged_file = None;
 
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
+        .map_err(|e| AppError::BadRequest(e.to_string()))?
     {
         let name = field.name().unwrap_or_default().to_string();
 
@@ -170,194 +171,44 @@ pub async fn upload_file(
 
             // 1. Sanitize filename
             filename = sanitize_filename(&original_filename)
-                .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+                .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
-            // 2. Peek into stream for magic bytes
+            // 2. Create reader
             let body_with_io_error =
-                field.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err));
-            let mut reader = StreamReader::new(body_with_io_error);
+                field.map_err(std::io::Error::other);
+            let reader = StreamReader::new(body_with_io_error);
 
-            let mut header_buffer = [0u8; 1024]; // Read up to 1KB header
-            let n = reader.read(&mut header_buffer).await.map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Read error: {}", e),
-                )
-            })?;
-            let header = &header_buffer[..n];
-
-            // 3. Early Validation (MIME + Magic Bytes)
-            validate_upload(&filename, content_type.as_deref(), 0, header)
-                .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-
-            // Reconstruct stream
-            let header_cursor = std::io::Cursor::new(header.to_vec());
-            let chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
-
-            // 4. Upload to Staging
-            let staging_key = format!("staging/{}", Uuid::new_v4());
-            let res = state
-                .storage
-                .upload_stream_with_hash(&staging_key, chained_reader)
-                .await
-                .map_err(|e| {
-                    tracing::error!("S3 staging upload failed: {:?}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-                })?;
-
-            // 5. Post-upload Size Validation
-            if let Err(e) = crate::utils::validation::validate_file_size(res.size as usize) {
-                let _ = state.storage.delete_file(&staging_key).await;
-                return Err((StatusCode::PAYLOAD_TOO_LARGE, e.to_string()));
-            }
-
-            upload_result = Some(res);
+            // 3. Upload to Staging
+            staged_file = Some(
+                state
+                    .file_service
+                    .upload_to_staging(&filename, content_type.as_deref(), reader)
+                    .await?,
+            );
         } else if name == "expiration_hours" {
             let text = field.text().await.unwrap_or_default();
             expiration_hours = text.parse().ok();
         } else if name == "parent_id" {
-             let text = field.text().await.unwrap_or_default();
-             if !text.is_empty() && text != "null" {
-                 parent_id = Some(text);
-             }
-        }
-    }
-
-    let upload = upload_result.ok_or((StatusCode::BAD_REQUEST, "No file provided".to_string()))?;
-
-    // Check for deduplication
-    let existing_storage_file = StorageFiles::find()
-        .filter(storage_files::Column::Hash.eq(&upload.hash))
-        .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let mut analysis_result = None;
-    let storage_file_id = if let Some(sf) = existing_storage_file {
-        // Deduplication hit! Increment ref_count
-        let mut active: storage_files::ActiveModel = sf.clone().into();
-        active.ref_count = Set(sf.ref_count + 1);
-        active
-            .update(&state.db)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        let _ = state.storage.delete_file(&upload.s3_key).await;
-        sf.id
-    } else {
-        // New unique file! Read bytes for analysis and scanning
-        let stream = state
-            .storage
-            .get_object_stream(&upload.s3_key)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to open for processing: {}", e),
-                )
-            })?;
-
-        let bytes = stream
-            .collect()
-            .await
-            .map(|b| b.into_bytes())
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        // 6. Virus Scanning
-        if state.config.enable_virus_scan {
-            match state.scanner.scan(&bytes).await {
-                Ok(ScanResult::Clean) => {
-                    tracing::info!("Virus scan passed for {}", upload.hash);
-                }
-                Ok(ScanResult::Infected { threat_name }) => {
-                    tracing::warn!("Virus detected in {}: {}", upload.hash, threat_name);
-                    let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        format!("File rejected: Virus detected ({})", threat_name),
-                    ));
-                }
-                _ => {
-                    tracing::error!("Virus scan failed or errored");
-                    let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((StatusCode::INTERNAL_SERVER_ERROR, "Scan error".to_string()));
-                }
+            let text = field.text().await.unwrap_or_default();
+            if !text.is_empty() && text != "null" {
+                parent_id = Some(text);
             }
         }
-
-        // 7. Metadata Analysis
-        let analysis = MetadataService::analyze(&bytes, &filename);
-        let mime_type = analysis.metadata["mime_type"].as_str().unwrap_or("application/octet-stream").to_string();
-        analysis_result = Some(analysis);
-
-        let id = Uuid::new_v4().to_string();
-        let permanent_key = format!("{}/{}", upload.hash, filename);
-
-        state
-            .storage
-            .copy_object(&upload.s3_key, &permanent_key)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("S3 move failed: {}", e),
-                )
-            })?;
-
-        let _ = state.storage.delete_file(&upload.s3_key).await;
-
-        let new_storage_file = storage_files::ActiveModel {
-            id: Set(id.clone()),
-            hash: Set(upload.hash),
-            s3_key: Set(permanent_key),
-            size: Set(upload.size),
-            ref_count: Set(1),
-            mime_type: Set(Some(mime_type)),
-            scan_status: Set(Some(
-                if state.config.enable_virus_scan {
-                    "clean"
-                } else {
-                    "unchecked"
-                }
-                .to_string(),
-            )),
-            scanned_at: Set(Some(Utc::now())),
-            ..Default::default()
-        };
-
-        new_storage_file
-            .insert(&state.db)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        id
-    };
-
-    let user_file_id = Uuid::new_v4().to_string();
-    let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
-
-    let new_user_file = user_files::ActiveModel {
-        id: Set(user_file_id.clone()),
-        user_id: Set(claims.sub),
-        storage_file_id: Set(Some(storage_file_id.clone())),
-        filename: Set(filename.clone()),
-        expires_at: Set(expires_at),
-        parent_id: Set(parent_id),
-        is_folder: Set(false),
-        ..Default::default()
-    };
-
-    new_user_file.insert(&state.db).await.map_err(|e| {
-        tracing::error!("Failed to insert user_file: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
-
-    // 8. Save Metadata and Tags (Async)
-    // Always call save_metadata_and_tags. If analysis_result is None (dedup), 
-    // it will fetch existing metadata to link tags to this new user_file.
-    if let Err(e) = save_metadata_and_tags(&state.db, &storage_file_id, &user_file_id, analysis_result).await {
-        tracing::error!("Failed to save metadata and tags: {}", e);
     }
+
+    let staged = staged_file.ok_or(AppError::BadRequest("No file provided".to_string()))?;
+
+    // 4. Process Upload
+    let (user_file_id, expires_at) = state
+        .file_service
+        .process_upload(
+            staged,
+            filename.clone(),
+            claims.sub,
+            parent_id,
+            expiration_hours,
+        )
+        .await?;
 
     Ok(Json(UploadResponse {
         file_id: user_file_id,
@@ -386,36 +237,38 @@ pub async fn download_file(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Path(file_id): Path<String>,
-) -> Result<Response, (StatusCode, String)> {
+) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
     let user_file = UserFiles::find_by_id(file_id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((
-            StatusCode::NOT_FOUND,
+        .await?
+        .ok_or(AppError::NotFound(
             "File not found, access denied, or already deleted".to_string(),
         ))?;
 
     if user_file.is_folder {
-        return Err((StatusCode::BAD_REQUEST, "Cannot download a folder".to_string()));
+        return Err(AppError::BadRequest("Cannot download a folder".to_string()));
     }
 
-    let storage_file_id = user_file.storage_file_id.ok_or((StatusCode::NOT_FOUND, "Storage file missing".to_string()))?;
+    let storage_file_id = user_file
+        .storage_file_id
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
 
     // 2. Check expiration
-    if user_file.expires_at.is_some_and(|expires| Utc::now() > expires) {
-        return Err((StatusCode::GONE, "File has expired".to_string()));
+    if user_file
+        .expires_at
+        .is_some_and(|expires| Utc::now() > expires)
+    {
+        return Err(AppError::Gone("File has expired".to_string()));
     }
 
     // 3. Get storage file
     let storage_file = StorageFiles::find_by_id(storage_file_id)
         .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::NOT_FOUND, "Storage file not found".to_string()))?;
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
     // 4. Get stream from S3
     let stream = state
@@ -424,10 +277,7 @@ pub async fn download_file(
         .await
         .map_err(|e| {
             tracing::error!("Failed to get S3 object stream: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to retrieve file".to_string(),
-            )
+            AppError::Internal("Failed to retrieve file".to_string())
         })?;
 
     // 5. Return stream response
@@ -467,7 +317,7 @@ pub async fn list_files(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Query(query): Query<ListFilesQuery>,
-) -> Result<Json<Vec<FileMetadataResponse>>, (StatusCode, String)> {
+) -> Result<Json<Vec<FileMetadataResponse>>, AppError> {
     let mut cond = Condition::all()
         .add(user_files::Column::UserId.eq(&claims.sub))
         .add(user_files::Column::DeletedAt.is_null()); // Exclude soft-deleted items
@@ -510,7 +360,11 @@ pub async fn list_files(
     // Join with FileMetadata for category filter
     if let Some(cat) = query.category {
         // We join FileMetadata using the already joined StorageFiles
-        select = select.join(sea_orm::JoinType::InnerJoin, storage_files::Relation::FileMetadata.def())
+        select = select
+            .join(
+                sea_orm::JoinType::InnerJoin,
+                storage_files::Relation::FileMetadata.def(),
+            )
             .filter(file_metadata::Column::Category.eq(cat));
     }
 
@@ -518,16 +372,20 @@ pub async fn list_files(
     if let Some(tags_str) = query.tags {
         let tag_list: Vec<String> = tags_str.split(',').map(|s| s.trim().to_string()).collect();
         if let Some(tag_name) = tag_list.first() {
-             select = select.join(sea_orm::JoinType::InnerJoin, user_files::Relation::FileTags.def())
-                 .join(sea_orm::JoinType::InnerJoin, file_tags::Relation::Tags.def())
-                 .filter(tags::Column::Name.eq(tag_name));
+            select = select
+                .join(
+                    sea_orm::JoinType::InnerJoin,
+                    user_files::Relation::FileTags.def(),
+                )
+                .join(
+                    sea_orm::JoinType::InnerJoin,
+                    file_tags::Relation::Tags.def(),
+                )
+                .filter(tags::Column::Name.eq(tag_name));
         }
     }
 
-    let items = select
-        .all(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let items = select.all(&state.db).await?;
 
     let mut result = Vec::new();
     for (user_file, storage_file) in items {
@@ -538,7 +396,7 @@ pub async fn list_files(
             .all(&state.db)
             .await
             .unwrap_or_default();
-        
+
         let tags_vec: Vec<String> = tags_items.into_iter().map(|t| t.name).collect();
 
         let metadata = if let Some(ref sf) = storage_file {
@@ -570,7 +428,6 @@ pub async fn list_files(
     Ok(Json(result))
 }
 
-
 #[utoipa::path(
     post,
     path = "/folders",
@@ -587,9 +444,9 @@ pub async fn create_folder(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Json(req): Json<CreateFolderRequest>,
-) -> Result<Json<FileMetadataResponse>, (StatusCode, String)> {
+) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
-    
+
     let new_folder = user_files::ActiveModel {
         id: Set(id.clone()),
         user_id: Set(claims.sub),
@@ -601,9 +458,10 @@ pub async fn create_folder(
         ..Default::default()
     };
 
-    new_folder.insert(&state.db).await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    new_folder
+        .insert(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(FileMetadataResponse {
         id,
@@ -639,38 +497,42 @@ pub async fn delete_item(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, AppError> {
     use crate::services::storage_lifecycle::StorageLifecycleService;
 
     let item = UserFiles::find_by_id(id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null()) // Only non-deleted items
         .one(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::NOT_FOUND, "Item not found or already deleted".to_string()))?;
+        .await?
+        .ok_or(AppError::NotFound(
+            "Item not found or already deleted".to_string(),
+        ))?;
 
     if item.is_folder {
         // Recursively delete folder and all children
-        StorageLifecycleService::delete_folder_recursive(&state.db, &state.storage, &item.id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to delete folder recursively: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-            })?;
+        StorageLifecycleService::delete_folder_recursive(
+            &state.db,
+            state.storage.as_ref(),
+            &item.id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to delete folder recursively: {}", e);
+            AppError::Internal(e.to_string())
+        })?;
     }
 
     // Soft delete the item and decrement ref count
-    StorageLifecycleService::soft_delete_user_file(&state.db, &state.storage, &item)
+    StorageLifecycleService::soft_delete_user_file(&state.db, state.storage.as_ref(), &item)
         .await
         .map_err(|e| {
             tracing::error!("Failed to soft delete user file: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            AppError::Internal(e.to_string())
         })?;
 
     Ok(StatusCode::OK)
 }
-
 
 #[utoipa::path(
     put,
@@ -693,25 +555,31 @@ pub async fn rename_item(
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
     Json(req): Json<RenameRequest>,
-) -> Result<Json<FileMetadataResponse>, (StatusCode, String)> {
-     let item = UserFiles::find_by_id(id)
+) -> Result<Json<FileMetadataResponse>, AppError> {
+    let item = UserFiles::find_by_id(id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::NOT_FOUND, "Item not found or already deleted".to_string()))?;
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::NotFound(
+            "Item not found or already deleted".to_string(),
+        ))?;
 
     let mut active: user_files::ActiveModel = item.clone().into();
     active.filename = Set(req.name.clone());
 
-    let updated = active.update(&state.db).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
+    let updated = active.update(&state.db).await?;
+
     // Need storage info to return full metadata
     let storage_file = if let Some(sid) = updated.storage_file_id.as_ref() {
-         StorageFiles::find_by_id(sid.clone()).one(&state.db).await.ok().flatten()
+        StorageFiles::find_by_id(sid.clone())
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
     } else {
-         None
+        None
     };
 
     // Fetch tags and metadata for response
@@ -721,7 +589,7 @@ pub async fn rename_item(
         .all(&state.db)
         .await
         .unwrap_or_default();
-    
+
     let tags_vec: Vec<String> = tags_items.into_iter().map(|t| t.name).collect();
 
     let metadata = if let Some(ref sf) = storage_file {
@@ -750,87 +618,6 @@ pub async fn rename_item(
     }))
 }
 
-async fn save_metadata_and_tags(
-    db: &sea_orm::DatabaseConnection,
-    storage_file_id: &str,
-    user_file_id: &str,
-    analysis: Option<crate::services::metadata::MetadataResult>,
-) -> Result<(), anyhow::Error> {
-    let tags_to_link = if let Some(a) = analysis {
-        tracing::debug!("Saving new metadata for storage_file_id: {}", storage_file_id);
-        // 1. Save Metadata if it doesn't exist for this storage file
-        let existing_meta = FileMetadata::find()
-            .filter(file_metadata::Column::StorageFileId.eq(storage_file_id))
-            .one(db)
-            .await?;
-
-        if existing_meta.is_none() {
-            let mut metadata_with_tags = a.metadata.clone();
-            metadata_with_tags["auto_tags"] = serde_json::json!(a.suggested_tags);
-            
-            let meta_model = file_metadata::ActiveModel {
-                id: Set(Uuid::new_v4().to_string()),
-                storage_file_id: Set(storage_file_id.to_string()),
-                category: Set(a.category.clone()),
-                metadata: Set(metadata_with_tags),
-                ..Default::default()
-            };
-            meta_model.insert(db).await?;
-            tracing::debug!("Inserted new metadata record");
-        }
-        a.suggested_tags
-    } else {
-        tracing::debug!("Dedup case, fetching metadata for storage_file_id: {}", storage_file_id);
-        // Dedup case: Fetch existing metadata to get auto_tags
-        let existing_meta = FileMetadata::find()
-            .filter(file_metadata::Column::StorageFileId.eq(storage_file_id))
-            .one(db)
-            .await?;
-        
-        if let Some(meta) = existing_meta {
-            meta.metadata["auto_tags"]
-                .as_array()
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
-                .unwrap_or_default()
-        } else {
-            tracing::debug!("No existing metadata found for deduped file");
-            Vec::new()
-        }
-    };
-
-    tracing::debug!("Linking {} tags to user_file_id: {}", tags_to_link.len(), user_file_id);
-
-    // 2. Link Tags to UserFile
-    for tag_name in tags_to_link {
-        // Find or create tag
-        let tag = match Tags::find()
-            .filter(tags::Column::Name.eq(&tag_name))
-            .one(db)
-            .await?
-        {
-            Some(t) => t,
-            None => {
-                let new_tag = tags::ActiveModel {
-                    id: Set(Uuid::new_v4().to_string()),
-                    name: Set(tag_name.clone()),
-                    ..Default::default()
-                };
-                new_tag.insert(db).await?
-            }
-        };
-
-        // Link to user file
-        let link = file_tags::ActiveModel {
-            user_file_id: Set(user_file_id.to_string()),
-            tag_id: Set(tag.id),
-            ..Default::default()
-        };
-        let _ = link.insert(db).await; // Ignore duplicate links
-    }
-
-    Ok(())
-}
-
 #[utoipa::path(
     post,
     path = "/files/bulk-delete",
@@ -848,23 +635,23 @@ pub async fn bulk_delete(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDeleteRequest>,
-) -> Result<Json<BulkDeleteResponse>, (StatusCode, String)> {
+) -> Result<Json<BulkDeleteResponse>, AppError> {
     use crate::services::storage_lifecycle::StorageLifecycleService;
 
     if req.item_ids.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "No items provided".to_string()));
+        return Err(AppError::BadRequest("No items provided".to_string()));
     }
 
     let deleted_count = StorageLifecycleService::bulk_delete(
         &state.db,
-        &state.storage,
+        state.storage.as_ref(),
         &claims.sub,
         req.item_ids,
     )
     .await
     .map_err(|e| {
         tracing::error!("Bulk delete failed: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        AppError::Internal(e.to_string())
     })?;
 
     Ok(Json(BulkDeleteResponse { deleted_count }))

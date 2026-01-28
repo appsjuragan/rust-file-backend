@@ -6,8 +6,9 @@ use axum::{
 use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
 use rust_file_backend::entities::{prelude::*, *};
+use rust_file_backend::services::file_service::FileService;
 use rust_file_backend::services::scanner::NoOpScanner;
-use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::services::storage::{S3StorageService, StorageService};
 use rust_file_backend::{AppState, create_app};
 use sea_orm::{ColumnTrait, ConnectionTrait, Database, EntityTrait, PaginatorTrait, QueryFilter};
 use serde_json::Value;
@@ -47,7 +48,7 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db
 }
 
-async fn setup_s3() -> Arc<StorageService> {
+async fn setup_s3() -> Arc<dyn StorageService> {
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
@@ -66,19 +67,29 @@ async fn setup_s3() -> Arc<StorageService> {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    Arc::new(StorageService::new(s3_client, "uploads".to_string()))
+    Arc::new(S3StorageService::new(s3_client, "uploads".to_string()))
 }
 
 #[tokio::test]
 async fn test_upload_flow() {
     let db = setup_test_db().await;
     let storage_service = setup_s3().await;
+    let scanner_service = Arc::new(NoOpScanner);
+    let config = SecurityConfig::development();
+
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        config.clone(),
+    ));
 
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
-        config: SecurityConfig::development(),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
+        config: config.clone(),
     };
 
     let app = create_app(state);
@@ -277,11 +288,7 @@ async fn test_expiration_logic() {
 
         // Get and update storage file
         if let Some(storage_id) = file.storage_file_id.clone() {
-            if let Some(sf) = StorageFiles::find_by_id(storage_id)
-                .one(&db)
-                .await
-                .unwrap()
-            {
+            if let Some(sf) = StorageFiles::find_by_id(storage_id).one(&db).await.unwrap() {
                 let new_count = sf.ref_count - 1;
                 let mut active_sf: storage_files::ActiveModel = sf.clone().into();
                 active_sf.ref_count = Set(new_count);

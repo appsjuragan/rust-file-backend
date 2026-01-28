@@ -6,8 +6,9 @@ use axum::{
 use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
 use rust_file_backend::entities::prelude::*;
+use rust_file_backend::services::file_service::FileService;
 use rust_file_backend::services::scanner::NoOpScanner;
-use rust_file_backend::services::storage::StorageService;
+use rust_file_backend::services::storage::{S3StorageService, StorageService};
 use rust_file_backend::{AppState, create_app};
 use sea_orm::{ConnectionTrait, Database, EntityTrait};
 use serde_json::Value;
@@ -45,7 +46,7 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db
 }
 
-async fn setup_s3() -> Arc<StorageService> {
+async fn setup_s3() -> Arc<dyn StorageService> {
     let config = aws_config::from_env()
         .endpoint_url("http://127.0.0.1:9000")
         .region(Region::new("us-east-1"))
@@ -64,7 +65,7 @@ async fn setup_s3() -> Arc<StorageService> {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-    Arc::new(StorageService::new(s3_client, "uploads".to_string()))
+    Arc::new(S3StorageService::new(s3_client, "uploads".to_string()))
 }
 
 #[tokio::test]
@@ -76,10 +77,19 @@ async fn test_large_file_uploads_and_dedup() {
     let mut sec_config = SecurityConfig::development();
     sec_config.max_file_size = 500 * 1024 * 1024; // 500 MB
 
+    let scanner_service = Arc::new(NoOpScanner);
+    let file_service = Arc::new(FileService::new(
+        db.clone(),
+        storage_service.clone(),
+        scanner_service.clone(),
+        sec_config.clone(),
+    ));
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: Arc::new(NoOpScanner),
+        scanner: scanner_service.clone(),
+        file_service: file_service.clone(),
         config: sec_config.clone(),
     };
 

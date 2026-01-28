@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, Algorithm, decode, encode};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -36,14 +36,13 @@ pub fn validate_jwt(token: &str, secret: &str) -> Result<Claims> {
         val.validate_aud = false; // Allow any audience for generic OIDC compatibility
         (DecodingKey::from_rsa_pem(public_key.as_bytes())?, val)
     } else {
-        (DecodingKey::from_secret(secret.as_ref()), Validation::default())
+        (
+            DecodingKey::from_secret(secret.as_ref()),
+            Validation::default(),
+        )
     };
 
-    let token_data = decode::<Claims>(
-        token,
-        &decoding_key,
-        &validation,
-    )?;
+    let token_data = decode::<Claims>(token, &decoding_key, &validation)?;
 
     Ok(token_data.claims)
 }

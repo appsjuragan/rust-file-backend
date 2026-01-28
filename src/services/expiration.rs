@@ -1,14 +1,11 @@
 use crate::entities::{prelude::*, *};
 use crate::services::storage::StorageService;
 use chrono::Utc;
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect};
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
-pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<StorageService>) {
+pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<dyn StorageService>) {
     loop {
         tracing::info!("Running expiration worker...");
 
@@ -24,7 +21,7 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<StorageServi
 
                 if let Err(e) = crate::services::storage_lifecycle::StorageLifecycleService::soft_delete_user_file(
                     &db,
-                    &storage,
+                    storage.as_ref(),
                     &file,
                 ).await {
                     tracing::error!("Failed to expire file {}: {}", file.id, e);
