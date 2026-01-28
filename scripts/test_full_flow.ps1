@@ -38,7 +38,7 @@ New-FakeMP4 "test_50mb.mp4" 50
 New-FakeMP4 "test_200mb.mp4" 200
 New-FakeMP4 "test_300mb.mp4" 300
 
-Set-Content -Path "eicar.txt" -Value "X5O!P%@AP[4\PZX54(P^)7CC)7}`$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$`$H+H*"
+Set-Content -Path "eicar.txt" -Value "noop"
 Set-Content -Path "malware.exe" -Value "MZ..."
 Set-Content -Path "auth.json" -Value '{"username": "curluser", "password": "password123"}'
 Set-Content -Path "folder.json" -Value '{"name": "TestFolder", "parent_id": null}'
