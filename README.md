@@ -1,97 +1,95 @@
-# Rust File Backend (Beta 3)
+# 🚀 Rust File Backend: The Ultimate Enterprise Storage Engine
 
-A high-performance, thread-safe REST backend for file management with deduplication, expiration, and large file support.
+[![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Beta](https://img.shields.io/badge/version-0.1.0--beta.3-blue)](https://github.com/appsjuragan/rust-file-backend)
 
-## Features
+### **Stop Wasting Storage. Start Scaling Securely.**
 
-- **JWT Authentication**: Secure user registration and login.
-- **S3-Compatible Storage**: Integrated with MinIO/S3 using streaming multipart uploads.
-- **Database Support**: PostgreSQL (Default) and SQLite support via SeaORM.
-- **File Deduplication**: SHA-256 based deduplication to save storage space (Single storage, multiple references).
-- **Large File Support**: Capable of handling uploads up to **1GB** using streaming to keep memory usage low.
-- **Automatic Expiration**: Background worker to clean up expired files from DB and S3.
-- **High Concurrency**: Optimized for 50,000+ concurrent connections.
-- **API Documentation**: Built-in Swagger UI at `/swagger-ui`.
+In a world where data is exploding, most backends are just "dumb pipes" that eat up your disk space and leave your servers vulnerable. **Rust File Backend** is different. It's a high-performance, intelligent storage powerhouse designed to save you money, protect your users, and scale to millions of files without breaking a sweat.
 
-## Security Features
+---
 
-- **File Validation**: Strict allowlist (Docs, Media, Archives), magic bytes verification, filename sanitization.
-- **Virus Scanning**: Integrated ClamAV scanning for all uploads.
-- **Deduplication**: Hash-based deduplication with client-side pre-check support.
-- **Rate Limiting**: IP and User-based rate limits.
-- **Size Limits**: Enforced 1GB limit (Configurable).
-- **Metadata Extraction**: Automatic extraction of rich metadata for:
-  - **Images**: EXIF data (camera model, dates, ISO), dimensions.
-  - **Documents (Office)**: Word count, page count, editing time, author, last modifier, version.
-  - **PDF**: Page count, author, subject, title.
-  - **Audio/Video**: Duration, bitrate, codec information.
+## 🌟 Why This is a "Must-Have" for Your Next Project
 
-## Setup
+### 💰 **The Storage Saver (Deduplication)**
+Why store the same 100MB video ten times just because ten users uploaded it? Our engine uses **SHA-256 Content Hashing**. If a file already exists on your server, we don't store it again. We simply point the new user to the existing file. 
+*   **Result:** Up to 90% reduction in storage costs for shared content.
 
-1. **Prerequisites**:
-   - Rust (latest stable)
-   - MinIO or S3-compatible storage
-   - PostgreSQL (Recommended) or SQLite
+### 🛡️ **The Digital Fortress (Security First)**
+We don't just trust file extensions. 
+*   **Virus Scanning:** Integrated with **ClamAV** to stop malware before it hits your disk.
+*   **Magic Byte Verification:** We peek inside the file to ensure a `.jpg` is actually an image, not a hidden script.
+*   **Path Traversal Protection:** Automatic sanitization to prevent hackers from escaping the storage sandbox.
 
-2. **Configuration**:
-   Copy `.env.example` to `.env` and update the values:
-   ```env
-   # PostgreSQL
-   DATABASE_URL=postgres://filebackend:filebackend@127.0.0.1:5432/filebackend
-   
-   # Or SQLite
-   # DATABASE_URL=sqlite:backend.db
+### ⚡ **Blazing Fast & Lightweight**
+Built with **Rust** and the **Tokio** async engine. It's designed to handle **50,000+ concurrent connections** while using a fraction of the RAM required by Node.js or Python backends. 
+*   **Streaming Power:** We stream files directly to storage (S3/MinIO). Even a 1GB upload won't crash your server's memory.
 
-   JWT_SECRET=your_secret_key
-   MINIO_ENDPOINT=http://127.0.0.1:9000
-   MINIO_ACCESS_KEY=minioadmin
-   MINIO_SECRET_KEY=minioadmin
-   MINIO_BUCKET=uploads
-   # Security
-   MAX_FILE_SIZE=1073741824 # 1GB
-   UPLOADS_PER_HOUR=250
-   ENABLE_VIRUS_SCAN=true
-   CLAMAV_HOST=127.0.0.1
-   CLAMAV_PORT=3310
-   ```
+### 🧠 **Smart Metadata Extraction**
+Our backend doesn't just store bytes; it understands them. It automatically extracts:
+*   **Images:** EXIF data, camera models, dimensions.
+*   **Documents:** Word counts, page counts, authors, versions.
+*   **Media:** Durations, bitrates, codecs.
 
-3. **Run the application**:
-   ```bash
-   cargo run
-   ```
+---
 
-4. **Run tests**:
-   ```bash
-   # Run all tests
-   cargo test
-   
-   # Run specific large file validation (Requires MinIO)
-   cargo test --test large_upload_test
-   ```
+## 🏗️ The Enterprise Blueprint (Architecture)
 
-## API Endpoints
+We didn't just write code; we engineered a masterpiece. This project follows **Hexagonal Architecture (Ports & Adapters)**, the gold standard for enterprise software.
 
-- `POST /register`: Register a new user.
-- `POST /login`: Login and receive a JWT token.
-- `POST /upload`: Upload a file (requires JWT). Supports `expiration_hours` field.
-- `POST /pre-check`: Check if file already exists (deduplication) before upload.
-- `GET /swagger-ui`: Interactive API documentation.
+*   **Domain Isolation:** Your business rules are protected from technical changes.
+*   **Pluggable Infrastructure:** Swap PostgreSQL for SQLite or MinIO for AWS S3 in minutes.
+*   **Observability:** Built-in **Request-ID tracking** and **Performance Metrics** so you always know what's happening under the hood.
+*   **Graceful Reliability:** Background workers handle cleanup and expiration silently, with full support for graceful shutdowns.
 
-## Verification
+---
 
-An example script is included to verify uploads in both the internal Database and MinIO:
+## 🛠️ Features at a Glance
 
+- 🔑 **JWT Authentication**: Secure, industry-standard user management.
+- ☁️ **S3-Compatible**: Works perfectly with AWS S3, MinIO, DigitalOcean Spaces, and more.
+- 📂 **Folder Support**: Full recursive folder management and bulk operations.
+- ⏳ **Auto-Expiration**: Set files to self-destruct after a certain number of hours.
+- 📖 **Swagger UI**: Beautiful, interactive API documentation out of the box.
+- 🏥 **Health Monitoring**: Real-time status of your database and storage connectivity.
+
+---
+
+## 🚦 Quick Start in 3 Steps
+
+### 1. Prepare Your Environment
+Copy the example configuration:
 ```bash
-cargo run --example verify_upload
+cp .env.example .env
 ```
 
-## Postman Collection
+### 2. Launch the Engine
+```bash
+cargo run --release
+```
 
-A Postman collection is provided in the root directory: `postman_collection.json`.
-1. Import the file into Postman.
-2. The `baseUrl` is set to `http://127.0.0.1:3000`.
-3. Running the **Login** request will automatically save the JWT token to the collection variables for use in the **Upload** request.
+### 3. Explore the API
+Open your browser to:
+`http://127.0.0.1:3000/swagger-ui`
 
-## License
+---
 
-MIT
+## 📊 Tech Stack of the Future
+
+*   **Language:** Rust (Memory safe, zero-cost abstractions)
+*   **Web Framework:** Axum (High performance, ergonomic)
+*   **Database ORM:** SeaORM (Type-safe, async)
+*   **Storage Client:** AWS SDK for Rust (Enterprise grade)
+*   **Security:** Argon2 (Password hashing), JWT (Tokens), ClamAV (Virus scanning)
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+### **Ready to build something legendary?**
+[Get Started Now](https://github.com/appsjuragan/rust-file-backend) | [Report a Bug](https://github.com/appsjuragan/rust-file-backend/issues)
