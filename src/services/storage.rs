@@ -24,8 +24,15 @@ pub trait StorageService: Send + Sync {
     async fn delete_file(&self, key: &str) -> Result<()>;
     async fn file_exists(&self, key: &str) -> Result<bool>;
     async fn get_download_url(&self, key: &str) -> Result<String>;
-    async fn get_object_stream(&self, key: &str) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
-    async fn get_object_range(&self, key: &str, range: &str) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
+    async fn get_object_stream(
+        &self,
+        key: &str,
+    ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
+    async fn get_object_range(
+        &self,
+        key: &str,
+        range: &str,
+    ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
 }
 
 pub struct S3StorageService {
@@ -137,7 +144,8 @@ impl StorageService for S3StorageService {
     }
 
     async fn copy_object(&self, source_key: &str, dest_key: &str) -> Result<()> {
-        let res = self.client
+        let res = self
+            .client
             .copy_object()
             .bucket(&self.bucket)
             .copy_source(format!("{}/{}", self.bucket, source_key))
@@ -146,7 +154,13 @@ impl StorageService for S3StorageService {
             .await;
 
         if let Err(e) = res {
-            tracing::error!("S3 copy_object failed: source={}/{}, dest={}, error={:?}", self.bucket, source_key, dest_key, e);
+            tracing::error!(
+                "S3 copy_object failed: source={}/{}, dest={}, error={:?}",
+                self.bucket,
+                source_key,
+                dest_key,
+                e
+            );
             return Err(e.into());
         }
         Ok(())
@@ -188,7 +202,10 @@ impl StorageService for S3StorageService {
         Ok(format!("{}/{}", self.bucket, key))
     }
 
-    async fn get_object_stream(&self, key: &str) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
+    async fn get_object_stream(
+        &self,
+        key: &str,
+    ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
         let res = self
             .client
             .get_object()
@@ -199,7 +216,11 @@ impl StorageService for S3StorageService {
         Ok(res)
     }
 
-    async fn get_object_range(&self, key: &str, range: &str) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
+    async fn get_object_range(
+        &self,
+        key: &str,
+        range: &str,
+    ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
         let res = self
             .client
             .get_object()

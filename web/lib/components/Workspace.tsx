@@ -30,12 +30,16 @@ const columnHelper = createColumnHelper<FileType>()
 const columns = [
   columnHelper.accessor('name', {
     header: () => 'Name',
-    cell: info => (
-      <div className="rfm-workspace-list-icon-td">
-        <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon" />
-        <p>{info.getValue()}</p>
-      </div>
-    ),
+    cell: info => {
+      const isPending = info.row.original.scanStatus === 'pending';
+      return (
+        <div className={`rfm-workspace-list-icon-td ${isPending ? 'rfm-pending' : ''}`}>
+          <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon" />
+          <p>{info.getValue()}</p>
+          {isPending && <span className="rfm-scanning-badge">Scanning...</span>}
+        </div>
+      );
+    },
   }),
   columnHelper.accessor('lastModified', {
     header: () => 'Last Modified',
@@ -118,6 +122,7 @@ const Workspace = () => {
   })
 
   const handleClick = async (file: FileType) => {
+    if (file.scanStatus === 'pending') return;
 
     if (file.isDir) {
       setCurrentFolder(file.id);
@@ -136,9 +141,10 @@ const Workspace = () => {
 
   };
 
-  const handleDoubleClick = (id: string) => {
+  const handleDoubleClick = (file: FileType) => {
+    if (file.scanStatus === 'pending') return;
     if (onDoubleClick) {
-      onDoubleClick(id)
+      onDoubleClick(file.id)
     }
   }
 
@@ -162,16 +168,21 @@ const Workspace = () => {
         {viewStyle === ViewStyle.Icons && (
           <>
             {currentFolderFiles.map((f: FileType, key: number) => {
+              const isPending = f.scanStatus === 'pending';
               return (
                 <button
-                  onDoubleClick={() => handleDoubleClick(f.id)}
+                  onDoubleClick={() => handleDoubleClick(f)}
                   key={key}
                   onContextMenu={(e) => {
+                    if (isPending) return;
                     e.stopPropagation();
                     handleContextMenu(e, f);
                   }}
+                  className={isPending ? "rfm-pending" : ""}
+                  disabled={isPending}
                 >
                   <FileIcon id={f.id} name={f.name} isDir={f.isDir} />
+                  {isPending && <div className="rfm-scanning-overlay">Scanning...</div>}
                 </button>
               )
             }
@@ -211,7 +222,7 @@ const Workspace = () => {
                     }}
                   >
                     {row.getVisibleCells().map(cell => (
-                      <td className="rfm-workspace-list-align-txt" key={cell.id} onClick={() => handleClick(row.original)} onDoubleClick={() => handleDoubleClick(row.original.id)}>
+                      <td className="rfm-workspace-list-align-txt" key={cell.id} onClick={() => handleClick(row.original)} onDoubleClick={() => handleDoubleClick(row.original)}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}

@@ -2,20 +2,17 @@ use crate::api::error::AppError;
 use crate::config::SecurityConfig;
 use crate::entities::{prelude::*, *};
 use crate::services::metadata::MetadataService;
-use crate::services::scanner::{ScanResult, VirusScanner};
 use crate::services::storage::StorageService;
 use crate::utils::validation::{validate_file_size, validate_upload};
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio_util::io::StreamReader;
 use uuid::Uuid;
 
 pub struct FileService {
     db: DatabaseConnection,
     storage: Arc<dyn StorageService>,
-    scanner: Arc<dyn VirusScanner>,
     config: SecurityConfig,
 }
 
@@ -30,13 +27,11 @@ impl FileService {
     pub fn new(
         db: DatabaseConnection,
         storage: Arc<dyn StorageService>,
-        scanner: Arc<dyn VirusScanner>,
         config: SecurityConfig,
     ) -> Self {
         Self {
             db,
             storage,
-            scanner,
             config,
         }
     }
@@ -65,13 +60,25 @@ impl FileService {
 
         // 3. Upload to Staging
         let staging_key = format!("staging/{}", Uuid::new_v4());
+        tracing::info!(
+            "Starting S3 staging upload for {} to {}",
+            filename,
+            staging_key
+        );
         let res = self
             .storage
             .upload_stream_with_hash(&staging_key, Box::new(chained_reader))
             .await
             .map_err(|e| {
-                tracing::error!("S3 staging upload failed: {:?}", e);
-                AppError::Internal(e.to_string())
+                let err_msg = e.to_string();
+                if err_msg.contains("length limit exceeded") {
+                    AppError::PayloadTooLarge(
+                        "File size exceeds the maximum allowed limit".to_string(),
+                    )
+                } else {
+                    tracing::error!("S3 staging upload failed for {}: {:?}", filename, e);
+                    AppError::Internal(format!("Upload failed: {}", e))
+                }
             })?;
 
         // 4. Post-upload Size Validation
@@ -113,44 +120,22 @@ impl FileService {
             sf.id
         } else {
             // New unique file!
-            
-            // 1. Download file from staging for processing
+
+            // 1. Download file from staging for processing (needed for metadata)
             let stream = self
                 .storage
                 .get_object_stream(&staged.s3_key)
                 .await
                 .map_err(|e| AppError::Internal(format!("Failed to open for processing: {}", e)))?;
 
-            let bytes = stream.body
+            let bytes = stream
+                .body
                 .collect()
                 .await
                 .map(|b| b.into_bytes())
                 .map_err(|e| AppError::Internal(e.to_string()))?;
 
-            // 2. Virus Scanning
-            if self.config.enable_virus_scan {
-                let reader = Box::pin(std::io::Cursor::new(bytes.clone()));
-                match self.scanner.scan(reader).await {
-                    Ok(ScanResult::Clean) => {
-                        tracing::info!("Virus scan passed for {}", staged.hash);
-                    }
-                    Ok(ScanResult::Infected { threat_name }) => {
-                        tracing::warn!("Virus detected in {}: {}", staged.hash, threat_name);
-                        let _ = self.storage.delete_file(&staged.s3_key).await;
-                        return Err(AppError::BadRequest(format!(
-                            "File rejected: Virus detected ({})",
-                            threat_name
-                        )));
-                    }
-                    _ => {
-                        tracing::error!("Virus scan failed or errored");
-                        let _ = self.storage.delete_file(&staged.s3_key).await;
-                        return Err(AppError::Internal("Scan error".to_string()));
-                    }
-                }
-            }
-
-            // 3. Metadata Analysis
+            // 2. Metadata Analysis
             let analysis = MetadataService::analyze(&bytes, &filename);
             let mime_type = analysis.metadata["mime_type"]
                 .as_str()
@@ -178,13 +163,13 @@ impl FileService {
                 mime_type: Set(Some(mime_type)),
                 scan_status: Set(Some(
                     if self.config.enable_virus_scan {
-                        "clean"
+                        "pending"
                     } else {
                         "unchecked"
                     }
                     .to_string(),
                 )),
-                scanned_at: Set(Some(Utc::now())),
+                scanned_at: Set(None),
                 ..Default::default()
             };
 
@@ -224,6 +209,51 @@ impl FileService {
         Ok((user_file_id, expires_at))
     }
 
+    pub async fn link_existing_file(
+        &self,
+        storage_file_id: String,
+        filename: String,
+        user_id: String,
+        parent_id: Option<String>,
+        expiration_hours: Option<i64>,
+    ) -> Result<(String, Option<chrono::DateTime<Utc>>), AppError> {
+        // 1. Verify storage file exists
+        let sf = StorageFiles::find_by_id(&storage_file_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Storage file not found".to_string()))?;
+
+        // 2. Increment ref_count
+        let mut active: storage_files::ActiveModel = sf.clone().into();
+        active.ref_count = Set(sf.ref_count + 1);
+        active.update(&self.db).await?;
+
+        // 3. Create user file entry
+        let user_file_id = Uuid::new_v4().to_string();
+        let expires_at = expiration_hours.map(|h| Utc::now() + chrono::Duration::hours(h));
+
+        let user_file = user_files::ActiveModel {
+            id: Set(user_file_id.clone()),
+            user_id: Set(user_id),
+            storage_file_id: Set(Some(storage_file_id.clone())),
+            filename: Set(filename),
+            parent_id: Set(parent_id),
+            expires_at: Set(expires_at),
+            created_at: Set(Some(Utc::now())),
+            is_folder: Set(false),
+            ..Default::default()
+        };
+
+        user_file.insert(&self.db).await?;
+
+        // 4. Link metadata and tags (reuse existing logic)
+        let _ = self
+            .save_metadata_and_tags(&storage_file_id, &user_file_id, None)
+            .await;
+
+        Ok((user_file_id, expires_at))
+    }
+
     async fn save_metadata_and_tags(
         &self,
         storage_file_id: &str,
@@ -249,7 +279,6 @@ impl FileService {
                     storage_file_id: Set(storage_file_id.to_string()),
                     category: Set(a.category.clone()),
                     metadata: Set(metadata_with_tags),
-
                 };
                 meta_model.insert(&self.db).await?;
             }
@@ -289,7 +318,6 @@ impl FileService {
                     let new_tag = tags::ActiveModel {
                         id: Set(Uuid::new_v4().to_string()),
                         name: Set(tag_name.clone()),
-
                     };
                     new_tag.insert(&self.db).await?
                 }
@@ -298,7 +326,6 @@ impl FileService {
             let link = file_tags::ActiveModel {
                 user_file_id: Set(user_file_id.to_string()),
                 tag_id: Set(tag.id),
-
             };
             let _ = link.insert(&self.db).await;
         }

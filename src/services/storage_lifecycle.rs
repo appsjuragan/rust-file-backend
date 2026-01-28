@@ -163,6 +163,29 @@ impl StorageLifecycleService {
         tracing::info!("Bulk deleted {} items", deleted_count);
         Ok(deleted_count)
     }
+    /// Hard delete a storage file and all its associated user files
+    pub async fn delete_storage_file(
+        db: &DatabaseConnection,
+        storage: &dyn StorageService,
+        storage_file: &storage_files::Model,
+    ) -> Result<()> {
+        tracing::warn!("Hard deleting infected storage file: {}", storage_file.id);
+
+        // 1. Delete from S3
+        storage.delete_file(&storage_file.s3_key).await?;
+
+        // 2. Delete all associated UserFiles (and their metadata/tags)
+        // Note: In a real app, we might want to soft-delete them first or notify users
+        UserFiles::delete_many()
+            .filter(user_files::Column::StorageFileId.eq(&storage_file.id))
+            .exec(db)
+            .await?;
+
+        // 3. Delete the storage file record
+        storage_file.clone().delete(db).await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

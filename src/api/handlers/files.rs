@@ -18,10 +18,10 @@ use sea_orm::{
 use serde::Deserialize;
 use serde::Serialize;
 
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 #[derive(Serialize, ToSchema)]
 pub struct UploadResponse {
@@ -43,6 +43,8 @@ pub struct FileMetadataResponse {
     pub tags: Vec<String>,
     pub category: Option<String>,
     pub extra_metadata: Option<serde_json::Value>,
+    pub scan_status: Option<String>,
+    pub scan_result: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -95,6 +97,14 @@ pub struct BulkDeleteRequest {
     pub item_ids: Vec<String>,
 }
 
+#[derive(Deserialize, ToSchema)]
+pub struct LinkFileRequest {
+    pub storage_file_id: String,
+    pub filename: String,
+    pub parent_id: Option<String>,
+    pub expiration_hours: Option<i64>,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct BulkDeleteResponse {
     pub deleted_count: usize,
@@ -140,6 +150,42 @@ pub async fn pre_check_dedup(
 
 #[utoipa::path(
     post,
+    path = "/files/link",
+    request_body = LinkFileRequest,
+    responses(
+        (status = 200, description = "File linked successfully", body = UploadResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Storage file not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn link_file(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<LinkFileRequest>,
+) -> Result<Json<UploadResponse>, AppError> {
+    let (user_file_id, expires_at) = state
+        .file_service
+        .link_existing_file(
+            req.storage_file_id,
+            req.filename.clone(),
+            claims.sub,
+            req.parent_id,
+            req.expiration_hours,
+        )
+        .await?;
+
+    Ok(Json(UploadResponse {
+        file_id: user_file_id,
+        filename: req.filename,
+        expires_at,
+    }))
+}
+
+#[utoipa::path(
+    post,
     path = "/upload",
     request_body(content = Multipart, description = "File upload"),
     responses(
@@ -160,11 +206,14 @@ pub async fn upload_file(
     let mut parent_id: Option<String> = None;
     let mut staged_file = None;
 
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| AppError::BadRequest(e.to_string()))?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        let err_msg = e.to_string();
+        if err_msg.contains("length limit exceeded") {
+            AppError::PayloadTooLarge("Request body exceeds the maximum allowed limit".to_string())
+        } else {
+            AppError::BadRequest(err_msg)
+        }
+    })? {
         let name = field.name().unwrap_or_default().to_string();
 
         if name == "file" {
@@ -176,8 +225,7 @@ pub async fn upload_file(
                 .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
             // 2. Create reader
-            let body_with_io_error =
-                field.map_err(std::io::Error::other);
+            let body_with_io_error = field.map_err(std::io::Error::other);
             let reader = StreamReader::new(body_with_io_error);
 
             // 3. Upload to Staging
@@ -308,17 +356,22 @@ pub async fn download_file(
         if let Some(content_range) = s3_res.content_range {
             response.headers_mut().insert(
                 header::CONTENT_RANGE,
-                content_range.parse().unwrap_or(header::HeaderValue::from_static("")),
+                content_range
+                    .parse()
+                    .unwrap_or(header::HeaderValue::from_static("")),
             );
         }
 
         if let Some(content_length) = s3_res.content_length {
             response.headers_mut().insert(
                 header::CONTENT_LENGTH,
-                content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
+                content_length
+                    .to_string()
+                    .parse()
+                    .unwrap_or(header::HeaderValue::from_static("0")),
             );
         }
-        
+
         return Ok(response);
     }
 
@@ -335,15 +388,22 @@ pub async fn download_file(
     // 7. Return stream response
     let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
 
-    let ascii_filename = user_file.filename.chars().filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\').collect::<String>();
-    let fallback_filename = if ascii_filename.is_empty() { "file" } else { &ascii_filename };
-    
+    let ascii_filename = user_file
+        .filename
+        .chars()
+        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\')
+        .collect::<String>();
+    let fallback_filename = if ascii_filename.is_empty() {
+        "file"
+    } else {
+        &ascii_filename
+    };
+
     // RFC 5987 percent-encoding (more permissive than NON_ALPHANUMERIC)
     let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
     let content_disposition = format!(
         "attachment; filename=\"{}\"; filename*=UTF-8''{}",
-        fallback_filename,
-        encoded_filename
+        fallback_filename, encoded_filename
     );
 
     let mut response = (
@@ -353,12 +413,16 @@ pub async fn download_file(
             (header::CONTENT_DISPOSITION, content_disposition),
         ],
         body,
-    ).into_response();
+    )
+        .into_response();
 
     if let Some(content_length) = s3_res.content_length {
         response.headers_mut().insert(
             header::CONTENT_LENGTH,
-            content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
+            content_length
+                .to_string()
+                .parse()
+                .unwrap_or(header::HeaderValue::from_static("0")),
         );
     }
 
@@ -489,6 +553,8 @@ pub async fn list_files(
             tags: tags_vec,
             category: metadata.as_ref().map(|m| m.category.clone()),
             extra_metadata: metadata.map(|m| m.metadata),
+            scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
+            scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         });
     }
 
@@ -514,8 +580,8 @@ pub async fn create_folder(
 ) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
 
-    let sanitized_name = sanitize_filename(&req.name)
-        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let sanitized_name =
+        sanitize_filename(&req.name).map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let new_folder = user_files::ActiveModel {
         id: Set(id.clone()),
@@ -545,6 +611,8 @@ pub async fn create_folder(
         tags: Vec::new(),
         category: Some("folder".to_string()),
         extra_metadata: None,
+        scan_status: None,
+        scan_result: None,
     }))
 }
 
@@ -638,8 +706,8 @@ pub async fn rename_item(
 
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
-        let sanitized_name = sanitize_filename(&name)
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        let sanitized_name =
+            sanitize_filename(&name).map_err(|e| AppError::BadRequest(e.to_string()))?;
         active.filename = Set(sanitized_name);
     }
     if let Some(parent_id) = req.parent_id {
@@ -696,6 +764,8 @@ pub async fn rename_item(
         tags: tags_vec,
         category: metadata.as_ref().map(|m| m.category.clone()),
         extra_metadata: metadata.map(|m| m.metadata),
+        scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
+        scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
     }))
 }
 

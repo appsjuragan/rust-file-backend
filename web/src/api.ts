@@ -105,4 +105,14 @@ export const api = {
         body: JSON.stringify({ name, parent_id: parentId }),
     }),
     getFileUrl: (id: string) => `${BASE_URL}/files/${id}?token=${getAuthToken()}`,
+    preCheck: (full_hash: string, size: number) => request('/pre-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_hash, size }),
+    }),
+    linkFile: (storage_file_id: string, filename: string, parentId?: string) => request('/files/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage_file_id, filename, parent_id: parentId === '0' ? null : parentId }),
+    }),
 };

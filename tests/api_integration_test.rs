@@ -96,7 +96,10 @@ impl StorageService for MockStorageService {
         Ok(format!("mock://{}", key))
     }
 
-    async fn get_object_stream(&self, key: &str) -> anyhow::Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
+    async fn get_object_stream(
+        &self,
+        key: &str,
+    ) -> anyhow::Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
         let data = self
             .files
             .lock()
@@ -104,12 +107,18 @@ impl StorageService for MockStorageService {
             .get(key)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("Key not found"))?;
-        Ok(aws_sdk_s3::operation::get_object::GetObjectOutput::builder()
-            .body(ByteStream::from(data))
-            .build())
+        Ok(
+            aws_sdk_s3::operation::get_object::GetObjectOutput::builder()
+                .body(ByteStream::from(data))
+                .build(),
+        )
     }
 
-    async fn get_object_range(&self, key: &str, _range: &str) -> anyhow::Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
+    async fn get_object_range(
+        &self,
+        key: &str,
+        _range: &str,
+    ) -> anyhow::Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
         self.get_object_stream(key).await
     }
 }

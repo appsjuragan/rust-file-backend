@@ -1,6 +1,6 @@
 use aws_sdk_s3::config::{Credentials, Region};
 use dotenvy::dotenv;
-use rust_file_backend::services::storage::{StorageService, S3StorageService};
+use rust_file_backend::services::storage::{S3StorageService, StorageService};
 
 use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
@@ -58,10 +58,11 @@ async fn main() {
     let storage_service = S3StorageService::new(s3_client, bucket);
 
     // 3. Check User
-    let user: Option<UserRow> = sqlx::query_as("SELECT id, username FROM users WHERE username = 'curluser'")
-        .fetch_optional(&pool)
-        .await
-        .unwrap();
+    let user: Option<UserRow> =
+        sqlx::query_as("SELECT id, username FROM users WHERE username = 'curluser'")
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
 
     if let Some(u) = user {
         println!("User Found: {} ({})", u.username, u.id);
@@ -71,7 +72,7 @@ async fn main() {
             "SELECT uf.id as user_file_id, uf.filename, sf.s3_key, sf.size, sf.hash 
              FROM user_files uf
              JOIN storage_files sf ON uf.storage_file_id = sf.id
-             WHERE uf.user_id = $1"
+             WHERE uf.user_id = $1",
         )
         .bind(&u.id)
         .fetch_all(&pool)

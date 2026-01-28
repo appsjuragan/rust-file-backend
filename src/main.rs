@@ -41,14 +41,13 @@ async fn main() -> anyhow::Result<()> {
     let file_service = Arc::new(FileService::new(
         db.clone(),
         storage_service.clone(),
-        scanner_service.clone(),
         security_config.clone(),
     ));
 
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
-        scanner: scanner_service,
+        scanner: scanner_service.clone(),
         file_service,
         config: security_config.clone(),
     };
@@ -60,43 +59,43 @@ async fn main() -> anyhow::Result<()> {
     let worker = rust_file_backend::services::worker::BackgroundWorker::new(
         db.clone(),
         storage_service.clone(),
+        scanner_service.clone(),
         shutdown_rx,
     );
     tokio::spawn(async move {
         worker.run().await;
     });
 
-    let app = create_app(state)
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(|request: &axum::http::Request<_>| {
-                    let request_id = request
-                        .headers()
-                        .get("x-request-id")
-                        .and_then(|v| v.to_str().ok())
-                        .unwrap_or("unknown");
-                    tracing::info_span!(
-                        "http_request",
-                        method = %request.method(),
-                        uri = %request.uri(),
-                        request_id = %request_id,
-                    )
-                })
-                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
-                    info!("📥 {} {}", request.method(), request.uri());
-                })
-                .on_response(
-                    |response: &axum::http::Response<_>,
-                     latency: std::time::Duration,
-                     _span: &tracing::Span| {
-                        info!(
-                            "📤 Finished in {:?} with status {}",
-                            latency,
-                            response.status()
-                        );
-                    },
-                ),
-        );
+    let app = create_app(state).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(|request: &axum::http::Request<_>| {
+                let request_id = request
+                    .headers()
+                    .get("x-request-id")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("unknown");
+                tracing::info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    request_id = %request_id,
+                )
+            })
+            .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                info!("📥 {} {}", request.method(), request.uri());
+            })
+            .on_response(
+                |response: &axum::http::Response<_>,
+                 latency: std::time::Duration,
+                 _span: &tracing::Span| {
+                    info!(
+                        "📤 Finished in {:?} with status {}",
+                        latency,
+                        response.status()
+                    );
+                },
+            ),
+    );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("✅ Server ready at http://{}", addr);

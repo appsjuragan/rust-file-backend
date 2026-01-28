@@ -13,8 +13,8 @@ pub enum ScanResult {
     Error { reason: String },
 }
 
-use tokio::io::AsyncRead;
 use std::pin::Pin;
+use tokio::io::AsyncRead;
 
 /// Trait for virus scanning implementations
 #[async_trait::async_trait]
@@ -73,7 +73,7 @@ impl VirusScanner for ClamAvScanner {
         let mut buffer = vec![0u8; CHUNK_SIZE];
 
         loop {
-            // Add a timeout for each read/write operation if needed, 
+            // Add a timeout for each read/write operation if needed,
             // but the whole scan is what usually takes time.
             let n = reader.read(&mut buffer).await?;
             if n == 0 {
@@ -93,8 +93,9 @@ impl VirusScanner for ClamAvScanner {
         let mut response = Vec::new();
         tokio::time::timeout(
             std::time::Duration::from_secs(300),
-            stream.read_to_end(&mut response)
-        ).await
+            stream.read_to_end(&mut response),
+        )
+        .await
         .map_err(|_| anyhow!("ClamAV scan timed out after 5 minutes"))??;
 
         let response_str = String::from_utf8_lossy(&response);

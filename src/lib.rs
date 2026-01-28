@@ -17,9 +17,9 @@ use axum::{
 };
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use tower_http::cors::{Any, CorsLayer};
 // use axum::http::{Method, header};
 
 #[derive(OpenApi)]
@@ -29,6 +29,7 @@ use tower_http::cors::{Any, CorsLayer};
         api::handlers::auth::login,
         api::handlers::files::upload_file,
         api::handlers::files::pre_check_dedup,
+        api::handlers::files::link_file,
 
         api::handlers::files::download_file,
         api::handlers::files::list_files,
@@ -50,6 +51,7 @@ use tower_http::cors::{Any, CorsLayer};
             api::handlers::files::CreateFolderRequest,
             api::handlers::files::RenameRequest,
             api::handlers::files::BulkDeleteRequest,
+            api::handlers::files::LinkFileRequest,
             api::handlers::files::BulkDeleteResponse,
             api::handlers::health::HealthResponse,
         )
@@ -84,8 +86,16 @@ pub fn create_app(state: AppState) -> Router {
                 .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
+            "/files/link",
+            post(api::handlers::files::link_file)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
+        )
+        .route(
             "/upload",
             post(api::handlers::files::upload_file)
+                .layer(axum::extract::DefaultBodyLimit::max(
+                    state.config.max_file_size + 10 * 1024 * 1024, // Add 10MB buffer for multipart overhead
+                ))
                 .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(
@@ -122,7 +132,7 @@ pub fn create_app(state: AppState) -> Router {
                 .expose_headers(Any),
         )
         .layer(axum::extract::DefaultBodyLimit::max(
-            state.config.max_file_size,
+            state.config.max_file_size + 10 * 1024 * 1024,
         ))
         .with_state(state)
 }

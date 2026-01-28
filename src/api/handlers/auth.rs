@@ -98,7 +98,6 @@ pub async fn login(
         user_id: Set(user.id),
         token: Set(token_str.clone()),
         expires_at: Set(expires_at),
-
     };
 
     token_model.insert(&state.db).await?;

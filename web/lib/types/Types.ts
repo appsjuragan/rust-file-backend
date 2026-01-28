@@ -5,7 +5,8 @@ export type FileType = {
   isDir: boolean;
   path?: string; // Optional because files inherit the path from the parentId folder
   parentId?: string; // Optional because the root folder does not have a parent
-  lastModified?: number
+  lastModified?: number;
+  scanStatus?: "pending" | "clean" | "infected" | "unchecked";
 };
 
 export type FileSystemType = FileType[];

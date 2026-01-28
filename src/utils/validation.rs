@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use std::path::Path;
 
 /// Maximum file size: 256 MB
-pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024; // 1 GB
+pub const MAX_FILE_SIZE: usize = 256 * 1024 * 1024; // 256 MB
 
 /// Allowed MIME types: Documents, Media, Archives (no code)
 pub const ALLOWED_MIME_TYPES: &[&str] = &[

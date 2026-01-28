@@ -12,7 +12,7 @@ struct StorageFileRow {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Usage: check_dedup <expected_ref_count> [hash]");
@@ -30,23 +30,33 @@ async fn main() {
         .await
         .expect("Failed to connect to DB");
 
-    let files = sqlx::query_as::<_, StorageFileRow>("SELECT id, hash, ref_count, s3_key FROM storage_files")
-        .fetch_all(&pool)
-        .await
-        .unwrap();
+    let files = sqlx::query_as::<_, StorageFileRow>(
+        "SELECT id, hash, ref_count, s3_key FROM storage_files",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
 
     let mut found = false;
     for file in files {
         if let Some(ref h) = target_hash {
-            if &file.hash != h { continue; }
+            if &file.hash != h {
+                continue;
+            }
         }
-        
-        println!("Checking File: Hash={} RefCount={}", file.hash, file.ref_count);
+
+        println!(
+            "Checking File: Hash={} RefCount={}",
+            file.hash, file.ref_count
+        );
         if file.ref_count == expected_count {
             println!("SUCCESS: RefCount matches expected ({})", expected_count);
             found = true;
         } else {
-            println!("FAIL: RefCount {} != expected {}", file.ref_count, expected_count);
+            println!(
+                "FAIL: RefCount {} != expected {}",
+                file.ref_count, expected_count
+            );
             std::process::exit(1);
         }
     }

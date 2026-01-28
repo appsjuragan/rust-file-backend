@@ -1,7 +1,7 @@
 use crate::utils::auth::validate_jwt;
 use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
-use std::env;
 use serde::Deserialize;
+use std::env;
 
 #[derive(Deserialize)]
 struct AuthQuery {
