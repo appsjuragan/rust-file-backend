@@ -21,7 +21,8 @@ async fn main() {
     }
 
     let expected_count: i32 = args[1].parse().expect("Invalid ref count");
-    let target_hash = if args.len() > 2 { Some(&args[2]) } else { None };
+    let target_hash_raw = if args.len() > 2 { Some(&args[2]) } else { None };
+    let target_hash = target_hash_raw.map(|h| h.to_lowercase());
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = SqlitePoolOptions::new()
@@ -36,7 +37,7 @@ async fn main() {
 
     let mut found = false;
     for file in files {
-        if let Some(h) = target_hash {
+        if let Some(ref h) = target_hash {
             if &file.hash != h { continue; }
         }
         
@@ -51,7 +52,11 @@ async fn main() {
     }
 
     if !found && target_hash.is_some() {
-        println!("FAIL: Target hash not found");
-        std::process::exit(1);
+        if expected_count == 0 {
+            println!("SUCCESS: Target hash not found (expected for RefCount 0)");
+        } else {
+            println!("FAIL: Target hash not found");
+            std::process::exit(1);
+        }
     }
 }

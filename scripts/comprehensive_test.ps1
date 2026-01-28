@@ -7,6 +7,7 @@ $env:VIRUS_SCANNER_TYPE = "noop"
 $env:RUST_LOG = "info"
 $env:MAX_FILE_SIZE = "104857600" # 100MB
 $env:JWT_SECRET = "test_secret"
+$env:DATABASE_URL = "sqlite:backend.db"
 
 $baseUrl = "http://127.0.0.1:3000"
 
