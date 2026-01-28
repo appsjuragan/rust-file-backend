@@ -82,6 +82,83 @@
 			"name": "Files",
 			"item": [
 				{
+					"name": "List Files (with Search & Metadata)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/files?parent_id=&search=&category=&tags=&start_date=&end_date=&min_size=&max_size=",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files"
+							],
+							"query": [
+								{
+									"key": "parent_id",
+									"value": "",
+									"description": "Folder ID to list contents of",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search by filename",
+									"disabled": true
+								},
+								{
+									"key": "category",
+									"value": "",
+									"description": "Filter by category: image, video, audio, text, document, other",
+									"disabled": true
+								},
+								{
+									"key": "tags",
+									"value": "",
+									"description": "Comma-separated tags to filter",
+									"disabled": true
+								},
+								{
+									"key": "start_date",
+									"value": "",
+									"description": "Filter by minimum creation date (ISO 8601)",
+									"disabled": true
+								},
+								{
+									"key": "end_date",
+									"value": "",
+									"description": "Filter by maximum creation date (ISO 8601)",
+									"disabled": true
+								},
+								{
+									"key": "min_size",
+									"value": "",
+									"description": "Minimum file size in bytes",
+									"disabled": true
+								},
+								{
+									"key": "max_size",
+									"value": "",
+									"description": "Maximum file size in bytes",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Upload File",
 					"request": {
 						"auth": {
@@ -154,6 +231,122 @@
 									"key": "id",
 									"value": "REPLACE_WITH_FILE_ID",
 									"description": "The ID of the file to download"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Folder",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Documents\",\n    \"parent_id\": null\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/folders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"folders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Rename Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"new_filename.txt\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/files/:id/rename",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								":id",
+								"rename"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "REPLACE_WITH_ITEM_ID",
+									"description": "The ID of the file or folder to rename"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/files/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "REPLACE_WITH_ITEM_ID",
+									"description": "The ID of the file or folder to delete"
 								}
 							]
 						}
