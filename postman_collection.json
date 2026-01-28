@@ -7,6 +7,28 @@
 	},
 	"item": [
 		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Auth",
 			"item": [
 				{
@@ -16,7 +38,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"appsjuragan@gmail.com\",\n    \"password\": \"password123\"\n}",
+							"raw": "{\n    \"username\": \"user@example.com\",\n    \"password\": \"password123\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -57,7 +79,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"appsjuragan@gmail.com\",\n    \"password\": \"password123\"\n}",
+							"raw": "{\n    \"username\": \"user@example.com\",\n    \"password\": \"password123\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -159,6 +181,42 @@
 					"response": []
 				},
 				{
+					"name": "Pre-check Deduplication",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"hash\": \"REPLACE_WITH_SHA256_HASH\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/pre-check",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"pre-check"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Upload File",
 					"request": {
 						"auth": {
@@ -187,6 +245,12 @@
 									"value": "24",
 									"type": "text",
 									"description": "Optional expiration time in hours"
+								},
+								{
+									"key": "parent_id",
+									"value": "",
+									"type": "text",
+									"description": "Optional parent folder ID"
 								}
 							]
 						},
@@ -348,6 +412,43 @@
 									"value": "REPLACE_WITH_ITEM_ID",
 									"description": "The ID of the file or folder to delete"
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ids\": [\n        \"id1\",\n        \"id2\"\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/files/bulk-delete",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								"bulk-delete"
 							]
 						}
 					},
