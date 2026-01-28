@@ -34,6 +34,15 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
         .await
         .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileMetadata)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(Tags)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileTags)))
+        .await
+        .ok();
 
     db
 }
@@ -242,7 +251,7 @@ async fn test_expiration_logic() {
     let user_file = user_files::ActiveModel {
         id: Set(user_file_id.to_string()),
         user_id: Set(user_id.to_string()),
-        storage_file_id: Set(storage_id.to_string()),
+        storage_file_id: Set(Some(storage_id.to_string())),
         filename: Set("test.txt".to_string()),
         expires_at: Set(Some(Utc::now() - Duration::hours(1))),
         ..Default::default()
@@ -266,22 +275,24 @@ async fn test_expiration_logic() {
         file.clone().delete(&db).await.unwrap();
 
         // Get and update storage file
-        if let Some(sf) = StorageFiles::find_by_id(&file.storage_file_id)
-            .one(&db)
-            .await
-            .unwrap()
-        {
-            let new_count = sf.ref_count - 1;
-            let mut active_sf: storage_files::ActiveModel = sf.clone().into();
-            active_sf.ref_count = Set(new_count);
-            let updated_sf = active_sf.update(&db).await.unwrap();
+        if let Some(storage_id) = file.storage_file_id.clone() {
+            if let Some(sf) = StorageFiles::find_by_id(storage_id)
+                .one(&db)
+                .await
+                .unwrap()
+            {
+                let new_count = sf.ref_count - 1;
+                let mut active_sf: storage_files::ActiveModel = sf.clone().into();
+                active_sf.ref_count = Set(new_count);
+                let updated_sf = active_sf.update(&db).await.unwrap();
 
-            if updated_sf.ref_count <= 0 {
-                storage_service
-                    .delete_file(&updated_sf.s3_key)
-                    .await
-                    .unwrap();
-                updated_sf.delete(&db).await.unwrap();
+                if updated_sf.ref_count <= 0 {
+                    storage_service
+                        .delete_file(&updated_sf.s3_key)
+                        .await
+                        .unwrap();
+                    updated_sf.delete(&db).await.unwrap();
+                }
             }
         }
     }

@@ -22,7 +22,16 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::user_files::Entity")]
     UserFiles,
+    #[sea_orm(has_one = "super::file_metadata::Entity")]
+    FileMetadata,
 }
+
+impl Related<super::file_metadata::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::FileMetadata.def()
+    }
+}
+
 
 impl Related<super::user_files::Entity> for Entity {
     fn to() -> RelationDef {

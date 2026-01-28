@@ -41,13 +41,9 @@ use utoipa_swagger_ui::SwaggerUi;
             handlers::files::PreCheckRequest,
 
             handlers::files::PreCheckResponse,
-            handlers::files::FileMetadata,
+            handlers::files::FileMetadataResponse,
             handlers::files::CreateFolderRequest,
             handlers::files::RenameRequest,
-            models::User,
-            models::Token,
-            models::StorageFile,
-            models::UserFile,
         )
     ),
     tags(

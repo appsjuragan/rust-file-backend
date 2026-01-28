@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Auto-migration
     {
-        use rust_file_backend::entities::{storage_files, tokens, user_files, users};
+        use rust_file_backend::entities::{file_metadata, file_tags, storage_files, tags, tokens, user_files, users};
         use sea_orm::{ConnectionTrait, Schema};
 
         let builder = db.get_database_backend();
@@ -84,6 +84,27 @@ async fn main() -> anyhow::Result<()> {
                     .if_not_exists()
                     .to_owned(),
             ),
+            (
+                "tags",
+                schema
+                    .create_table_from_entity(tags::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+            (
+                "file_metadata",
+                schema
+                    .create_table_from_entity(file_metadata::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
+            (
+                "file_tags",
+                schema
+                    .create_table_from_entity(file_tags::Entity)
+                    .if_not_exists()
+                    .to_owned(),
+            ),
         ];
 
         for (name, stmt) in stmts {
@@ -102,12 +123,23 @@ async fn main() -> anyhow::Result<()> {
             "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) DEFAULT NULL",
             "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS is_folder BOOLEAN DEFAULT FALSE",
             "ALTER TABLE user_files ALTER COLUMN storage_file_id DROP NOT NULL", 
+            // Indexes for robust search
+            "CREATE INDEX IF NOT EXISTS idx_user_files_user_id ON user_files(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_user_files_parent_id ON user_files(parent_id)",
+            "CREATE INDEX IF NOT EXISTS idx_user_files_filename ON user_files(filename)",
+            "CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category)",
+            "CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id)",
         ];
 
         for query in schema_updates {
             match db.execute(sea_orm::Statement::from_string(db.get_database_backend(), query.to_owned())).await {
                Ok(_) => info!("   - Executed schema update: {}", query),
-               Err(e) => tracing::warn!("   - Schema update warning (might already exist/invalid): {} -> {}", query, e),
+               Err(e) => {
+                   // sqlite doesn't support ALTER COLUMN DROP NOT NULL the same way, and IF NOT EXISTS on indexes is fine
+                   // We ignore errors here as some might be DB-specific or already done
+                   tracing::debug!("   - Schema update info (ignoring): {} -> {}", query, e);
+               }
             }
         }
     }

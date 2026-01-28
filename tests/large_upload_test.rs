@@ -32,6 +32,15 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
         .await
         .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileMetadata)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(Tags)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileTags)))
+        .await
+        .ok();
 
     db
 }
@@ -230,12 +239,12 @@ async fn test_large_file_uploads_and_dedup() {
     // -------------------------------------------------------------------------
 
     // A. Get user file and associated storage file for 50MB
-    let user_file_50 = UserFiles::find_by_id(&id_50)
+    let user_file_50 = UserFiles::find_by_id(id_50)
         .one(&db)
         .await
         .unwrap()
         .unwrap();
-    let storage_file_50 = StorageFiles::find_by_id(&user_file_50.storage_file_id)
+    let storage_file_50 = StorageFiles::find_by_id(user_file_50.storage_file_id.clone().unwrap())
         .one(&db)
         .await
         .unwrap()
@@ -251,7 +260,7 @@ async fn test_large_file_uploads_and_dedup() {
     );
 
     // Check that id_50_copy points to the same storage file
-    let user_file_50_copy = UserFiles::find_by_id(&id_50_copy)
+    let user_file_50_copy = UserFiles::find_by_id(id_50_copy)
         .one(&db)
         .await
         .unwrap()
@@ -272,12 +281,12 @@ async fn test_large_file_uploads_and_dedup() {
     println!("MinIO: 50MB file verified.");
 
     // 200MB File
-    let user_file_200 = UserFiles::find_by_id(&id_200)
+    let user_file_200 = UserFiles::find_by_id(id_200)
         .one(&db)
         .await
         .unwrap()
         .unwrap();
-    let storage_file_200 = StorageFiles::find_by_id(&user_file_200.storage_file_id)
+    let storage_file_200 = StorageFiles::find_by_id(user_file_200.storage_file_id.clone().unwrap())
         .one(&db)
         .await
         .unwrap()
@@ -292,12 +301,12 @@ async fn test_large_file_uploads_and_dedup() {
     println!("MinIO: 200MB file verified.");
 
     // 300MB File
-    let user_file_300 = UserFiles::find_by_id(&id_300)
+    let user_file_300 = UserFiles::find_by_id(id_300)
         .one(&db)
         .await
         .unwrap()
         .unwrap();
-    let storage_file_300 = StorageFiles::find_by_id(&user_file_300.storage_file_id)
+    let storage_file_300 = StorageFiles::find_by_id(user_file_300.storage_file_id.clone().unwrap())
         .one(&db)
         .await
         .unwrap()

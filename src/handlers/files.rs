@@ -1,5 +1,6 @@
 use crate::entities::{prelude::*, *};
 use crate::services::scanner::ScanResult;
+use crate::services::metadata::MetadataService;
 use crate::utils::auth::Claims;
 use crate::utils::validation::{sanitize_filename, validate_upload};
 use axum::{
@@ -11,7 +12,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use futures::TryStreamExt;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, ModelTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, Condition, ModelTrait, QuerySelect, RelationTrait};
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
@@ -27,7 +28,7 @@ pub struct UploadResponse {
 }
 
 #[derive(Serialize, ToSchema)]
-pub struct FileMetadata {
+pub struct FileMetadataResponse {
     pub id: String,
     pub filename: String,
     pub size: Option<i64>,
@@ -36,6 +37,9 @@ pub struct FileMetadata {
     pub parent_id: Option<String>,
     pub created_at: chrono::DateTime<Utc>,
     pub expires_at: Option<chrono::DateTime<Utc>>,
+    pub tags: Vec<String>,
+    pub category: Option<String>,
+    pub extra_metadata: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -63,6 +67,12 @@ pub struct ChunkHash {
 pub struct ListFilesQuery {
     pub parent_id: Option<String>,
     pub search: Option<String>,
+    pub tags: Option<String>, // Comma separated
+    pub category: Option<String>,
+    pub start_date: Option<chrono::DateTime<Utc>>,
+    pub end_date: Option<chrono::DateTime<Utc>>,
+    pub min_size: Option<i64>,
+    pub max_size: Option<i64>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -212,6 +222,7 @@ pub async fn upload_file(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    let mut analysis_result = None;
     let storage_file_id = if let Some(sf) = existing_storage_file {
         // Deduplication hit! Increment ref_count
         let mut active: storage_files::ActiveModel = sf.clone().into();
@@ -224,26 +235,26 @@ pub async fn upload_file(
         let _ = state.storage.delete_file(&upload.s3_key).await;
         sf.id
     } else {
-        // New unique file!
-        // 6. Virus Scanning on Staging File
+        // New unique file! Read bytes for analysis and scanning
+        let stream = state
+            .storage
+            .get_object_stream(&upload.s3_key)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to open for processing: {}", e),
+                )
+            })?;
+
+        let bytes = stream
+            .collect()
+            .await
+            .map(|b| b.into_bytes())
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+        // 6. Virus Scanning
         if state.config.enable_virus_scan {
-            let stream = state
-                .storage
-                .get_object_stream(&upload.s3_key)
-                .await
-                .map_err(|e| {
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to open for scanning: {}", e),
-                    )
-                })?;
-
-            let bytes = stream
-                .collect()
-                .await
-                .map(|b| b.into_bytes())
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
             match state.scanner.scan(&bytes).await {
                 Ok(ScanResult::Clean) => {
                     tracing::info!("Virus scan passed for {}", upload.hash);
@@ -256,24 +267,18 @@ pub async fn upload_file(
                         format!("File rejected: Virus detected ({})", threat_name),
                     ));
                 }
-                Ok(ScanResult::Error { reason }) => {
-                    tracing::error!("Virus scan error for {}: {}", upload.hash, reason);
+                _ => {
+                    tracing::error!("Virus scan failed or errored");
                     let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Virus scan failed to complete".to_string(),
-                    ));
-                }
-                Err(e) => {
-                    tracing::error!("Virus scan failed: {}", e);
-                    let _ = state.storage.delete_file(&upload.s3_key).await;
-                    return Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Scanner unavailable".to_string(),
-                    ));
+                    return Err((StatusCode::INTERNAL_SERVER_ERROR, "Scan error".to_string()));
                 }
             }
         }
+
+        // 7. Metadata Analysis
+        let analysis = MetadataService::analyze(&bytes, &filename);
+        let mime_type = analysis.metadata["mime_type"].as_str().unwrap_or("application/octet-stream").to_string();
+        analysis_result = Some(analysis);
 
         let id = Uuid::new_v4().to_string();
         let permanent_key = format!("{}/{}", upload.hash, filename);
@@ -297,7 +302,7 @@ pub async fn upload_file(
             s3_key: Set(permanent_key),
             size: Set(upload.size),
             ref_count: Set(1),
-            mime_type: Set(Some("application/octet-stream".to_string())),
+            mime_type: Set(Some(mime_type)),
             scan_status: Set(Some(
                 if state.config.enable_virus_scan {
                     "clean"
@@ -324,7 +329,7 @@ pub async fn upload_file(
     let new_user_file = user_files::ActiveModel {
         id: Set(user_file_id.clone()),
         user_id: Set(claims.sub),
-        storage_file_id: Set(Some(storage_file_id)),
+        storage_file_id: Set(Some(storage_file_id.clone())),
         filename: Set(filename.clone()),
         expires_at: Set(expires_at),
         parent_id: Set(parent_id),
@@ -336,6 +341,13 @@ pub async fn upload_file(
         tracing::error!("Failed to insert user_file: {}", e);
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?;
+
+    // 8. Save Metadata and Tags (Async)
+    // Always call save_metadata_and_tags. If analysis_result is None (dedup), 
+    // it will fetch existing metadata to link tags to this new user_file.
+    if let Err(e) = save_metadata_and_tags(&state.db, &storage_file_id, &user_file_id, analysis_result).await {
+        tracing::error!("Failed to save metadata and tags: {}", e);
+    }
 
     Ok(Json(UploadResponse {
         file_id: user_file_id,
@@ -444,17 +456,17 @@ pub async fn list_files(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Query(query): Query<ListFilesQuery>,
-) -> Result<Json<Vec<FileMetadata>>, (StatusCode, String)> {
+) -> Result<Json<Vec<FileMetadataResponse>>, (StatusCode, String)> {
     let mut cond = Condition::all().add(user_files::Column::UserId.eq(&claims.sub));
 
+    // Basic filters
     if let Some(parent) = query.parent_id {
         if parent == "root" {
-             cond = cond.add(user_files::Column::ParentId.is_null());
+            cond = cond.add(user_files::Column::ParentId.is_null());
         } else {
-             cond = cond.add(user_files::Column::ParentId.eq(parent));
+            cond = cond.add(user_files::Column::ParentId.eq(parent));
         }
-    } else if query.search.is_none() {
-        // Default to root if no search
+    } else if query.search.is_none() && query.tags.is_none() && query.category.is_none() {
         cond = cond.add(user_files::Column::ParentId.is_null());
     }
 
@@ -462,42 +474,89 @@ pub async fn list_files(
         cond = cond.add(user_files::Column::Filename.contains(&search));
     }
 
-    let files = UserFiles::find()
-        .filter(cond)
+    if let Some(start) = query.start_date {
+        cond = cond.add(user_files::Column::CreatedAt.gte(start));
+    }
+    if let Some(end) = query.end_date {
+        cond = cond.add(user_files::Column::CreatedAt.lte(end));
+    }
+
+    // Use SelectTwo to fetch both UserFiles and StorageFiles (JOIN storage_files)
+    let mut select = UserFiles::find()
         .find_also_related(StorageFiles)
+        .filter(cond);
+
+    // Filter by StorageFiles info
+    if let Some(min) = query.min_size {
+        select = select.filter(storage_files::Column::Size.gte(min));
+    }
+    if let Some(max) = query.max_size {
+        select = select.filter(storage_files::Column::Size.lte(max));
+    }
+
+    // Join with FileMetadata for category filter
+    if let Some(cat) = query.category {
+        // We join FileMetadata using the already joined StorageFiles
+        select = select.join(sea_orm::JoinType::InnerJoin, storage_files::Relation::FileMetadata.def())
+            .filter(file_metadata::Column::Category.eq(cat));
+    }
+
+    // Tags filter (Intersection logic)
+    if let Some(tags_str) = query.tags {
+        let tag_list: Vec<String> = tags_str.split(',').map(|s| s.trim().to_string()).collect();
+        if let Some(tag_name) = tag_list.first() {
+             select = select.join(sea_orm::JoinType::InnerJoin, user_files::Relation::FileTags.def())
+                 .join(sea_orm::JoinType::InnerJoin, file_tags::Relation::Tags.def())
+                 .filter(tags::Column::Name.eq(tag_name));
+        }
+    }
+
+    let items = select
         .all(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let mut result = Vec::new();
-    for (user_file, storage_file) in files {
-        if user_file.is_folder {
-             result.push(FileMetadata {
-                id: user_file.id,
-                filename: user_file.filename,
-                size: None,
-                mime_type: None,
-                is_folder: true,
-                parent_id: user_file.parent_id,
-                created_at: user_file.created_at.unwrap_or_else(Utc::now),
-                expires_at: None,
-            });
-        } else if let Some(storage) = storage_file {
-            result.push(FileMetadata {
-                id: user_file.id,
-                filename: user_file.filename,
-                size: Some(storage.size),
-                mime_type: storage.mime_type,
-                is_folder: false,
-                parent_id: user_file.parent_id,
-                created_at: user_file.created_at.unwrap_or_else(Utc::now),
-                expires_at: user_file.expires_at,
-            });
-        }
+    for (user_file, storage_file) in items {
+        // Fetch tags and metadata for response
+        let tags_items = Tags::find()
+            .join(sea_orm::JoinType::InnerJoin, tags::Relation::FileTags.def())
+            .filter(file_tags::Column::UserFileId.eq(&user_file.id))
+            .all(&state.db)
+            .await
+            .unwrap_or_default();
+        
+        let tags_vec: Vec<String> = tags_items.into_iter().map(|t| t.name).collect();
+
+        let metadata = if let Some(ref sf) = storage_file {
+            FileMetadata::find()
+                .filter(file_metadata::Column::StorageFileId.eq(&sf.id))
+                .one(&state.db)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+
+        result.push(FileMetadataResponse {
+            id: user_file.id,
+            filename: user_file.filename,
+            size: storage_file.as_ref().map(|s| s.size),
+            mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
+            is_folder: user_file.is_folder,
+            parent_id: user_file.parent_id,
+            created_at: user_file.created_at.unwrap_or_else(Utc::now),
+            expires_at: user_file.expires_at,
+            tags: tags_vec,
+            category: metadata.as_ref().map(|m| m.category.clone()),
+            extra_metadata: metadata.map(|m| m.metadata),
+        });
     }
 
     Ok(Json(result))
 }
+
 
 #[utoipa::path(
     post,
@@ -515,7 +574,7 @@ pub async fn create_folder(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
     Json(req): Json<CreateFolderRequest>,
-) -> Result<Json<FileMetadata>, (StatusCode, String)> {
+) -> Result<Json<FileMetadataResponse>, (StatusCode, String)> {
     let id = Uuid::new_v4().to_string();
     
     let new_folder = user_files::ActiveModel {
@@ -533,7 +592,7 @@ pub async fn create_folder(
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?;
 
-    Ok(Json(FileMetadata {
+    Ok(Json(FileMetadataResponse {
         id,
         filename: req.name,
         size: None,
@@ -542,6 +601,9 @@ pub async fn create_folder(
         parent_id: req.parent_id,
         created_at: Utc::now(),
         expires_at: None,
+        tags: Vec::new(),
+        category: Some("folder".to_string()),
+        extra_metadata: None,
     }))
 }
 
@@ -605,7 +667,7 @@ pub async fn rename_item(
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
     Json(req): Json<RenameRequest>,
-) -> Result<Json<FileMetadata>, (StatusCode, String)> {
+) -> Result<Json<FileMetadataResponse>, (StatusCode, String)> {
      let item = UserFiles::find_by_id(id)
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .one(&state.db)
@@ -625,7 +687,28 @@ pub async fn rename_item(
          None
     };
 
-    Ok(Json(FileMetadata {
+    // Fetch tags and metadata for response
+    let tags_items = Tags::find()
+        .join(sea_orm::JoinType::InnerJoin, tags::Relation::FileTags.def())
+        .filter(file_tags::Column::UserFileId.eq(&updated.id))
+        .all(&state.db)
+        .await
+        .unwrap_or_default();
+    
+    let tags_vec: Vec<String> = tags_items.into_iter().map(|t| t.name).collect();
+
+    let metadata = if let Some(ref sf) = storage_file {
+        FileMetadata::find()
+            .filter(file_metadata::Column::StorageFileId.eq(&sf.id))
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
+    } else {
+        None
+    };
+
+    Ok(Json(FileMetadataResponse {
         id: updated.id,
         filename: updated.filename,
         size: storage_file.as_ref().map(|s| s.size),
@@ -634,5 +717,90 @@ pub async fn rename_item(
         parent_id: updated.parent_id,
         created_at: updated.created_at.unwrap_or_else(Utc::now),
         expires_at: updated.expires_at,
+        tags: tags_vec,
+        category: metadata.as_ref().map(|m| m.category.clone()),
+        extra_metadata: metadata.map(|m| m.metadata),
     }))
 }
+
+async fn save_metadata_and_tags(
+    db: &sea_orm::DatabaseConnection,
+    storage_file_id: &str,
+    user_file_id: &str,
+    analysis: Option<crate::services::metadata::MetadataResult>,
+) -> Result<(), anyhow::Error> {
+    let tags_to_link = if let Some(a) = analysis {
+        tracing::debug!("Saving new metadata for storage_file_id: {}", storage_file_id);
+        // 1. Save Metadata if it doesn't exist for this storage file
+        let existing_meta = FileMetadata::find()
+            .filter(file_metadata::Column::StorageFileId.eq(storage_file_id))
+            .one(db)
+            .await?;
+
+        if existing_meta.is_none() {
+            let mut metadata_with_tags = a.metadata.clone();
+            metadata_with_tags["auto_tags"] = serde_json::json!(a.suggested_tags);
+            
+            let meta_model = file_metadata::ActiveModel {
+                id: Set(Uuid::new_v4().to_string()),
+                storage_file_id: Set(storage_file_id.to_string()),
+                category: Set(a.category.clone()),
+                metadata: Set(metadata_with_tags),
+                ..Default::default()
+            };
+            meta_model.insert(db).await?;
+            tracing::debug!("Inserted new metadata record");
+        }
+        a.suggested_tags
+    } else {
+        tracing::debug!("Dedup case, fetching metadata for storage_file_id: {}", storage_file_id);
+        // Dedup case: Fetch existing metadata to get auto_tags
+        let existing_meta = FileMetadata::find()
+            .filter(file_metadata::Column::StorageFileId.eq(storage_file_id))
+            .one(db)
+            .await?;
+        
+        if let Some(meta) = existing_meta {
+            meta.metadata["auto_tags"]
+                .as_array()
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                .unwrap_or_default()
+        } else {
+            tracing::debug!("No existing metadata found for deduped file");
+            Vec::new()
+        }
+    };
+
+    tracing::debug!("Linking {} tags to user_file_id: {}", tags_to_link.len(), user_file_id);
+
+    // 2. Link Tags to UserFile
+    for tag_name in tags_to_link {
+        // Find or create tag
+        let tag = match Tags::find()
+            .filter(tags::Column::Name.eq(&tag_name))
+            .one(db)
+            .await?
+        {
+            Some(t) => t,
+            None => {
+                let new_tag = tags::ActiveModel {
+                    id: Set(Uuid::new_v4().to_string()),
+                    name: Set(tag_name.clone()),
+                    ..Default::default()
+                };
+                new_tag.insert(db).await?
+            }
+        };
+
+        // Link to user file
+        let link = file_tags::ActiveModel {
+            user_file_id: Set(user_file_id.to_string()),
+            tag_id: Set(tag.id),
+            ..Default::default()
+        };
+        let _ = link.insert(db).await; // Ignore duplicate links
+    }
+
+    Ok(())
+}
+

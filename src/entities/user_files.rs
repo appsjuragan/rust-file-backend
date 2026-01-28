@@ -33,7 +33,16 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Users,
+    #[sea_orm(has_many = "super::file_tags::Entity")]
+    FileTags,
 }
+
+impl Related<super::file_tags::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::FileTags.def()
+    }
+}
+
 
 impl Related<super::storage_files::Entity> for Entity {
     fn to() -> RelationDef {

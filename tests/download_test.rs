@@ -32,6 +32,15 @@ async fn setup_test_db() -> sea_orm::DatabaseConnection {
     db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
         .await
         .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileMetadata)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(Tags)))
+        .await
+        .ok();
+    db.execute(backend.build(&schema.create_table_from_entity(FileTags)))
+        .await
+        .ok();
 
     db
 }
