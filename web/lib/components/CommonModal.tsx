@@ -21,9 +21,9 @@ const CommonModal: React.FC<IModalProps> = ({
     return <></>;
   }
   return (
-    <Draggable nodeRef={nodeRef} bounds="#react-file-manager-workspace">
+    <Draggable nodeRef={nodeRef} bounds="#react-file-manager-workspace" handle=".rfm-modal-header">
       <div ref={nodeRef} className="rfm-modal-container">
-        <div>
+        <div className="rfm-modal-header">
           <h3 className="rfm-modal-title">{title}</h3>
           <SvgIcon
             onClick={onClose}

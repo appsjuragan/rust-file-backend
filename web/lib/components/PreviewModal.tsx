@@ -20,12 +20,12 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     size,
 }) => {
     const [textContent, setTextContent] = useState<string | null>(null);
-    const [zipEntries, setZipEntries] = useState<any[] | null>(null);
+    const [archiveEntries, setArchiveEntries] = useState<any[] | null>(null);
     const [loading, setLoading] = useState(false);
     const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
     const isTextFile = (mimeType === "text/plain" || ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py"].includes(extension)) && (size || 0) < 100 * 1024;
-    const isZipFile = (mimeType === "application/zip" || extension === "zip") && (size || 0) < 500 * 1024 * 1024;
+    const isArchiveFile = (mimeType === "application/zip" || ["zip", "7z", "tar", "gz"].includes(extension)) && (size || 0) < 500 * 1024 * 1024;
 
     useEffect(() => {
         if (isVisible) {
@@ -41,18 +41,18 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
                         console.error("Failed to fetch text content:", err);
                         setLoading(false);
                     });
-            } else if (isZipFile && fileUrl) {
+            } else if (isArchiveFile && fileUrl) {
                 setLoading(true);
                 const parts = fileUrl.split('/files/');
                 if (parts.length > 1) {
                     const fileId = parts[1]?.split('?')[0] || "";
                     api.getZipContents(fileId)
                         .then((entries: any) => {
-                            setZipEntries(entries);
+                            setArchiveEntries(entries);
                             setLoading(false);
                         })
                         .catch((err: any) => {
-                            console.error("Failed to fetch ZIP contents:", err);
+                            console.error("Failed to fetch archive contents:", err);
                             setLoading(false);
                         });
                 } else {
@@ -61,9 +61,9 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             }
         } else {
             setTextContent(null);
-            setZipEntries(null);
+            setArchiveEntries(null);
         }
-    }, [isVisible, fileUrl, isTextFile, isZipFile]);
+    }, [isVisible, fileUrl, isTextFile, isArchiveFile]);
 
     const formatSize = (bytes: number) => {
         if (bytes === 0) return '0 B';
@@ -91,26 +91,24 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             );
         }
 
-        if (isZipFile && zipEntries !== null) {
+        if (isArchiveFile && archiveEntries !== null) {
             return (
-                <div className="rfm-preview-content">
-                    <div className="rfm-zip-preview">
-                        <div className="rfm-zip-header">
-                            <span>Name</span>
-                            <span>Size</span>
-                        </div>
-                        <div className="rfm-zip-list">
-                            {zipEntries.map((entry, idx) => (
-                                <div key={idx} className={`rfm-zip-entry ${entry.is_dir ? 'is-dir' : ''}`}>
-                                    <span className="rfm-zip-entry-name">
-                                        {entry.is_dir ? '📁' : '📄'} {entry.name}
-                                    </span>
-                                    <span className="rfm-zip-entry-size">
-                                        {entry.is_dir ? '--' : formatSize(entry.size)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                <div className="rfm-zip-preview">
+                    <div className="rfm-zip-header">
+                        <span>Name</span>
+                        <span>Size</span>
+                    </div>
+                    <div className="rfm-zip-list">
+                        {archiveEntries.map((entry, idx) => (
+                            <div key={idx} className={`rfm-zip-entry ${entry.is_dir ? 'is-dir' : ''}`}>
+                                <span className="rfm-zip-entry-name">
+                                    {entry.is_dir ? '📁' : '📄'} {entry.name}
+                                </span>
+                                <span className="rfm-zip-entry-size">
+                                    {entry.is_dir ? '--' : formatSize(entry.size)}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             );

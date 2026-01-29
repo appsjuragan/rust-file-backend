@@ -860,8 +860,8 @@ pub async fn rename_item(
         ("id" = String, Path, description = "User File ID")
     ),
     responses(
-        (status = 200, description = "List of files inside ZIP", body = Vec<ZipEntry>),
-        (status = 400, description = "File is not a ZIP or too large"),
+        (status = 200, description = "List of files inside archive (ZIP, 7z)", body = Vec<ZipEntry>),
+        (status = 400, description = "File is not a supported archive or too large"),
         (status = 401, description = "Unauthorized"),
         (status = 404, description = "File not found")
     ),
@@ -883,7 +883,7 @@ pub async fn get_zip_contents(
         .ok_or(AppError::NotFound("File not found".to_string()))?;
 
     if user_file.is_folder {
-        return Err(AppError::BadRequest("Folders cannot be ZIP archives".to_string()));
+        return Err(AppError::BadRequest("Folders cannot be archives".to_string()));
     }
 
     let storage_file_id = user_file.storage_file_id.ok_or(AppError::NotFound("Storage file not found".to_string()))?;
@@ -894,7 +894,7 @@ pub async fn get_zip_contents(
 
     // 2. Check size limit (500MB)
     if storage_file.size > 500 * 1024 * 1024 {
-        return Err(AppError::BadRequest("ZIP file too large for preview (max 500MB)".to_string()));
+        return Err(AppError::BadRequest("Archive file too large for preview (max 500MB)".to_string()));
     }
 
     // 3. Download from S3
@@ -906,22 +906,80 @@ pub async fn get_zip_contents(
     tokio::io::copy(&mut reader, &mut data).await
         .map_err(|e| AppError::Internal(format!("Failed to read file data: {}", e)))?;
 
-    // 4. Parse ZIP
-    let cursor = std::io::Cursor::new(data);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|e| AppError::BadRequest(format!("Failed to parse ZIP: {}", e)))?;
-
+    // 4. Parse Archive based on extension
+    let extension = user_file.filename.split('.').last().unwrap_or("").to_lowercase();
     let mut entries = Vec::new();
-    for i in 0..archive.len() {
-        let file = archive.by_index(i)
-            .map_err(|e| AppError::Internal(format!("Failed to read ZIP entry: {}", e)))?;
+
+    if extension == "zip" {
+        let cursor = std::io::Cursor::new(data);
+        let mut archive = zip::ZipArchive::new(cursor)
+            .map_err(|e| AppError::BadRequest(format!("Failed to parse ZIP: {}", e)))?;
+
+        for i in 0..archive.len() {
+            let file = archive.by_index(i)
+                .map_err(|e| AppError::Internal(format!("Failed to read ZIP entry: {}", e)))?;
+            
+            entries.push(ZipEntry {
+                name: file.name().to_string(),
+                size: file.size(),
+                compressed_size: file.compressed_size(),
+                is_dir: file.is_dir(),
+            });
+        }
+    } else if extension == "7z" {
+        let data_len = data.len() as u64;
+        let cursor = std::io::Cursor::new(data);
+        let archive = sevenz_rust::SevenZReader::new(cursor, data_len, sevenz_rust::Password::empty())
+            .map_err(|e| AppError::BadRequest(format!("Failed to parse 7z: {}", e)))?;
         
-        entries.push(ZipEntry {
-            name: file.name().to_string(),
-            size: file.size(),
-            compressed_size: file.compressed_size(),
-            is_dir: file.is_dir(),
-        });
+        for entry in archive.archive().files.iter() {
+            entries.push(ZipEntry {
+                name: entry.name().to_string(),
+                size: entry.size(),
+                compressed_size: entry.compressed_size,
+                is_dir: entry.is_directory(),
+            });
+        }
+    } else if extension == "tar" || extension == "gz" || user_file.filename.ends_with(".tar.gz") {
+        let cursor = std::io::Cursor::new(data);
+        if user_file.filename.ends_with(".tar.gz") || extension == "gz" {
+            let tar_gz = flate2::read::GzDecoder::new(cursor);
+            let mut archive = tar::Archive::new(tar_gz);
+            let tar_entries = archive.entries()
+                .map_err(|e| AppError::BadRequest(format!("Failed to read tar.gz entries: {}", e)))?;
+            
+            for entry in tar_entries {
+                let entry = entry.map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
+                let path = entry.path()
+                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry path: {}", e)))?;
+                
+                entries.push(ZipEntry {
+                    name: path.to_string_lossy().to_string(),
+                    size: entry.size(),
+                    compressed_size: entry.size(), // tar.gz doesn't easily give compressed size per file
+                    is_dir: entry.header().entry_type().is_dir(),
+                });
+            }
+        } else {
+            let mut archive = tar::Archive::new(cursor);
+            let tar_entries = archive.entries()
+                .map_err(|e| AppError::BadRequest(format!("Failed to read tar entries: {}", e)))?;
+            
+            for entry in tar_entries {
+                let entry = entry.map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
+                let path = entry.path()
+                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry path: {}", e)))?;
+                
+                entries.push(ZipEntry {
+                    name: path.to_string_lossy().to_string(),
+                    size: entry.size(),
+                    compressed_size: entry.size(),
+                    is_dir: entry.header().entry_type().is_dir(),
+                });
+            }
+        }
+    } else {
+        return Err(AppError::BadRequest(format!("Unsupported archive format: .{}", extension)));
     }
 
     Ok(Json(entries))
