@@ -2,7 +2,7 @@
 
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Beta](https://img.shields.io/badge/version-0.1.0--beta.3-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Beta](https://img.shields.io/badge/version-0.1.0--beta.4-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 ### **Stop Wasting Storage. Start Scaling Securely.**
 

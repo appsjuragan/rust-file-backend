@@ -191,7 +191,7 @@ async fn test_single_file_deletion() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(&format!("/files/{}", file_id))
+                .uri(format!("/files/{}", file_id))
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -347,7 +347,7 @@ async fn test_deduplicated_file_partial_deletion() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(&format!("/files/{}", file_id_1))
+                .uri(format!("/files/{}", file_id_1))
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -511,7 +511,7 @@ async fn test_deduplicated_file_final_deletion() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(&format!("/files/{}", file_id_1))
+                .uri(format!("/files/{}", file_id_1))
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -529,7 +529,7 @@ async fn test_deduplicated_file_final_deletion() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(&format!("/files/{}", file_id_2))
+                .uri(format!("/files/{}", file_id_2))
                 .header("Authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),

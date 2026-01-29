@@ -69,7 +69,7 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-workspace-list-th {
-    @apply rfm-workspace-list-align-txt last:justify-end last:flex;
+    @apply rfm-workspace-list-align-txt last:justify-end last:flex sticky top-0 bg-white z-10 dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700;
   }
 
   .rfm-workspace-list-th-content {
@@ -191,7 +191,7 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* Workspace */
   .rfm-workspace {
-    @apply bg-white relative flex flex-col w-full gap-4 p-6 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+    @apply bg-white relative flex flex-col w-full h-full gap-4 p-6 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
     min-height: 400px;
   }
 
@@ -200,7 +200,7 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-workspace-file-listing {
-    @apply flex flex-col gap-4 flex-1;
+    @apply flex flex-col gap-4 flex-1 overflow-y-auto;
   }
 
   .rfm-icons-grid {

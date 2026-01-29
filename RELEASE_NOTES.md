@@ -1,19 +1,32 @@
 # Release Notes
 
-## Version 0.1.0-beta.4 (2026-01-28)
+## Version 0.1.0-beta.4 (2026-01-29)
 
-### Architectural Improvements
-- **Modular Architecture**: Restructured the codebase into `api`, `services`, and `infrastructure` layers for better separation of concerns.
-- **Service Layer**: Extracted business logic into dedicated services (`FileService`, `StorageService`, `StorageLifecycleService`), decoupling it from HTTP handlers.
-- **Dependency Injection**: Implemented dependency injection using traits for `StorageService` and `VirusScanner`, enabling easier testing and flexibility.
-- **Centralized Error Handling**: Introduced a unified `AppError` type for consistent error reporting across the API.
+### New Features
+- **RAR Archive Support**: Added full support for RAR archive preview using the `unrar` crate. Users can now preview the contents of RAR files alongside ZIP, 7z, TAR, and TAR.GZ formats.
+- **Enhanced File List UI**: 
+  - Implemented sticky table headers that remain visible while scrolling through long file lists
+  - Fixed scrolling behavior to keep folder path and controls fixed at the top
+  - Added visual separation with bottom borders on sticky headers
+- **Improved Archive Preview**: Extended archive content preview to support multiple formats (ZIP, 7z, TAR, TAR.GZ, RAR) with file names and sizes displayed in a clean interface.
 
-### Testing
-- **Integration Tests**: Added `tests/api_integration_test.rs` with a `MockStorageService` to validate the full API flow (Register -> Login -> Upload -> Download -> Delete) without external dependencies.
-- **Test Suite Updates**: Updated existing tests (`upload_test.rs`, `deduplication_deletion_test.rs`, etc.) to align with the new modular architecture.
+### UI/UX Improvements
+- **Better Scrolling**: File listing area now properly scrolls while keeping navigation elements fixed
+- **Visual Polish**: Added subtle borders and improved spacing for better readability
+- **Responsive Layout**: Enhanced flexbox layout ensures proper height calculations and overflow handling
 
-### CI/CD
-- **GitHub Actions**: Added `.github/workflows/ci.yml` for automated testing, formatting, and linting on every push and pull request.
+### Code Quality
+- **Clippy Compliance**: Fixed all clippy warnings for production code
+- **Code Formatting**: Applied `cargo fmt` across the entire codebase
+- **Refactoring**: Collapsed nested if statements for better readability
+- **Type Safety**: Removed unnecessary type casts and improved Arc reference handling
+
+### Dependencies
+- Added `unrar` v0.5.8 for RAR archive support
+
+### Notes
+- RAR preview requires the UnRAR library to be installed on the server
+- All existing features from beta.3 remain fully functional
 
 ## Version 0.1.0-beta.3 (2026-01-26)
 

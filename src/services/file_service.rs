@@ -245,8 +245,8 @@ impl FileService {
             })?;
 
             // Decrement ref count of old storage file if it's different
-            if let Some(old_id) = old_storage_file_id {
-                if old_id != storage_file_id {
+            if let Some(old_id) = old_storage_file_id
+                && old_id != storage_file_id {
                     let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &self.db,
                         self.storage.as_ref(),
@@ -254,7 +254,6 @@ impl FileService {
                     )
                     .await;
                 }
-            }
             existing_id
         } else {
             // No existing file, create new one
@@ -333,8 +332,8 @@ impl FileService {
             active.update(&self.db).await?;
 
             // Decrement ref count of old storage file if it's different
-            if let Some(old_id) = old_storage_file_id {
-                if old_id != storage_file_id {
+            if let Some(old_id) = old_storage_file_id
+                && old_id != storage_file_id {
                     let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &self.db,
                         self.storage.as_ref(),
@@ -342,7 +341,6 @@ impl FileService {
                     )
                     .await;
                 }
-            }
             existing_id
         } else {
             // 3. Create user file entry

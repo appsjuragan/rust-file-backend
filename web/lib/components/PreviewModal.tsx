@@ -25,7 +25,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
     const isTextFile = (mimeType === "text/plain" || ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py"].includes(extension)) && (size || 0) < 100 * 1024;
-    const isArchiveFile = (mimeType === "application/zip" || ["zip", "7z", "tar", "gz"].includes(extension)) && (size || 0) < 500 * 1024 * 1024;
+    const isArchiveFile = (mimeType === "application/zip" || ["zip", "7z", "tar", "gz", "rar"].includes(extension)) && (size || 0) < 500 * 1024 * 1024;
 
     useEffect(() => {
         if (isVisible) {

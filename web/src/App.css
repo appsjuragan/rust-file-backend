@@ -146,6 +146,8 @@ body {
     padding: 2rem;
     overflow: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .loading-overlay {

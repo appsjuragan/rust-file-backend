@@ -665,21 +665,24 @@ pub async fn get_folder_path(
             return Err(AppError::BadRequest("ID is not a folder".to_string()));
         }
 
-        path.insert(0, FileMetadataResponse {
-            id: folder.id.clone(),
-            filename: folder.filename.clone(),
-            size: None,
-            mime_type: None,
-            is_folder: true,
-            parent_id: folder.parent_id.clone(),
-            created_at: folder.created_at.unwrap_or_else(Utc::now),
-            expires_at: folder.expires_at,
-            tags: Vec::new(),
-            category: None,
-            extra_metadata: None,
-            scan_status: None,
-            scan_result: None,
-        });
+        path.insert(
+            0,
+            FileMetadataResponse {
+                id: folder.id.clone(),
+                filename: folder.filename.clone(),
+                size: None,
+                mime_type: None,
+                is_folder: true,
+                parent_id: folder.parent_id.clone(),
+                created_at: folder.created_at.unwrap_or_else(Utc::now),
+                expires_at: folder.expires_at,
+                tags: Vec::new(),
+                category: None,
+                extra_metadata: None,
+                scan_status: None,
+                scan_result: None,
+            },
+        );
 
         current_id = folder.parent_id;
     }
@@ -722,16 +725,12 @@ pub async fn delete_item(
 
     if item.is_folder {
         // Recursively delete folder and all children
-        StorageLifecycleService::delete_folder_recursive(
-            &txn,
-            state.storage.as_ref(),
-            &item.id,
-        )
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to delete folder recursively: {}", e);
-            AppError::Internal(e.to_string())
-        })?;
+        StorageLifecycleService::delete_folder_recursive(&txn, state.storage.as_ref(), &item.id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to delete folder recursively: {}", e);
+                AppError::Internal(e.to_string())
+            })?;
     }
 
     // Soft delete the item and decrement ref count
@@ -819,8 +818,8 @@ pub async fn rename_item(
             active_item.update(&state.db).await?;
 
             // Decrement ref count of the OVERWRITTEN storage file
-            if let Some(old_id) = old_storage_file_id {
-                if Some(old_id.clone()) != new_storage_file_id {
+            if let Some(old_id) = old_storage_file_id
+                && Some(old_id.clone()) != new_storage_file_id {
                     let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &state.db,
                         state.storage.as_ref(),
@@ -828,7 +827,6 @@ pub async fn rename_item(
                     )
                     .await;
                 }
-            }
 
             // Return the updated existing file metadata
             return return_file_metadata(state, updated).await;
@@ -883,10 +881,14 @@ pub async fn get_zip_contents(
         .ok_or(AppError::NotFound("File not found".to_string()))?;
 
     if user_file.is_folder {
-        return Err(AppError::BadRequest("Folders cannot be archives".to_string()));
+        return Err(AppError::BadRequest(
+            "Folders cannot be archives".to_string(),
+        ));
     }
 
-    let storage_file_id = user_file.storage_file_id.ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+    let storage_file_id = user_file
+        .storage_file_id
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
     let storage_file = StorageFiles::find_by_id(storage_file_id)
         .one(&state.db)
         .await?
@@ -894,20 +896,31 @@ pub async fn get_zip_contents(
 
     // 2. Check size limit (500MB)
     if storage_file.size > 500 * 1024 * 1024 {
-        return Err(AppError::BadRequest("Archive file too large for preview (max 500MB)".to_string()));
+        return Err(AppError::BadRequest(
+            "Archive file too large for preview (max 500MB)".to_string(),
+        ));
     }
 
     // 3. Download from S3
-    let s3_res = state.storage.get_object_stream(&storage_file.s3_key).await
+    let s3_res = state
+        .storage
+        .get_object_stream(&storage_file.s3_key)
+        .await
         .map_err(|e| AppError::Internal(format!("Failed to get S3 object: {}", e)))?;
 
     let mut data = Vec::with_capacity(storage_file.size as usize);
     let mut reader = s3_res.body.into_async_read();
-    tokio::io::copy(&mut reader, &mut data).await
+    tokio::io::copy(&mut reader, &mut data)
+        .await
         .map_err(|e| AppError::Internal(format!("Failed to read file data: {}", e)))?;
 
     // 4. Parse Archive based on extension
-    let extension = user_file.filename.split('.').last().unwrap_or("").to_lowercase();
+    let extension = user_file
+        .filename
+        .split('.')
+        .next_back()
+        .unwrap_or("")
+        .to_lowercase();
     let mut entries = Vec::new();
 
     if extension == "zip" {
@@ -916,9 +929,10 @@ pub async fn get_zip_contents(
             .map_err(|e| AppError::BadRequest(format!("Failed to parse ZIP: {}", e)))?;
 
         for i in 0..archive.len() {
-            let file = archive.by_index(i)
+            let file = archive
+                .by_index(i)
                 .map_err(|e| AppError::Internal(format!("Failed to read ZIP entry: {}", e)))?;
-            
+
             entries.push(ZipEntry {
                 name: file.name().to_string(),
                 size: file.size(),
@@ -929,9 +943,12 @@ pub async fn get_zip_contents(
     } else if extension == "7z" {
         let data_len = data.len() as u64;
         let cursor = std::io::Cursor::new(data);
-        let archive = sevenz_rust::SevenZReader::new(cursor, data_len, sevenz_rust::Password::empty())
-            .map_err(|e| AppError::BadRequest(format!("Failed to parse 7z: {}", e)))?;
-        
+        let archive =
+            sevenz_rust::SevenZReader::new(cursor, data_len, sevenz_rust::Password::empty())
+                .map_err(|e| {
+                    AppError::BadRequest(format!("Failed to parse {}: {}", extension, e))
+                })?;
+
         for entry in archive.archive().files.iter() {
             entries.push(ZipEntry {
                 name: entry.name().to_string(),
@@ -940,19 +957,71 @@ pub async fn get_zip_contents(
                 is_dir: entry.is_directory(),
             });
         }
+    } else if extension == "rar" {
+        use std::io::Write;
+        // unrar crate needs a file path, so we write to a temp file
+        let temp_dir = std::env::temp_dir();
+        let temp_file_path = temp_dir.join(format!("temp_rar_{}.rar", uuid::Uuid::new_v4()));
+
+        {
+            let mut temp_file = std::fs::File::create(&temp_file_path)
+                .map_err(|e| AppError::Internal(format!("Failed to create temp file: {}", e)))?;
+            temp_file
+                .write_all(&data)
+                .map_err(|e| AppError::Internal(format!("Failed to write temp file: {}", e)))?;
+        }
+
+        let archive_result = unrar::Archive::new(&temp_file_path).open_for_listing();
+
+        match archive_result {
+            Ok(archive) => {
+                let mut current_archive = Some(archive);
+                while let Some(archive) = current_archive.take() {
+                    match archive.read_header() {
+                        Ok(Some(header)) => {
+                            let entry = header.entry();
+                            entries.push(ZipEntry {
+                                name: entry.filename.to_string_lossy().to_string(),
+                                size: entry.unpacked_size,
+                                compressed_size: entry.unpacked_size,
+                                is_dir: entry.is_directory(),
+                            });
+                            match header.skip() {
+                                Ok(next_archive) => current_archive = Some(next_archive),
+                                Err(_) => break,
+                            }
+                        }
+                        Ok(None) => break,
+                        Err(_) => break,
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&temp_file_path);
+                return Err(AppError::BadRequest(format!(
+                    "Failed to open RAR archive: {}",
+                    e
+                )));
+            }
+        }
+
+        let _ = std::fs::remove_file(&temp_file_path);
     } else if extension == "tar" || extension == "gz" || user_file.filename.ends_with(".tar.gz") {
         let cursor = std::io::Cursor::new(data);
         if user_file.filename.ends_with(".tar.gz") || extension == "gz" {
             let tar_gz = flate2::read::GzDecoder::new(cursor);
             let mut archive = tar::Archive::new(tar_gz);
-            let tar_entries = archive.entries()
-                .map_err(|e| AppError::BadRequest(format!("Failed to read tar.gz entries: {}", e)))?;
-            
+            let tar_entries = archive.entries().map_err(|e| {
+                AppError::BadRequest(format!("Failed to read tar.gz entries: {}", e))
+            })?;
+
             for entry in tar_entries {
-                let entry = entry.map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
-                let path = entry.path()
-                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry path: {}", e)))?;
-                
+                let entry = entry
+                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
+                let path = entry.path().map_err(|e| {
+                    AppError::Internal(format!("Failed to read tar entry path: {}", e))
+                })?;
+
                 entries.push(ZipEntry {
                     name: path.to_string_lossy().to_string(),
                     size: entry.size(),
@@ -962,14 +1031,17 @@ pub async fn get_zip_contents(
             }
         } else {
             let mut archive = tar::Archive::new(cursor);
-            let tar_entries = archive.entries()
+            let tar_entries = archive
+                .entries()
                 .map_err(|e| AppError::BadRequest(format!("Failed to read tar entries: {}", e)))?;
-            
+
             for entry in tar_entries {
-                let entry = entry.map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
-                let path = entry.path()
-                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry path: {}", e)))?;
-                
+                let entry = entry
+                    .map_err(|e| AppError::Internal(format!("Failed to read tar entry: {}", e)))?;
+                let path = entry.path().map_err(|e| {
+                    AppError::Internal(format!("Failed to read tar entry path: {}", e))
+                })?;
+
                 entries.push(ZipEntry {
                     name: path.to_string_lossy().to_string(),
                     size: entry.size(),
@@ -979,7 +1051,10 @@ pub async fn get_zip_contents(
             }
         }
     } else {
-        return Err(AppError::BadRequest(format!("Unsupported archive format: .{}", extension)));
+        return Err(AppError::BadRequest(format!(
+            "Unsupported archive format: .{}",
+            extension
+        )));
     }
 
     Ok(Json(entries))
