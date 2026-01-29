@@ -334,16 +334,67 @@ pub async fn download_file(
         .await?
         .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
-    let content_type = storage_file
+    let mut content_type = storage_file
         .mime_type
         .clone()
         .unwrap_or_else(|| "application/octet-stream".to_string());
 
-    // 4. Check for Range header
+    // Fallback for existing generic types
+    if content_type == "application/octet-stream" || content_type == "application/stream" {
+        let extension = user_file.filename.split('.').next_back().unwrap_or("").to_lowercase();
+        content_type = match extension.as_str() {
+            "mp4" => "video/mp4".to_string(),
+            "webm" => "video/webm".to_string(),
+            "ogg" => "video/ogg".to_string(),
+            "mp3" => "audio/mpeg".to_string(),
+            "wav" => "audio/wav".to_string(),
+            "jpg" | "jpeg" => "image/jpeg".to_string(),
+            "png" => "image/png".to_string(),
+            "gif" => "image/gif".to_string(),
+            "webp" => "image/webp".to_string(),
+            "svg" => "image/svg+xml".to_string(),
+            "pdf" => "application/pdf".to_string(),
+            _ => content_type,
+        };
+    }
+
+    // 4. Prepare headers shared by both full and partial responses
+    let ascii_filename = user_file
+        .filename
+        .chars()
+        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
+        .take(64) // Truncate ASCII fallback to 64 chars for safety
+        .collect::<String>();
+    let fallback_filename = if ascii_filename.is_empty() {
+        "file"
+    } else {
+        &ascii_filename
+    };
+
+    // RFC 5987 percent-encoding for UTF-8 filename
+    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
+    
+    let disposition_type = if content_type.starts_with("video/") 
+        || content_type.starts_with("audio/") 
+        || content_type.starts_with("image/") 
+        || content_type == "application/pdf" 
+        || content_type.starts_with("text/") 
+    {
+        "inline"
+    } else {
+        "attachment"
+    };
+
+    let content_disposition = format!(
+        "{}; filename=\"{}\"; filename*=UTF-8''{}",
+        disposition_type, fallback_filename, encoded_filename
+    );
+
+    // 5. Check for Range header
     let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
 
     if let Some(range) = range_header {
-        // 5. Get partial stream from S3
+        // 6. Get partial stream from S3
         let s3_res = state
             .storage
             .get_object_range(&storage_file.s3_key, range)
@@ -357,8 +408,9 @@ pub async fn download_file(
 
         let mut response = (
             [
-                (header::CONTENT_TYPE, content_type),
+                (header::CONTENT_TYPE, content_type.clone()),
                 (header::ACCEPT_RANGES, "bytes".to_string()),
+                (header::CONTENT_DISPOSITION, content_disposition.clone()),
             ],
             body,
         )
@@ -367,28 +419,41 @@ pub async fn download_file(
         *response.status_mut() = StatusCode::PARTIAL_CONTENT;
 
         if let Some(content_range) = s3_res.content_range {
-            response.headers_mut().insert(
-                header::CONTENT_RANGE,
-                content_range
-                    .parse()
-                    .unwrap_or(header::HeaderValue::from_static("")),
-            );
+            if let Ok(h_val) = content_range.parse() {
+                response.headers_mut().insert(header::CONTENT_RANGE, h_val);
+            }
         }
 
         if let Some(content_length) = s3_res.content_length {
             response.headers_mut().insert(
                 header::CONTENT_LENGTH,
-                content_length
-                    .to_string()
-                    .parse()
-                    .unwrap_or(header::HeaderValue::from_static("0")),
+                content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
             );
         }
+
+        if let Some(etag) = s3_res.e_tag {
+            if let Ok(h_val) = etag.parse() {
+                response.headers_mut().insert(header::ETAG, h_val);
+            }
+        }
+
+        if let Some(last_modified) = s3_res.last_modified {
+            let dt = chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos()).unwrap_or_default();
+            let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+            if let Ok(h_val) = rfc1123.parse() {
+                response.headers_mut().insert(header::LAST_MODIFIED, h_val);
+            }
+        }
+
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("public, max-age=31536000"),
+        );
 
         return Ok(response);
     }
 
-    // 6. Get full stream from S3
+    // 7. Get full stream from S3
     let s3_res = state
         .storage
         .get_object_stream(&storage_file.s3_key)
@@ -398,26 +463,8 @@ pub async fn download_file(
             AppError::Internal("Failed to retrieve file".to_string())
         })?;
 
-    // 7. Return stream response
+    // 8. Return stream response
     let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-    let ascii_filename = user_file
-        .filename
-        .chars()
-        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
-        .collect::<String>();
-    let fallback_filename = if ascii_filename.is_empty() {
-        "file"
-    } else {
-        &ascii_filename
-    };
-
-    // RFC 5987 percent-encoding (more permissive than NON_ALPHANUMERIC)
-    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
-    let content_disposition = format!(
-        "attachment; filename=\"{}\"; filename*=UTF-8''{}",
-        fallback_filename, encoded_filename
-    );
 
     let mut response = (
         [
@@ -438,6 +485,25 @@ pub async fn download_file(
                 .unwrap_or(header::HeaderValue::from_static("0")),
         );
     }
+
+    if let Some(etag) = s3_res.e_tag {
+        if let Ok(h_val) = etag.parse() {
+            response.headers_mut().insert(header::ETAG, h_val);
+        }
+    }
+
+    if let Some(last_modified) = s3_res.last_modified {
+        let dt = chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos()).unwrap_or_default();
+        let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+        if let Ok(h_val) = rfc1123.parse() {
+            response.headers_mut().insert(header::LAST_MODIFIED, h_val);
+        }
+    }
+
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("public, max-age=31536000"),
+    );
 
     Ok(response)
 }

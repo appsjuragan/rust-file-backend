@@ -51,7 +51,7 @@ const FolderPath = () => {
             className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""}`}
             onClick={() => handleCrumbClick("0")}
           >
-            ROOT
+            Home
           </span>
           {breadcrumbs.map((crumb) => (
             <React.Fragment key={crumb.id}>

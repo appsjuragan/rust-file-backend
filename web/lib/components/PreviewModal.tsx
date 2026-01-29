@@ -122,13 +122,18 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             );
         }
 
-        if (["mp4", "webm", "ogg"].includes(extension)) {
+        if (["mp4", "webm", "ogg", "ts"].includes(extension)) {
             return (
                 <div className="rfm-preview-content">
-                    <video controls className="rfm-preview-video">
-                        <source src={fileUrl} />
+                    <video controls className="rfm-preview-video" crossOrigin="anonymous">
+                        <source src={fileUrl} type={mimeType || "video/mp4"} />
                         Your browser does not support the video tag.
                     </video>
+                    {(mimeType === "video/mp2t" || extension === "ts") && (
+                        <div className="mt-2 text-xs text-amber-600 font-medium bg-amber-50 p-2 rounded border border-amber-100">
+                            ⚠️ This file is in MPEG-TS format, which may not play in all browsers. If it doesn't play, please download it to view.
+                        </div>
+                    )}
                 </div>
             );
         }

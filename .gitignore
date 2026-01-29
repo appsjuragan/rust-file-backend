@@ -4,3 +4,6 @@
 /backend.db-wal
 .env
 scripts/test_metadata/
+/file_storage.db
+/scripts/oidc_clients.json
+/scripts/oidc_users.json

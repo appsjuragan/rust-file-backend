@@ -271,12 +271,6 @@ const Workspace = () => {
                 <p>Empty folder</p>
               </div>
             )}
-            {!viewOnly && (
-              <div className="rfm-workspace-actions">
-                <button className="rfm-btn-primary" onClick={() => setNewFolderModalVisible(true)}>Add Folder</button>
-                <button className="rfm-btn-primary" onClick={open}>Upload File(s)</button>
-              </div>
-            )}
           </>
         )}
 

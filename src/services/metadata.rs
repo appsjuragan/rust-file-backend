@@ -25,9 +25,32 @@ impl MetadataService {
 
         // 1. Detect MIME type using infer
         let kind = infer::get(bytes);
-        let mime_type = kind
+        let mut mime_type = kind
             .map(|k| k.mime_type())
             .unwrap_or("application/octet-stream");
+
+        // 2. Fallback to extension if generic or unknown
+        if mime_type == "application/octet-stream" || mime_type == "application/stream" {
+            mime_type = match extension.as_str() {
+                "mp4" => "video/mp4",
+                "webm" => "video/webm",
+                "ogg" => "video/ogg",
+                "mp3" => "audio/mpeg",
+                "wav" => "audio/wav",
+                "jpg" | "jpeg" => "image/jpeg",
+                "png" => "image/png",
+                "gif" => "image/gif",
+                "webp" => "image/webp",
+                "svg" => "image/svg+xml",
+                "pdf" => "application/pdf",
+                "txt" => "text/plain",
+                "html" => "text/html",
+                "css" => "text/css",
+                "js" => "application/javascript",
+                "json" => "application/json",
+                _ => mime_type,
+            };
+        }
 
         tags.insert(extension.clone());
 

@@ -62,7 +62,7 @@ const Sidebar = () => {
                     onClick={handleRootClick}
                 >
                     <SvgIcon svgType="folder" className="rfm-sidebar-icon" />
-                    <span className="rfm-sidebar-item-text">ROOT</span>
+                    <span className="rfm-sidebar-item-text">Home</span>
                 </div>
                 <div className="rfm-sidebar-indent">
                     {rootFolders.map((folder) => (

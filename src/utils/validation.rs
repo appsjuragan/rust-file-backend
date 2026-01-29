@@ -54,6 +54,7 @@ pub const ALLOWED_MIME_TYPES: &[&str] = &[
     "application/x-zip",
     "application/x-rar",
     "application/octet-stream",
+    "video/mp2t",
 ];
 
 /// Magic byte signatures for file type verification
@@ -83,6 +84,7 @@ const MAGIC_SIGNATURES: &[(&[u8], &str)] = &[
         &[0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
         "video/mp4",
     ), // MP4 variant
+    (&[0x47], "video/mp2t"), // MPEG-TS (Sync byte)
     // Archives
     (&[0x1F, 0x8B], "application/gzip"),                // GZIP
     (&[0x52, 0x61, 0x72, 0x21], "application/vnd.rar"), // RAR

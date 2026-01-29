@@ -183,11 +183,11 @@ pub async fn login_oidc(State(state): State<crate::AppState>) -> Result<impl Int
 
     if state.config.oidc_skip_discovery {
         let issuer = IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
-        let auth_url = AuthUrl::new(format!("{}/auth", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        let token_url = TokenUrl::new(format!("{}/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
+        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
+        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
         
         // Fetch JWKS
-        let jwks_url = format!("{}/certs", issuer_url);
+        let jwks_url = format!("{}/.well-known/openid-configuration/jwks", issuer_url);
         let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url).await
             .map_err(|e| AppError::Internal(format!("Failed to fetch JWKS: {}", e)))?
             .json().await
@@ -262,11 +262,11 @@ pub async fn callback_oidc(
 
     let token_response = if state.config.oidc_skip_discovery {
         let issuer = IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
-        let auth_url = AuthUrl::new(format!("{}/auth", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        let token_url = TokenUrl::new(format!("{}/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
+        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
+        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
         
         // Fetch JWKS
-        let jwks_url = format!("{}/certs", issuer_url);
+        let jwks_url = format!("{}/.well-known/openid-configuration/jwks", issuer_url);
         let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url).await
             .map_err(|e| AppError::Internal(format!("Failed to fetch JWKS: {}", e)))?
             .json().await
