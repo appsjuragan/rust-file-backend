@@ -23,6 +23,17 @@ pub struct SecurityConfig {
 
     /// Chunk size for large file hashing in bytes (default: 10 MB)
     pub chunk_size: usize,
+
+    /// OIDC Issuer URL
+    pub oidc_issuer_url: Option<String>,
+    /// OIDC Client ID
+    pub oidc_client_id: Option<String>,
+    /// OIDC Client Secret
+    pub oidc_client_secret: Option<String>,
+    /// OIDC Redirect URL
+    pub oidc_redirect_url: Option<String>,
+    /// Skip OIDC Discovery (use derived endpoints)
+    pub oidc_skip_discovery: bool,
 }
 
 impl Default for SecurityConfig {
@@ -35,6 +46,11 @@ impl Default for SecurityConfig {
             clamav_host: "127.0.0.1".to_string(),
             clamav_port: 3310,
             chunk_size: 10 * 1024 * 1024, // 10 MB
+            oidc_issuer_url: None,
+            oidc_client_id: None,
+            oidc_client_secret: None,
+            oidc_redirect_url: None,
+            oidc_skip_discovery: false,
         }
     }
 }
@@ -73,6 +89,14 @@ impl SecurityConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(default.chunk_size),
+
+            oidc_issuer_url: env::var("OIDC_ISSUER_URL").ok(),
+            oidc_client_id: env::var("OIDC_CLIENT_ID").ok(),
+            oidc_client_secret: env::var("OIDC_CLIENT_SECRET").ok(),
+            oidc_redirect_url: env::var("OIDC_REDIRECT_URL").ok(),
+            oidc_skip_discovery: env::var("OIDC_SKIP_DISCOVERY")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
         }
     }
 
@@ -86,6 +110,11 @@ impl SecurityConfig {
             clamav_host: "127.0.0.1".to_string(),
             clamav_port: 3310,
             chunk_size: 10 * 1024 * 1024,
+            oidc_issuer_url: None,
+            oidc_client_id: None,
+            oidc_client_secret: None,
+            oidc_redirect_url: None,
+            oidc_skip_discovery: false,
         }
     }
 
@@ -102,6 +131,13 @@ impl SecurityConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(3310),
             chunk_size: 10 * 1024 * 1024,
+            oidc_issuer_url: env::var("OIDC_ISSUER_URL").ok(),
+            oidc_client_id: env::var("OIDC_CLIENT_ID").ok(),
+            oidc_client_secret: env::var("OIDC_CLIENT_SECRET").ok(),
+            oidc_redirect_url: env::var("OIDC_REDIRECT_URL").ok(),
+            oidc_skip_discovery: env::var("OIDC_SKIP_DISCOVERY")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
         }
     }
 }

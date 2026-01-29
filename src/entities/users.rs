@@ -8,7 +8,10 @@ pub struct Model {
     pub id: String,
     #[sea_orm(unique)]
     pub username: String,
-    pub password_hash: String,
+    pub password_hash: Option<String>,
+    #[sea_orm(unique)]
+    pub oidc_sub: Option<String>,
+    pub email: Option<String>,
     pub created_at: Option<DateTimeUtc>,
 }
 

@@ -120,13 +120,13 @@ impl std::fmt::Display for ValidationError {
 impl std::error::Error for ValidationError {}
 
 /// Validates file size against maximum limit
-pub fn validate_file_size(size: usize) -> Result<()> {
-    if size > MAX_FILE_SIZE {
+pub fn validate_file_size(size: usize, max_size: usize) -> Result<()> {
+    if size > max_size {
         return Err(anyhow!(ValidationError {
             code: "FILE_TOO_LARGE",
             message: format!(
-                "File size {} bytes exceeds maximum allowed {} bytes (256 MB)",
-                size, MAX_FILE_SIZE
+                "File size {} bytes exceeds maximum allowed {} bytes ({} MB)",
+                size, max_size, max_size / 1024 / 1024
             ),
         }));
     }
@@ -342,9 +342,10 @@ pub fn validate_upload(
     content_type: Option<&str>,
     size: usize,
     header: &[u8],
+    max_size: usize,
 ) -> Result<String> {
     // 1. Size check
-    validate_file_size(size)?;
+    validate_file_size(size, max_size)?;
 
     // 2. Sanitize filename (also checks extension)
     let sanitized_filename = sanitize_filename(filename)?;
@@ -365,9 +366,9 @@ mod tests {
 
     #[test]
     fn test_validate_file_size() {
-        assert!(validate_file_size(1024).is_ok());
-        assert!(validate_file_size(MAX_FILE_SIZE).is_ok());
-        assert!(validate_file_size(MAX_FILE_SIZE + 1).is_err());
+        assert!(validate_file_size(1024, MAX_FILE_SIZE).is_ok());
+        assert!(validate_file_size(MAX_FILE_SIZE, MAX_FILE_SIZE).is_ok());
+        assert!(validate_file_size(MAX_FILE_SIZE + 1, MAX_FILE_SIZE).is_err());
     }
 
     #[test]

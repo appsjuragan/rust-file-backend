@@ -83,6 +83,8 @@ pub fn create_app(state: AppState) -> Router {
         .layer(from_fn(api::middleware::request_id::request_id_middleware))
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
+        .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))
+        .route("/auth/oidc/callback", get(api::handlers::auth::callback_oidc))
         .route(
             "/pre-check",
             post(api::handlers::files::pre_check_dedup)

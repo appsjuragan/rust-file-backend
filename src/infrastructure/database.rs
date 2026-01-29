@@ -113,6 +113,11 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_user_files_deleted_at ON user_files(deleted_at)",
         "CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category)",
         "CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id)",
+        // OIDC Support
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_sub VARCHAR(255) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL",
+        "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
     ];
 
     for query in schema_updates {

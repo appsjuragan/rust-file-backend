@@ -574,7 +574,7 @@ async fn test_folder_deletion_with_files() {
     let user = users::ActiveModel {
         id: Set(user_id.to_string()),
         username: Set("testuser".to_string()),
-        password_hash: Set("hash".to_string()),
+        password_hash: Set(Some("hash".to_string())),
         ..Default::default()
     };
     user.insert(&db).await.unwrap();

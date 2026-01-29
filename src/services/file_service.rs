@@ -56,7 +56,7 @@ impl FileService {
         let header = &header_buffer[..n];
 
         // 2. Early Validation
-        validate_upload(filename, content_type, 0, header)
+        validate_upload(filename, content_type, 0, header, self.config.max_file_size)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         // Reconstruct stream
@@ -87,7 +87,7 @@ impl FileService {
             })?;
 
         // 4. Post-upload Size Validation
-        if let Err(e) = validate_file_size(res.size as usize) {
+        if let Err(e) = validate_file_size(res.size as usize, self.config.max_file_size) {
             let _ = self.storage.delete_file(&staging_key).await;
             return Err(AppError::PayloadTooLarge(e.to_string()));
         }

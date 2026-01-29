@@ -11,7 +11,8 @@ async fn test_clamav_connection_and_scan() {
 
     // 3. Scan Clean Data
     let clean_data = b"Hello, this is a clean file.";
-    let result = scanner.scan(clean_data).await.expect("Scan failed");
+    let reader = Box::pin(std::io::Cursor::new(clean_data));
+    let result = scanner.scan(reader).await.expect("Scan failed");
     match result {
         ScanResult::Clean => {}
         _ => panic!("Expected clean result, got {:?}", result),
@@ -20,7 +21,8 @@ async fn test_clamav_connection_and_scan() {
     // 4. Scan Infected Data (EICAR)
     // EICAR test string
     let eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
-    let result = scanner.scan(eicar).await.expect("Scan failed");
+    let reader = Box::pin(std::io::Cursor::new(eicar));
+    let result = scanner.scan(reader).await.expect("Scan failed");
     match result {
         ScanResult::Infected { threat_name: msg } => {
             println!("Detected virus: {}", msg);

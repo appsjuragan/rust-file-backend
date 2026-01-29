@@ -17,6 +17,17 @@ function App() {
     });
 
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            setAuthToken(token);
+            setIsAuthenticated(true);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    useEffect(() => {
         if (isAuthenticated) {
             localStorage.setItem("currentFolder", currentFolder);
             localStorage.setItem("username", username);
@@ -298,6 +309,16 @@ function App() {
                         <div className="auth-buttons">
                             <button type="submit" className="login-btn">Login</button>
                             <button type="button" onClick={handleRegister} className="register-btn">Register</button>
+                        </div>
+                        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                            <button
+                                type="button"
+                                className="login-btn"
+                                style={{ backgroundColor: '#4285F4', width: '100%' }}
+                                onClick={() => window.location.href = 'http://127.0.0.1:3000/auth/oidc/login'}
+                            >
+                                Login with OIDC
+                            </button>
                         </div>
                     </form>
                 </div>
