@@ -310,24 +310,6 @@ function App() {
                             <button type="submit" className="login-btn">Login</button>
                             <button type="button" onClick={handleRegister} className="register-btn">Register</button>
                         </div>
-                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <button
-                                type="button"
-                                className="login-btn"
-                                style={{ backgroundColor: '#4285F4', width: '100%' }}
-                                onClick={() => window.location.href = 'http://127.0.0.1:3000/auth/oidc/login'}
-                            >
-                                Login with OIDC
-                            </button>
-                            <button
-                                type="button"
-                                className="register-btn"
-                                style={{ backgroundColor: '#34A853', width: '100%' }}
-                                onClick={() => window.location.href = 'http://127.0.0.1:3000/auth/oidc/login'}
-                            >
-                                Register with OIDC
-                            </button>
-                        </div>
                     </form>
                 </div>
             </div>
