@@ -7,6 +7,9 @@ export type FileType = {
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
   scanStatus?: "pending" | "clean" | "infected" | "unchecked";
+  size?: number;
+  mimeType?: string;
+  extraMetadata?: any;
 };
 
 export type FileSystemType = FileType[];

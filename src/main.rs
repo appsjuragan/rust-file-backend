@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let file_service = Arc::new(FileService::new(
         db.clone(),
         storage_service.clone(),
+        scanner_service.clone(),
         security_config.clone(),
     ));
 

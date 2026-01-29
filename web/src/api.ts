@@ -52,13 +52,16 @@ export const api = {
         const query = parentId ? `?parent_id=${parentId}` : '';
         return request(`/files${query}`);
     },
-    uploadFile: (file: File, parentId?: string, onProgress?: (percent: number) => void) => {
+    uploadFile: (file: File, parentId?: string, onProgress?: (percent: number) => void, totalSize?: number) => {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             const formData = new FormData();
             formData.append('file', file);
             if (parentId && parentId !== '0') {
                 formData.append('parent_id', parentId);
+            }
+            if (totalSize) {
+                formData.append('total_size', totalSize.toString());
             }
 
             xhr.upload.addEventListener('progress', (e) => {
@@ -76,7 +79,14 @@ export const api = {
                         resolve(xhr.responseText);
                     }
                 } else {
-                    reject(new Error(xhr.statusText || 'Upload failed'));
+                    let errorMessage = 'Upload failed';
+                    try {
+                        const errorData = JSON.parse(xhr.responseText);
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        errorMessage = xhr.statusText || errorMessage;
+                    }
+                    reject(new Error(errorMessage));
                 }
             });
 
@@ -115,4 +125,6 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storage_file_id, filename, parent_id: parentId === '0' ? null : parentId }),
     }),
+    getFolderPath: (id: string) => request(`/files/${id}/path`),
+    getZipContents: (id: string) => request(`/files/${id}/zip-contents`),
 };

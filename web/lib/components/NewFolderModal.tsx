@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useState } from "react";
 import { useFileManager } from "../context";
 import CommonModal from "./CommonModal";
 
@@ -9,41 +9,38 @@ interface INewFolderModalProps {
 
 const NewFolderModal = (props: INewFolderModalProps) => {
   const { onCreateFolder } = useFileManager();
-  const folderName = useRef<any>();
+  const [name, setName] = useState("");
 
-  const onConfirm = async () => {
-    if (
-      folderName &&
-      folderName.current &&
-      folderName.current.value &&
-      folderName.current.value.length > 0 &&
-      onCreateFolder
-    ) {
-      await onCreateFolder(folderName.current.value);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim() && onCreateFolder) {
+      try {
+        await onCreateFolder(name.trim());
+        setName("");
+        props.onClose();
+      } catch (err) {
+        console.error("Failed to create folder", err);
+      }
     }
   };
 
   return (
     <CommonModal title="Create New Folder" {...props}>
       <div>
-        <form className="rfm-new-folder-modal-form">
+        <form onSubmit={handleSubmit} className="rfm-new-folder-modal-form">
           <div>
             <input
-              ref={folderName}
               type="text"
               className="rfm-new-folder-modal-input"
               placeholder="Folder Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
+              autoFocus
             />
           </div>
           <button
-            onClick={onConfirm}
-            disabled={
-              folderName &&
-              folderName.current &&
-              folderName.current.value &&
-              folderName.current.value.length === 0
-            }
+            disabled={!name.trim()}
             type="submit"
             className="rfm-new-folder-modal-btn"
           >

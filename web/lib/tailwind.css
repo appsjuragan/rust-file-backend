@@ -10,11 +10,15 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* CommonModal */
   .rfm-modal-container {
-    @apply absolute h-auto rounded-lg shadow-lg bg-white z-[999] cursor-grab px-16 py-4 border-[1px] border-gray-200 text-center top-[10%] left-[40%];
+    @apply absolute h-auto rounded-lg shadow-lg bg-white z-[999] cursor-grab px-16 py-4 border-[1px] border-gray-200 text-center top-[10%] left-[40%] max-w-[90vw] max-h-[85vh] overflow-hidden flex flex-col;
   }
 
   .rfm-modal-title {
     @apply text-xl font-semibold text-slate-900;
+  }
+
+  .rfm-modal-body {
+    @apply flex-1 overflow-y-auto w-full mt-4;
   }
 
   .rfm-modal-icon {
@@ -40,19 +44,19 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* Content header */
   .rfm-workspace-header {
-    @apply w-full h-6 flex gap-4 justify-between;
+    @apply w-full h-10 flex gap-4 justify-between items-center mb-4;
   }
 
   .rfm-header-container {
-    @apply flex justify-center items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600;
+    @apply flex justify-center items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600 p-1;
   }
 
   .rfm-header-icon {
-    @apply w-6 h-6 transition-all duration-200 cursor-pointer;
+    @apply w-6 h-6 transition-all duration-200 cursor-pointer p-1;
   }
 
   .rfm-header-icon--selected {
-    @apply bg-slate-700 dark:bg-sky-500 text-white rounded-lg;
+    @apply bg-slate-700 dark:bg-sky-500 text-white rounded-md;
   }
 
   .rfm-workspace-list-align-txt {
@@ -64,11 +68,11 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-workspace-list-th-content {
-    @apply flex;
+    @apply flex items-center gap-1;
   }
 
   .rfm-header-sort-icon {
-    @apply w-6 h-6;
+    @apply w-4 h-4;
   }
 
   .rfm-workspace-list-icon-row {
@@ -76,11 +80,11 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-workspace-list-icon-td {
-    @apply flex gap-1 py-2;
+    @apply flex gap-3 py-2 items-center;
   }
 
   .rfm-workspace-list-icon {
-    @apply w-6 h-6;
+    @apply w-5 h-5;
   }
 
   .rfm-workspace-list-add-folder {
@@ -96,15 +100,28 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-folder-path-container {
-    @apply flex gap-4;
+    @apply flex gap-4 items-center;
   }
 
   .rfm-folder-path-svg {
     @apply w-6 h-6 fill-white bg-slate-400 p-1 rounded-full cursor-pointer transition-colors duration-200 hover:bg-slate-600;
   }
 
-  .rfm-folder-path-span {
-    @apply select-none;
+  /* Breadcrumbs */
+  .rfm-breadcrumbs {
+    @apply flex items-center gap-2 text-sm text-slate-600 font-medium;
+  }
+
+  .rfm-breadcrumb-item {
+    @apply cursor-pointer hover:text-sky-600 transition-colors duration-200;
+  }
+
+  .rfm-breadcrumb-item.active {
+    @apply text-slate-900 font-bold cursor-default;
+  }
+
+  .rfm-breadcrumb-separator {
+    @apply text-slate-300 select-none;
   }
 
   /* Navbar (Legacy) */
@@ -169,7 +186,8 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* Workspace */
   .rfm-workspace {
-    @apply bg-white relative flex flex-col w-full gap-8 p-4 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+    @apply bg-white relative flex flex-col w-full gap-4 p-6 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+    min-height: 400px;
   }
 
   .rfm-workspace-dropzone {
@@ -177,7 +195,19 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-workspace-file-listing {
-    @apply flex flex-col gap-4;
+    @apply flex flex-col gap-4 flex-1;
+  }
+
+  .rfm-icons-grid {
+    @apply flex flex-row flex-wrap gap-6 items-start;
+  }
+
+  .rfm-empty-folder {
+    @apply flex-1 flex items-center justify-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl min-h-[200px] cursor-default;
+  }
+
+  .rfm-empty-folder p {
+    @apply text-slate-400 font-medium;
   }
 
   /* FileManager Layout */
@@ -191,19 +221,23 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* Sidebar */
   .rfm-sidebar {
-    @apply w-64 bg-slate-100 border-r border-slate-200 flex flex-col overflow-y-auto select-none;
+    @apply w-72 bg-slate-50 border-r border-slate-200 flex flex-col overflow-y-auto select-none;
   }
 
   .rfm-sidebar-item {
-    @apply flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors duration-200 hover:bg-slate-200;
+    @apply flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all duration-200 hover:bg-slate-200 rounded-lg mx-2 my-0.5;
   }
 
   .rfm-sidebar-item.active {
-    @apply bg-slate-300 font-semibold;
+    @apply bg-white shadow-sm border border-slate-200 font-bold text-sky-600;
   }
 
   .rfm-sidebar-item-text {
     @apply text-slate-700 text-sm;
+  }
+
+  .rfm-sidebar-item.active .rfm-sidebar-item-text {
+    @apply text-sky-600;
   }
 
   .rfm-sidebar-icon {
@@ -211,11 +245,23 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
   }
 
   .rfm-sidebar-list {
-    @apply flex flex-col mt-2;
+    @apply flex flex-col py-4;
   }
 
   .rfm-sidebar-header {
     @apply px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider;
+  }
+
+  .rfm-sidebar-tree {
+    @apply flex flex-col;
+  }
+
+  .rfm-sidebar-tree-item {
+    @apply flex flex-col;
+  }
+
+  .rfm-sidebar-indent {
+    @apply ml-6 border-l border-slate-200;
   }
 
   /* Preview */
@@ -285,15 +331,40 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
 
   /* Context Menu */
   .rfm-context-menu {
-    @apply fixed bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] py-1 min-w-[160px] overflow-hidden;
+    @apply fixed bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] py-1 min-w-[180px] overflow-hidden;
   }
 
   .rfm-context-menu-item {
-    @apply px-4 py-2 text-sm text-slate-700 cursor-pointer transition-colors duration-200 hover:bg-slate-100 active:bg-slate-200;
+    @apply flex items-center gap-3 px-4 py-2 text-sm text-slate-700 cursor-pointer transition-colors duration-200 hover:bg-slate-100 active:bg-slate-200;
+  }
+
+  .rfm-context-menu-icon {
+    @apply w-4 h-4 fill-slate-500;
   }
 
   .rfm-context-menu-item.disabled {
     @apply text-slate-400 cursor-default hover:bg-transparent;
+  }
+
+  /* Metadata Modal */
+  .rfm-metadata-form {
+    @apply flex flex-col gap-4 my-4 text-left min-w-[400px];
+  }
+
+  .rfm-form-group {
+    @apply flex flex-col gap-1;
+  }
+
+  .rfm-form-group label {
+    @apply text-xs font-bold text-slate-500 uppercase tracking-wider;
+  }
+
+  .rfm-form-group input {
+    @apply bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg block w-full p-2.5 focus:ring-sky-500 focus:border-sky-500;
+  }
+
+  .rfm-metadata-json {
+    @apply bg-slate-900 text-sky-400 p-4 rounded-lg text-xs overflow-auto max-h-60 font-mono;
   }
 
   /* Virus Scanning States */
@@ -327,4 +398,3 @@ React File Manager | MIT License | https://github.com/thelicato/react-file-manag
     z-index: 10;
   }
 }
-

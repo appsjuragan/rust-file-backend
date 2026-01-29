@@ -31,7 +31,9 @@ const CommonModal: React.FC<IModalProps> = ({
             className="rfm-modal-icon"
           />
         </div>
-        {children}
+        <div className="rfm-modal-body">
+          {children}
+        </div>
       </div>
     </Draggable>
   );

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { useFileManager } from "../context";
 import { FileType } from "../types";
+import SvgIcon from "./SvgIcon";
+import { api } from "../../src/api";
 
 interface IContextMenuProps {
     x: number;
@@ -8,6 +10,10 @@ interface IContextMenuProps {
     file: FileType | null;
     onClose: () => void;
     onPreview: (file: FileType) => void;
+    onViewMetadata: (file: FileType) => void;
+    onRename: (file: FileType) => void;
+    onNewFolder: () => void;
+    onUpload: () => void;
 }
 
 const ContextMenu: React.FC<IContextMenuProps> = ({
@@ -16,6 +22,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     file,
     onClose,
     onPreview,
+    onViewMetadata,
+    onRename,
+    onNewFolder,
+    onUpload,
 }) => {
     const {
         onDelete,
@@ -42,6 +52,33 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     const handleOpen = () => {
         if (file) {
             onPreview(file);
+        }
+        onClose();
+    };
+
+    const handleDownload = () => {
+        if (file && !file.isDir) {
+            const url = api.getFileUrl(file.id);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        onClose();
+    };
+
+    const handleViewMetadata = () => {
+        if (file) {
+            onViewMetadata(file);
+        }
+        onClose();
+    };
+
+    const handleRename = () => {
+        if (file) {
+            onRename(file);
         }
         onClose();
     };
@@ -83,19 +120,49 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         >
             {file && (
                 <>
+                    {!file.isDir && (
+                        <div className="rfm-context-menu-item" onClick={handleDownload}>
+                            <SvgIcon svgType="download" className="rfm-context-menu-icon" />
+                            Download
+                        </div>
+                    )}
+                    <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
+                        <SvgIcon svgType="info" className="rfm-context-menu-icon" />
+                        View Meta Data
+                    </div>
+                    <div className="rfm-context-menu-item" onClick={handleRename}>
+                        <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                        Rename
+                    </div>
                     <div className="rfm-context-menu-item" onClick={handleOpen}>
+                        <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
                         Open (Preview)
                     </div>
                     <div className="rfm-context-menu-item" onClick={handleCut}>
+                        <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
                         Cut
                     </div>
                     <div className="rfm-context-menu-item text-rose-500" onClick={handleDelete}>
+                        <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
                         Delete
+                    </div>
+                </>
+            )}
+            {!file && (
+                <>
+                    <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
+                        <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
+                        New Folder
+                    </div>
+                    <div className="rfm-context-menu-item" onClick={() => { onUpload(); onClose(); }}>
+                        <SvgIcon svgType="upload" className="rfm-context-menu-icon" />
+                        Upload Files
                     </div>
                 </>
             )}
             {!file && clipboard && (
                 <div className="rfm-context-menu-item" onClick={handlePaste}>
+                    <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
                     Paste
                 </div>
             )}

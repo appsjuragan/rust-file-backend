@@ -13,7 +13,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, RelationTrait,
-    Set,
+    Set, TransactionTrait,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -103,6 +103,14 @@ pub struct LinkFileRequest {
     pub filename: String,
     pub parent_id: Option<String>,
     pub expiration_hours: Option<i64>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ZipEntry {
+    pub name: String,
+    pub size: u64,
+    pub compressed_size: u64,
+    pub is_dir: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -204,6 +212,7 @@ pub async fn upload_file(
     let mut filename = String::new();
     let mut expiration_hours: Option<i64> = None;
     let mut parent_id: Option<String> = None;
+    let mut total_size: Option<u64> = None;
     let mut staged_file = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
@@ -243,6 +252,9 @@ pub async fn upload_file(
             if !text.is_empty() && text != "null" {
                 parent_id = Some(text);
             }
+        } else if name == "total_size" {
+            let text = field.text().await.unwrap_or_default();
+            total_size = text.parse().ok();
         }
     }
 
@@ -257,6 +269,7 @@ pub async fn upload_file(
             claims.sub,
             parent_id,
             expiration_hours,
+            total_size,
         )
         .await?;
 
@@ -391,7 +404,7 @@ pub async fn download_file(
     let ascii_filename = user_file
         .filename
         .chars()
-        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\')
+        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
         .collect::<String>();
     let fallback_filename = if ascii_filename.is_empty() {
         "file"
@@ -594,26 +607,84 @@ pub async fn create_folder(
         ..Default::default()
     };
 
-    new_folder
-        .insert(&state.db)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let res = new_folder.insert(&state.db).await?;
 
     Ok(Json(FileMetadataResponse {
-        id,
-        filename: req.name,
+        id: res.id,
+        filename: res.filename,
         size: None,
         mime_type: None,
         is_folder: true,
-        parent_id: req.parent_id,
-        created_at: Utc::now(),
-        expires_at: None,
+        parent_id: res.parent_id,
+        created_at: res.created_at.unwrap_or_else(Utc::now),
+        expires_at: res.expires_at,
         tags: Vec::new(),
-        category: Some("folder".to_string()),
+        category: None,
         extra_metadata: None,
         scan_status: None,
         scan_result: None,
     }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/{id}/path",
+    params(
+        ("id" = String, Path, description = "Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Folder path breadcrumbs", body = Vec<FileMetadataResponse>),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Folder not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_folder_path(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<FileMetadataResponse>>, AppError> {
+    let mut path = Vec::new();
+    let mut current_id = Some(id);
+
+    while let Some(id_str) = current_id {
+        if id_str == "0" || id_str == "root" {
+            break;
+        }
+
+        let folder = UserFiles::find_by_id(id_str)
+            .filter(user_files::Column::UserId.eq(&claims.sub))
+            .filter(user_files::Column::DeletedAt.is_null())
+            .one(&state.db)
+            .await?
+            .ok_or(AppError::NotFound("Folder not found".to_string()))?;
+
+        if !folder.is_folder {
+            return Err(AppError::BadRequest("ID is not a folder".to_string()));
+        }
+
+        path.insert(0, FileMetadataResponse {
+            id: folder.id.clone(),
+            filename: folder.filename.clone(),
+            size: None,
+            mime_type: None,
+            is_folder: true,
+            parent_id: folder.parent_id.clone(),
+            created_at: folder.created_at.unwrap_or_else(Utc::now),
+            expires_at: folder.expires_at,
+            tags: Vec::new(),
+            category: None,
+            extra_metadata: None,
+            scan_status: None,
+            scan_result: None,
+        });
+
+        current_id = folder.parent_id;
+    }
+
+    Ok(Json(path))
 }
 
 #[utoipa::path(
@@ -647,10 +718,12 @@ pub async fn delete_item(
             "Item not found or already deleted".to_string(),
         ))?;
 
+    let txn = state.db.begin().await?;
+
     if item.is_folder {
         // Recursively delete folder and all children
         StorageLifecycleService::delete_folder_recursive(
-            &state.db,
+            &txn,
             state.storage.as_ref(),
             &item.id,
         )
@@ -662,12 +735,14 @@ pub async fn delete_item(
     }
 
     // Soft delete the item and decrement ref count
-    StorageLifecycleService::soft_delete_user_file(&state.db, state.storage.as_ref(), &item)
+    StorageLifecycleService::soft_delete_user_file(&txn, state.storage.as_ref(), &item)
         .await
         .map_err(|e| {
             tracing::error!("Failed to soft delete user file: {}", e);
             AppError::Internal(e.to_string())
         })?;
+
+    txn.commit().await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -704,6 +779,62 @@ pub async fn rename_item(
             "Item not found or already deleted".to_string(),
         ))?;
 
+    let target_filename = if let Some(name) = req.name.clone() {
+        sanitize_filename(&name).map_err(|e| AppError::BadRequest(e.to_string()))?
+    } else {
+        item.filename.clone()
+    };
+
+    let target_parent_id = match req.parent_id.clone() {
+        Some(p) if p == "root" || p == "0" => None,
+        Some(p) => Some(p),
+        None => item.parent_id.clone(),
+    };
+
+    // Check if target already exists (only for files)
+    if !item.is_folder {
+        let existing = UserFiles::find()
+            .filter(user_files::Column::UserId.eq(&claims.sub))
+            .filter(user_files::Column::Filename.eq(&target_filename))
+            .filter(user_files::Column::ParentId.eq(target_parent_id.clone()))
+            .filter(user_files::Column::IsFolder.eq(false))
+            .filter(user_files::Column::DeletedAt.is_null())
+            .filter(user_files::Column::Id.ne(&item.id))
+            .one(&state.db)
+            .await?;
+
+        if let Some(existing_file) = existing {
+            // Merge logic: Update existing_file to use item's storage_file_id
+            let old_storage_file_id = existing_file.storage_file_id.clone();
+            let new_storage_file_id = item.storage_file_id.clone();
+
+            let mut active_existing: user_files::ActiveModel = existing_file.clone().into();
+            active_existing.storage_file_id = Set(new_storage_file_id.clone());
+            active_existing.created_at = Set(Some(Utc::now()));
+            let updated = active_existing.update(&state.db).await?;
+
+            // Soft delete the original item (the one being renamed/moved)
+            let mut active_item: user_files::ActiveModel = item.clone().into();
+            active_item.deleted_at = Set(Some(Utc::now()));
+            active_item.update(&state.db).await?;
+
+            // Decrement ref count of the OVERWRITTEN storage file
+            if let Some(old_id) = old_storage_file_id {
+                if Some(old_id.clone()) != new_storage_file_id {
+                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                        &state.db,
+                        state.storage.as_ref(),
+                        &old_id,
+                    )
+                    .await;
+                }
+            }
+
+            // Return the updated existing file metadata
+            return return_file_metadata(state, updated).await;
+        }
+    }
+
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
         let sanitized_name =
@@ -719,7 +850,87 @@ pub async fn rename_item(
     }
 
     let updated = active.update(&state.db).await?;
+    return_file_metadata(state, updated).await
+}
 
+#[utoipa::path(
+    get,
+    path = "/files/{id}/zip-contents",
+    params(
+        ("id" = String, Path, description = "User File ID")
+    ),
+    responses(
+        (status = 200, description = "List of files inside ZIP", body = Vec<ZipEntry>),
+        (status = 400, description = "File is not a ZIP or too large"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "File not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_zip_contents(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<ZipEntry>>, AppError> {
+    // 1. Verify file ownership and existence
+    let user_file = UserFiles::find_by_id(id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("File not found".to_string()))?;
+
+    if user_file.is_folder {
+        return Err(AppError::BadRequest("Folders cannot be ZIP archives".to_string()));
+    }
+
+    let storage_file_id = user_file.storage_file_id.ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+    let storage_file = StorageFiles::find_by_id(storage_file_id)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    // 2. Check size limit (500MB)
+    if storage_file.size > 500 * 1024 * 1024 {
+        return Err(AppError::BadRequest("ZIP file too large for preview (max 500MB)".to_string()));
+    }
+
+    // 3. Download from S3
+    let s3_res = state.storage.get_object_stream(&storage_file.s3_key).await
+        .map_err(|e| AppError::Internal(format!("Failed to get S3 object: {}", e)))?;
+
+    let mut data = Vec::with_capacity(storage_file.size as usize);
+    let mut reader = s3_res.body.into_async_read();
+    tokio::io::copy(&mut reader, &mut data).await
+        .map_err(|e| AppError::Internal(format!("Failed to read file data: {}", e)))?;
+
+    // 4. Parse ZIP
+    let cursor = std::io::Cursor::new(data);
+    let mut archive = zip::ZipArchive::new(cursor)
+        .map_err(|e| AppError::BadRequest(format!("Failed to parse ZIP: {}", e)))?;
+
+    let mut entries = Vec::new();
+    for i in 0..archive.len() {
+        let file = archive.by_index(i)
+            .map_err(|e| AppError::Internal(format!("Failed to read ZIP entry: {}", e)))?;
+        
+        entries.push(ZipEntry {
+            name: file.name().to_string(),
+            size: file.size(),
+            compressed_size: file.compressed_size(),
+            is_dir: file.is_dir(),
+        });
+    }
+
+    Ok(Json(entries))
+}
+
+async fn return_file_metadata(
+    state: crate::AppState,
+    updated: user_files::Model,
+) -> Result<Json<FileMetadataResponse>, AppError> {
     // Need storage info to return full metadata
     let storage_file = if let Some(sid) = updated.storage_file_id.as_ref() {
         StorageFiles::find_by_id(sid.clone())

@@ -7,14 +7,25 @@ import "../lib/tailwind.css";
 
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(!!getAuthToken());
-    const [username, setUsername] = useState("");
+    const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [fs, setFs] = useState<FileSystemType>([]);
     const [loading, setLoading] = useState(false);
+    const [currentFolder, setCurrentFolder] = useState<string>(() => {
+        return localStorage.getItem("currentFolder") || "0";
+    });
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            localStorage.setItem("currentFolder", currentFolder);
+            localStorage.setItem("username", username);
+        }
+    }, [currentFolder, username, isAuthenticated]);
 
     const fetchFiles = useCallback(async (parentId?: string, silent = false) => {
         if (!silent) setLoading(true);
+        const effectiveParentId = parentId || "0";
         try {
             const data = await api.listFiles(parentId === "0" ? undefined : parentId);
             const mappedFs: FileSystemType = data.map((item: any) => ({
@@ -24,17 +35,24 @@ function App() {
                 parentId: item.parent_id || "0",
                 lastModified: new Date(item.created_at).getTime() / 1000,
                 scanStatus: item.scan_status,
+                size: item.size,
+                mimeType: item.mime_type,
+                extraMetadata: item.extra_metadata,
             }));
 
-            // Ensure root is present if we are at root
-            if (!parentId || parentId === "0") {
-                const rootExists = mappedFs.some(f => f.id === "0");
-                if (!rootExists) {
-                    mappedFs.unshift({ id: "0", name: "/", isDir: true, path: "/" });
-                }
-            }
+            setFs(prevFs => {
+                // Remove existing items that belong to this parent to handle deletions
+                let newFs = prevFs.filter(f => f.parentId !== effectiveParentId && f.id !== "0");
 
-            setFs(mappedFs);
+                // Add the new items
+                newFs = [...newFs, ...mappedFs];
+
+                // Ensure root is present
+                if (!newFs.some(f => f.id === "0")) {
+                    newFs.unshift({ id: "0", name: "/", isDir: true, path: "/" });
+                }
+                return newFs;
+            });
         } catch (err: any) {
             console.error("Failed to fetch files:", err);
         } finally {
@@ -47,32 +65,71 @@ function App() {
         fsRef.current = fs;
     }, [fs]);
 
+    const currentFolderRef = React.useRef(currentFolder);
+    useEffect(() => {
+        currentFolderRef.current = currentFolder;
+    }, [currentFolder]);
+
+    const alertedInfectedFiles = React.useRef<Set<string>>(new Set());
+
     useEffect(() => {
         if (isAuthenticated) {
-            fetchFiles();
+            fetchFiles(currentFolder);
+
+            // If we are in a subfolder, fetch the path to reconstruct breadcrumbs
+            if (currentFolder !== "0") {
+                api.getFolderPath(currentFolder).then((path: any) => {
+                    const mappedPath: FileSystemType = path.map((item: any) => ({
+                        id: item.id,
+                        name: item.filename,
+                        isDir: item.is_folder,
+                        parentId: item.parent_id || "0",
+                        lastModified: new Date(item.created_at).getTime() / 1000,
+                        scanStatus: item.scan_status,
+                        size: item.size,
+                        mimeType: item.mime_type,
+                    }));
+
+                    setFs(prevFs => {
+                        const newFs = [...prevFs];
+                        mappedPath.forEach(item => {
+                            if (!newFs.some(f => f.id === item.id)) {
+                                newFs.push(item);
+                            }
+                        });
+                        return newFs;
+                    });
+                }).catch(err => {
+                    console.error("Failed to fetch folder path:", err);
+                    setCurrentFolder("0"); // Fallback to root if folder not found
+                });
+            }
 
             // Poll every 5 seconds if there are pending files
             const interval = setInterval(() => {
                 const currentFs = fsRef.current;
                 const hasPending = currentFs.some(f => f.scanStatus === 'pending');
                 if (hasPending) {
-                    fetchFiles(undefined, true);
+                    fetchFiles(currentFolderRef.current, true);
                 }
 
                 // Check for infected files to show toast/alert
                 const infectedFiles = currentFs.filter(f => f.scanStatus === 'infected');
-                if (infectedFiles.length > 0) {
-                    infectedFiles.forEach(f => {
+                const newInfectedFiles = infectedFiles.filter(f => !alertedInfectedFiles.current.has(f.id));
+
+                if (newInfectedFiles.length > 0) {
+                    newInfectedFiles.forEach(f => {
                         alert(`🚨 MALWARE DETECTED: The file "${f.name}" has been flagged as infected and will be deleted.`);
+                        alertedInfectedFiles.current.add(f.id);
                     });
-                    // Refresh after alert to show they are gone
-                    fetchFiles(undefined, true);
+                    // Refresh after alert to show they are gone (or marked as infected)
+                    fetchFiles(currentFolderRef.current, true);
                 }
             }, 5000);
 
             return () => clearInterval(interval);
         }
-    }, [isAuthenticated, fetchFiles]);
+    }, [isAuthenticated, fetchFiles, currentFolder]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,6 +160,10 @@ function App() {
         clearAuthToken();
         setIsAuthenticated(false);
         setFs([]);
+        setCurrentFolder("0");
+        localStorage.removeItem("currentFolder");
+        localStorage.removeItem("username");
+        setUsername("");
     };
 
     const onRefresh = async (id: string) => {
@@ -121,55 +182,57 @@ function App() {
         return hashHex;
     };
 
-    const performUpload = async (file: File, folderId: string, onProgress?: (p: number) => void) => {
-        try {
-            // 1. Calculate hash for deduplication
-            const hash = await calculateHash(file);
+    const performUpload = async (file: File, folderId: string, onProgress?: (p: number) => void, totalSize?: number) => {
+        // 1. Calculate hash for deduplication
+        const hash = await calculateHash(file);
 
-            // 2. Pre-check if file exists
-            const preCheck = await api.preCheck(hash, file.size);
+        // 2. Pre-check if file exists
+        const preCheck = await api.preCheck(hash, file.size);
 
-            if (preCheck.exists && preCheck.file_id) {
-                // 3. Link existing file instead of uploading (saves bandwidth!)
-                await api.linkFile(preCheck.file_id, file.name, folderId);
-                if (onProgress) onProgress(100);
-            } else {
-                // 4. Upload new file
-                await api.uploadFile(file, folderId, onProgress);
-            }
-
-            await fetchFiles(folderId);
-        } catch (err: any) {
-            alert("Upload failed: " + err.message);
-        } finally {
-            setPendingUpload(null);
+        if (preCheck.exists && preCheck.file_id) {
+            // 3. Link existing file instead of uploading (saves bandwidth!)
+            await api.linkFile(preCheck.file_id, file.name, folderId);
+            if (onProgress) onProgress(100);
+        } else {
+            // 4. Upload new file
+            await api.uploadFile(file, folderId, onProgress, totalSize);
         }
     };
 
     const onUpload = async (fileData: any, folderId: string, onProgress?: (p: number) => void) => {
-        if (fileData && fileData[0]) {
-            const file = fileData[0];
+        const files = Array.from(fileData) as File[];
+        if (files.length === 0) return;
 
-            if (file.size > MAX_FILE_SIZE) {
-                alert(`❌ Upload failed: File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 256MB.`);
-                return;
+        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+        let completedCount = 0;
+        try {
+            for (const file of files) {
+                if (file.size > MAX_FILE_SIZE) {
+                    alert(`❌ Upload failed: "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 256MB.`);
+                    continue;
+                }
+
+                await performUpload(file, folderId, (p) => {
+                    if (onProgress) {
+                        const totalProgress = (completedCount * 100 + p) / files.length;
+                        onProgress(totalProgress);
+                    }
+                }, totalSize);
+                completedCount++;
             }
-
-            // Check for duplicate name in current folder
-            const duplicate = fs.find(f => f.name === file.name && f.parentId === (folderId || "0") && !f.isDir);
-            if (duplicate) {
-                setPendingUpload({ file, folderId, onProgress });
-                return;
-            }
-
-            await performUpload(file, folderId, onProgress);
+        } catch (err: any) {
+            alert("Upload failed: " + err.message);
+        } finally {
+            await fetchFiles(folderId);
+            setPendingUpload(null);
         }
     };
 
     const onCreateFolder = async (name: string) => {
         try {
-            await api.createFolder(name, "0");
-            await fetchFiles("0");
+            const parentId = currentFolder === "0" ? undefined : currentFolder;
+            await api.createFolder(name, parentId);
+            await fetchFiles(currentFolder);
         } catch (err: any) {
             alert("Create folder failed: " + err.message);
         }
@@ -179,7 +242,14 @@ function App() {
         if (id === "0") return;
         try {
             await api.deleteItem(id);
-            await fetchFiles(); // Refresh all for simplicity
+            if (currentFolder === id) {
+                const folder = fs.find(f => f.id === id);
+                const targetFolder = folder?.parentId || "0";
+                setCurrentFolder(targetFolder);
+                await fetchFiles(targetFolder);
+            } else {
+                await fetchFiles(currentFolder);
+            }
         } catch (err: any) {
             alert("Delete failed: " + err.message);
         }
@@ -191,6 +261,15 @@ function App() {
             await fetchFiles(newParentId);
         } catch (err: any) {
             alert("Move failed: " + err.message);
+        }
+    };
+
+    const onRename = async (id: string, newName: string) => {
+        try {
+            await api.renameItem(id, newName);
+            await fetchFiles(currentFolder);
+        } catch (err: any) {
+            alert("Rename failed: " + err.message);
         }
     };
 
@@ -244,6 +323,9 @@ function App() {
                     onCreateFolder={onCreateFolder}
                     onDelete={onDelete}
                     onMove={onMove}
+                    onRename={onRename}
+                    currentFolder={currentFolder}
+                    setCurrentFolder={setCurrentFolder}
                 />
                 <CommonModal
                     isVisible={!!pendingUpload}

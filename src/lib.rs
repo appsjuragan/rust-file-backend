@@ -36,6 +36,8 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::create_folder,
         api::handlers::files::delete_item,
         api::handlers::files::rename_item,
+        api::handlers::files::get_folder_path,
+        api::handlers::files::get_zip_contents,
         api::handlers::files::bulk_delete,
         api::handlers::health::health_check,
     ),
@@ -52,6 +54,7 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::RenameRequest,
             api::handlers::files::BulkDeleteRequest,
             api::handlers::files::LinkFileRequest,
+            api::handlers::files::ZipEntry,
             api::handlers::files::BulkDeleteResponse,
             api::handlers::health::HealthResponse,
         )
@@ -107,6 +110,16 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/files/:id/rename",
             axum::routing::put(api::handlers::files::rename_item)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files/:id/path",
+            get(api::handlers::files::get_folder_path)
+                .layer(from_fn(api::middleware::auth::auth_middleware)),
+        )
+        .route(
+            "/files/:id/zip-contents",
+            get(api::handlers::files::get_zip_contents)
                 .layer(from_fn(api::middleware::auth::auth_middleware)),
         )
         .route(

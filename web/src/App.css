@@ -59,7 +59,6 @@ body {
 .auth-card input:focus {
     outline: none;
     border-color: var(--primary);
-    ring: 2px solid var(--primary);
 }
 
 .auth-buttons {
@@ -175,4 +174,79 @@ body {
     border-radius: 2rem;
     cursor: pointer;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.rfm-preview-textarea {
+    width: 100%;
+    height: 400px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    background-color: #f8fafc;
+    color: #1e293b;
+    resize: none;
+    outline: none;
+}
+
+.rfm-preview-loading {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.rfm-zip-preview {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: white;
+}
+
+.rfm-zip-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.rfm-zip-list {
+    overflow-y: auto;
+}
+
+.rfm-zip-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.875rem;
+}
+
+.rfm-zip-entry:last-child {
+    border-bottom: none;
+}
+
+.rfm-zip-entry.is-dir {
+    background-color: #f8fafc;
+    font-weight: 500;
+}
+
+.rfm-zip-entry-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.rfm-zip-entry-size {
+    color: var(--text-muted);
+    margin-left: 1rem;
+    text-align: right;
+    min-width: 80px;
 }

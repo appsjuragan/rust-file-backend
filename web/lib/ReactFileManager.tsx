@@ -16,6 +16,9 @@ export interface IFileManagerProps {
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
   onMove?: (id: string, newParentId: string) => Promise<void>;
+  onRename?: (id: string, newName: string) => Promise<void>;
+  currentFolder?: string;
+  setCurrentFolder?: (id: string) => void;
 }
 
 export const ReactFileManager = ({
@@ -27,8 +30,14 @@ export const ReactFileManager = ({
   onCreateFolder,
   onDelete,
   onMove,
+  onRename,
+  currentFolder: propCurrentFolder,
+  setCurrentFolder: propSetCurrentFolder,
 }: IFileManagerProps) => {
-  const [currentFolder, setCurrentFolder] = useState<string>("0"); // Root folder ID must be "0"
+  const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
+  const currentFolder = propCurrentFolder ?? internalCurrentFolder;
+  const setCurrentFolder = propSetCurrentFolder ?? setInternalCurrentFolder;
+
   const [uploadedFileData, setUploadedFileData] = useState<any>();
   const [viewStyle, setViewStyle] = useState<ViewStyle>(ViewStyle.List);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -52,6 +61,7 @@ export const ReactFileManager = ({
         onCreateFolder: onCreateFolder,
         onDelete: onDelete,
         onMove: onMove,
+        onRename: onRename,
         uploadedFileData: uploadedFileData,
         setUploadedFileData: setUploadedFileData,
         uploadProgress,

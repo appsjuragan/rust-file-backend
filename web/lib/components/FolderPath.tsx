@@ -17,27 +17,26 @@ const FolderPath = () => {
     }
   };
 
-  const parentPath = useMemo((): string => {
-    const parentId: string | undefined = fs.find(
-      (f: FileType) => f.id === currentFolder
-    )?.parentId;
-    if (!parentId) {
-      return "";
-    }
-    const parentDir = fs.find((f: FileType) => f.id === parentId);
-    if (!parentDir?.path) {
-      return "";
+  const breadcrumbs = useMemo(() => {
+    const crumbs: FileType[] = [];
+    let currentId = currentFolder;
+
+    while (currentId !== "0") {
+      const folder = fs.find((f: FileType) => f.id === currentId);
+      if (folder) {
+        crumbs.unshift(folder);
+        currentId = folder.parentId || "0";
+      } else {
+        break;
+      }
     }
 
-    const _parentPath =
-      parentDir.path.slice(-1) === "/" ? parentDir.path : `${parentDir.path}/`;
-    return _parentPath;
+    return crumbs;
   }, [fs, currentFolder]);
 
-  const currentPath = useMemo((): string => {
-    const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder);
-    return currentFolderInfo ? currentFolderInfo.name : "";
-  }, [fs, currentFolder]);
+  const handleCrumbClick = (id: string) => {
+    setCurrentFolder(id);
+  };
 
   return (
     <div className="rfm-workspace-header">
@@ -47,10 +46,25 @@ const FolderPath = () => {
           onClick={goUp}
           className="rfm-folder-path-svg"
         />
-        <span className="rfm-folder-path-span">
-          {parentPath}
-          <b>{currentPath}</b>
-        </span>
+        <div className="rfm-breadcrumbs">
+          <span
+            className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""}`}
+            onClick={() => handleCrumbClick("0")}
+          >
+            ROOT
+          </span>
+          {breadcrumbs.map((crumb) => (
+            <React.Fragment key={crumb.id}>
+              <span className="rfm-breadcrumb-separator">/</span>
+              <span
+                className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
+                onClick={() => handleCrumbClick(crumb.id)}
+              >
+                {crumb.name}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
       <div className="rfm-header-container">
         <SvgIcon

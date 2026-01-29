@@ -10,3 +10,5 @@ export { default as PreviewModal } from "./PreviewModal";
 export { default as UploadProgressToast } from "./UploadProgressToast";
 export { default as ContextMenu } from "./ContextMenu";
 export { default as Sidebar } from "./Sidebar";
+export { default as MetadataModal } from "./MetadataModal";
+export { default as RenameModal } from "./RenameModal";

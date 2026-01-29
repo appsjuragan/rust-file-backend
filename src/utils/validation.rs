@@ -48,6 +48,12 @@ pub const ALLOWED_MIME_TYPES: &[&str] = &[
     "application/gzip",
     "application/x-tar",
     "application/x-bzip2",
+    "application/x-zip-compressed",
+    "application/x-compress",
+    "application/x-compressed",
+    "application/x-zip",
+    "application/x-rar",
+    "application/octet-stream",
 ];
 
 /// Magic byte signatures for file type verification
@@ -188,6 +194,7 @@ pub fn sanitize_filename(filename: &str) -> Result<String> {
                 || c == '<'
                 || c == '>'
                 || c == '|'
+                || c == ';'
             {
                 '_'
             } else {

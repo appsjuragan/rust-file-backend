@@ -13,6 +13,7 @@ interface ProviderInterface {
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
   onMove?: (id: string, newParentId: string) => Promise<void>;
+  onRename?: (id: string, newName: string) => Promise<void>;
   uploadedFileData: any;
   setUploadedFileData: Dispatch<any>;
   viewStyle: ViewStyle,

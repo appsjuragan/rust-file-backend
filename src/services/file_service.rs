@@ -10,9 +10,12 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
+use crate::services::scanner::VirusScanner;
+
 pub struct FileService {
     db: DatabaseConnection,
     storage: Arc<dyn StorageService>,
+    scanner: Arc<dyn VirusScanner>,
     config: SecurityConfig,
 }
 
@@ -27,11 +30,13 @@ impl FileService {
     pub fn new(
         db: DatabaseConnection,
         storage: Arc<dyn StorageService>,
+        scanner: Arc<dyn VirusScanner>,
         config: SecurityConfig,
     ) -> Self {
         Self {
             db,
             storage,
+            scanner,
             config,
         }
     }
@@ -102,6 +107,7 @@ impl FileService {
         user_id: String,
         parent_id: Option<String>,
         expiration_hours: Option<i64>,
+        total_size: Option<u64>,
     ) -> Result<(String, Option<chrono::DateTime<Utc>>), AppError> {
         // Check for deduplication
         let existing_storage_file = StorageFiles::find()
@@ -153,6 +159,46 @@ impl FileService {
 
             let _ = self.storage.delete_file(&staged.s3_key).await;
 
+            let mut scan_status = if self.config.enable_virus_scan {
+                "pending"
+            } else {
+                "unchecked"
+            }
+            .to_string();
+            let mut scan_result = None;
+            let mut scanned_at = None;
+
+            // Immediate scan if file < 20MB and total upload <= 100MB
+            if self.config.enable_virus_scan
+                && staged.size < 20 * 1024 * 1024
+                && total_size.unwrap_or(0) <= 100 * 1024 * 1024
+            {
+                tracing::info!("🚀 Starting immediate scan for file: {}", id);
+                if let Ok(stream) = self.storage.get_object_stream(&permanent_key).await {
+                    let reader = Box::pin(stream.body.into_async_read());
+                    match self.scanner.scan(reader).await {
+                        Ok(crate::services::scanner::ScanResult::Clean) => {
+                            tracing::info!("✅ Immediate scan clean: {}", id);
+                            scan_status = "clean".to_string();
+                            scanned_at = Some(Utc::now());
+                        }
+                        Ok(crate::services::scanner::ScanResult::Infected { threat_name }) => {
+                            tracing::warn!("🚨 Immediate scan infected: {} ({})", id, threat_name);
+                            scan_status = "infected".to_string();
+                            scan_result = Some(threat_name);
+                            scanned_at = Some(Utc::now());
+                        }
+                        Ok(crate::services::scanner::ScanResult::Error { reason }) => {
+                            tracing::error!("❌ Immediate scan error for {}: {}", id, reason);
+                            // Keep as pending to retry later
+                        }
+                        Err(e) => {
+                            tracing::error!("❌ Immediate scan failed for {}: {}", id, e);
+                        }
+                    }
+                }
+            }
+
             #[allow(clippy::needless_update)]
             let new_storage_file = storage_files::ActiveModel {
                 id: Set(id.clone()),
@@ -161,15 +207,9 @@ impl FileService {
                 size: Set(staged.size),
                 ref_count: Set(1),
                 mime_type: Set(Some(mime_type)),
-                scan_status: Set(Some(
-                    if self.config.enable_virus_scan {
-                        "pending"
-                    } else {
-                        "unchecked"
-                    }
-                    .to_string(),
-                )),
-                scanned_at: Set(None),
+                scan_status: Set(Some(scan_status)),
+                scan_result: Set(scan_result),
+                scanned_at: Set(scanned_at),
                 ..Default::default()
             };
 
@@ -178,25 +218,66 @@ impl FileService {
             id
         };
 
-        let user_file_id = Uuid::new_v4().to_string();
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
-        #[allow(clippy::needless_update)]
-        let new_user_file = user_files::ActiveModel {
-            id: Set(user_file_id.clone()),
-            user_id: Set(user_id),
-            storage_file_id: Set(Some(storage_file_id.clone())),
-            filename: Set(filename.clone()),
-            expires_at: Set(expires_at),
-            parent_id: Set(parent_id),
-            is_folder: Set(false),
-            ..Default::default()
-        };
+        // Check for existing file with same name in the same folder for merging
+        let existing_user_file = UserFiles::find()
+            .filter(user_files::Column::UserId.eq(&user_id))
+            .filter(user_files::Column::Filename.eq(&filename))
+            .filter(user_files::Column::ParentId.eq(parent_id.clone()))
+            .filter(user_files::Column::IsFolder.eq(false))
+            .filter(user_files::Column::DeletedAt.is_null())
+            .one(&self.db)
+            .await?;
 
-        new_user_file.insert(&self.db).await.map_err(|e| {
-            tracing::error!("Failed to insert user_file: {}", e);
-            AppError::Internal(e.to_string())
-        })?;
+        let user_file_id = if let Some(existing) = existing_user_file {
+            // Merge logic: Update existing record to point to new storage file
+            let old_storage_file_id = existing.storage_file_id.clone();
+            let existing_id = existing.id.clone();
+
+            let mut active: user_files::ActiveModel = existing.into();
+            active.storage_file_id = Set(Some(storage_file_id.clone()));
+            active.expires_at = Set(expires_at);
+            active.created_at = Set(Some(Utc::now())); // Update timestamp to "latest"
+            active.update(&self.db).await.map_err(|e| {
+                tracing::error!("Failed to update existing user_file: {}", e);
+                AppError::Internal(e.to_string())
+            })?;
+
+            // Decrement ref count of old storage file if it's different
+            if let Some(old_id) = old_storage_file_id {
+                if old_id != storage_file_id {
+                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                        &self.db,
+                        self.storage.as_ref(),
+                        &old_id,
+                    )
+                    .await;
+                }
+            }
+            existing_id
+        } else {
+            // No existing file, create new one
+            let new_id = Uuid::new_v4().to_string();
+            #[allow(clippy::needless_update)]
+            let new_user_file = user_files::ActiveModel {
+                id: Set(new_id.clone()),
+                user_id: Set(user_id),
+                storage_file_id: Set(Some(storage_file_id.clone())),
+                filename: Set(filename.clone()),
+                expires_at: Set(expires_at),
+                parent_id: Set(parent_id),
+                is_folder: Set(false),
+                created_at: Set(Some(Utc::now())),
+                ..Default::default()
+            };
+
+            new_user_file.insert(&self.db).await.map_err(|e| {
+                tracing::error!("Failed to insert user_file: {}", e);
+                AppError::Internal(e.to_string())
+            })?;
+            new_id
+        };
 
         // Save Metadata and Tags
         if let Err(e) = self
@@ -228,23 +309,59 @@ impl FileService {
         active.ref_count = Set(sf.ref_count + 1);
         active.update(&self.db).await?;
 
-        // 3. Create user file entry
-        let user_file_id = Uuid::new_v4().to_string();
-        let expires_at = expiration_hours.map(|h| Utc::now() + chrono::Duration::hours(h));
+        let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
-        let user_file = user_files::ActiveModel {
-            id: Set(user_file_id.clone()),
-            user_id: Set(user_id),
-            storage_file_id: Set(Some(storage_file_id.clone())),
-            filename: Set(filename),
-            parent_id: Set(parent_id),
-            expires_at: Set(expires_at),
-            created_at: Set(Some(Utc::now())),
-            is_folder: Set(false),
-            ..Default::default()
+        // Check for existing file with same name in the same folder for merging
+        let existing_user_file = UserFiles::find()
+            .filter(user_files::Column::UserId.eq(&user_id))
+            .filter(user_files::Column::Filename.eq(&filename))
+            .filter(user_files::Column::ParentId.eq(parent_id.clone()))
+            .filter(user_files::Column::IsFolder.eq(false))
+            .filter(user_files::Column::DeletedAt.is_null())
+            .one(&self.db)
+            .await?;
+
+        let user_file_id = if let Some(existing) = existing_user_file {
+            // Merge logic: Update existing record to point to new storage file
+            let old_storage_file_id = existing.storage_file_id.clone();
+            let existing_id = existing.id.clone();
+
+            let mut active: user_files::ActiveModel = existing.into();
+            active.storage_file_id = Set(Some(storage_file_id.clone()));
+            active.expires_at = Set(expires_at);
+            active.created_at = Set(Some(Utc::now()));
+            active.update(&self.db).await?;
+
+            // Decrement ref count of old storage file if it's different
+            if let Some(old_id) = old_storage_file_id {
+                if old_id != storage_file_id {
+                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                        &self.db,
+                        self.storage.as_ref(),
+                        &old_id,
+                    )
+                    .await;
+                }
+            }
+            existing_id
+        } else {
+            // 3. Create user file entry
+            let new_id = Uuid::new_v4().to_string();
+            let user_file = user_files::ActiveModel {
+                id: Set(new_id.clone()),
+                user_id: Set(user_id),
+                storage_file_id: Set(Some(storage_file_id.clone())),
+                filename: Set(filename),
+                parent_id: Set(parent_id),
+                expires_at: Set(expires_at),
+                created_at: Set(Some(Utc::now())),
+                is_folder: Set(false),
+                ..Default::default()
+            };
+
+            user_file.insert(&self.db).await?;
+            new_id
         };
-
-        user_file.insert(&self.db).await?;
 
         // 4. Link metadata and tags (reuse existing logic)
         let _ = self

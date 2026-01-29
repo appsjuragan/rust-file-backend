@@ -12,6 +12,8 @@ import NewFolderModal from "./NewFolderModal";
 import PreviewModal from "./PreviewModal";
 import UploadProgressToast from "./UploadProgressToast";
 import ContextMenu from "./ContextMenu";
+import MetadataModal from "./MetadataModal";
+import RenameModal from "./RenameModal";
 import { api } from "../../src/api";
 
 
@@ -27,6 +29,15 @@ import SvgIcon from "./SvgIcon";
 
 const columnHelper = createColumnHelper<FileType>()
 
+const formatSize = (bytes?: number) => {
+  if (bytes === undefined || bytes === null) return '--';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 const columns = [
   columnHelper.accessor('name', {
     header: () => 'Name',
@@ -40,6 +51,14 @@ const columns = [
         </div>
       );
     },
+  }),
+  columnHelper.accessor('size', {
+    header: () => 'Size',
+    cell: info => info.row.original.isDir ? '--' : formatSize(info.getValue()),
+  }),
+  columnHelper.accessor('mimeType', {
+    header: () => 'Type',
+    cell: info => info.row.original.isDir ? 'Folder' : (info.getValue() || 'Unknown'),
   }),
   columnHelper.accessor('lastModified', {
     header: () => 'Last Modified',
@@ -57,6 +76,7 @@ const Workspace = () => {
     onDoubleClick,
     onRefresh,
     onUpload,
+    onRename,
     setUploadProgress,
     setIsUploading,
     setUploadFileName,
@@ -65,6 +85,10 @@ const Workspace = () => {
     useState<boolean>(false);
   const [previewVisible, setPreviewVisible] = useState<boolean>(false);
   const [previewFile, setPreviewFile] = useState<FileType | null>(null);
+  const [metadataVisible, setMetadataVisible] = useState<boolean>(false);
+  const [metadataFile, setMetadataFile] = useState<FileType | null>(null);
+  const [renameVisible, setRenameVisible] = useState<boolean>(false);
+  const [renameFile, setRenameFile] = useState<FileType | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
 
   useEffect(() => {
@@ -80,17 +104,23 @@ const Workspace = () => {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      if (file && onUpload) {
+      if (acceptedFiles.length > 0 && onUpload) {
         try {
-          setUploadFileName(file.name);
-          setUploadProgress(0);
           setIsUploading(true);
-          await onUpload([file], currentFolder, (p) => {
+          setUploadProgress(0);
+
+          if (acceptedFiles.length === 1 && acceptedFiles[0]) {
+            setUploadFileName(acceptedFiles[0].name);
+          } else {
+            setUploadFileName(`Uploading ${acceptedFiles.length} files...`);
+          }
+
+          await onUpload(acceptedFiles, currentFolder, (p) => {
             setUploadProgress(p);
           });
+
           if (onRefresh) await onRefresh(currentFolder);
-          // Keep toast visible for a moment if 100%
+
           setTimeout(() => {
             setIsUploading(false);
           }, 2000);
@@ -166,7 +196,7 @@ const Workspace = () => {
 
         {/* Icons File View */}
         {viewStyle === ViewStyle.Icons && (
-          <>
+          <div className="rfm-icons-grid">
             {currentFolderFiles.map((f: FileType, key: number) => {
               const isPending = f.scanStatus === 'pending';
               return (
@@ -190,7 +220,7 @@ const Workspace = () => {
             {!viewOnly && (
               <NewFolderIcon onClick={() => setNewFolderModalVisible(true)} />
             )}
-          </>
+          </div>
         )}
 
         {/* List File View */}
@@ -215,7 +245,7 @@ const Workspace = () => {
                 {table.getRowModel().rows.map(row => (
                   <tr
                     key={row.id}
-                    className="rfm-workspace-list-icon-row"
+                    className={`rfm-workspace-list-icon-row ${row.original.scanStatus === 'pending' ? 'rfm-pending' : ''}`}
                     onContextMenu={(e) => {
                       e.stopPropagation();
                       handleContextMenu(e, row.original);
@@ -230,6 +260,17 @@ const Workspace = () => {
                 ))}
               </tbody>
             </table>
+            {currentFolderFiles.length === 0 && (
+              <div
+                className="rfm-empty-folder"
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                  handleContextMenu(e, null);
+                }}
+              >
+                <p>Empty folder</p>
+              </div>
+            )}
             {!viewOnly && (
               <div className="rfm-workspace-actions">
                 <button className="rfm-btn-primary" onClick={() => setNewFolderModalVisible(true)}>Add Folder</button>
@@ -252,6 +293,8 @@ const Workspace = () => {
                 onClose={() => setPreviewVisible(false)}
                 fileName={previewFile.name}
                 fileUrl={api.getFileUrl(previewFile.id)}
+                mimeType={previewFile.mimeType}
+                size={previewFile.size}
               />
             )}
           </>
@@ -267,8 +310,33 @@ const Workspace = () => {
               setPreviewFile(file);
               setPreviewVisible(true);
             }}
+            onViewMetadata={(file) => {
+              setMetadataFile(file);
+              setMetadataVisible(true);
+            }}
+            onRename={(file) => {
+              setRenameFile(file);
+              setRenameVisible(true);
+            }}
+            onNewFolder={() => setNewFolderModalVisible(true)}
+            onUpload={open}
           />
         )}
+        <MetadataModal
+          isVisible={metadataVisible}
+          onClose={() => setMetadataVisible(false)}
+          file={metadataFile}
+        />
+        <RenameModal
+          isVisible={renameVisible}
+          onClose={() => setRenameVisible(false)}
+          currentName={renameFile?.name || ""}
+          onRename={(newName) => {
+            if (renameFile && onRename) {
+              onRename(renameFile.id, newName);
+            }
+          }}
+        />
       </div>
     </section>
   );

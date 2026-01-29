@@ -14,14 +14,12 @@ impl StorageLifecycleService {
     ///
     /// Returns true if the storage file was deleted from both DB and S3
     pub async fn decrement_ref_count(
-        db: &DatabaseConnection,
+        db: &impl sea_orm::ConnectionTrait,
         storage: &dyn StorageService,
         storage_file_id: &str,
     ) -> Result<bool> {
-        let txn = db.begin().await?;
-
         let storage_file = StorageFiles::find_by_id(storage_file_id)
-            .one(&txn)
+            .one(db)
             .await?
             .ok_or_else(|| anyhow!("Storage file not found: {}", storage_file_id))?;
 
@@ -35,7 +33,7 @@ impl StorageLifecycleService {
 
         let mut active: storage_files::ActiveModel = storage_file.clone().into();
         active.ref_count = Set(new_count);
-        let updated = active.update(&txn).await?;
+        let updated = active.update(db).await?;
 
         let deleted = if new_count <= 0 {
             tracing::info!("ref_count reached 0, deleting from S3: {}", updated.s3_key);
@@ -44,7 +42,7 @@ impl StorageLifecycleService {
             storage.delete_file(&updated.s3_key).await?;
 
             // Delete from database
-            updated.delete(&txn).await?;
+            updated.delete(db).await?;
 
             tracing::info!(
                 "Successfully deleted storage_file {} from S3 and DB",
@@ -60,7 +58,6 @@ impl StorageLifecycleService {
             false
         };
 
-        txn.commit().await?;
         Ok(deleted)
     }
 
@@ -70,7 +67,7 @@ impl StorageLifecycleService {
     /// ref_count on storage_files, triggering S3 cleanup when ref_count reaches 0
     #[async_recursion::async_recursion]
     pub async fn delete_folder_recursive(
-        db: &DatabaseConnection,
+        db: &impl sea_orm::ConnectionTrait,
         storage: &dyn StorageService,
         folder_id: &str,
     ) -> Result<()> {
@@ -101,7 +98,7 @@ impl StorageLifecycleService {
 
     /// Soft delete a user_file and decrement storage ref_count
     pub async fn soft_delete_user_file(
-        db: &DatabaseConnection,
+        db: &impl sea_orm::ConnectionTrait,
         storage: &dyn StorageService,
         user_file: &user_files::Model,
     ) -> Result<()> {
@@ -135,6 +132,7 @@ impl StorageLifecycleService {
             user_id
         );
 
+        let txn = db.begin().await?;
         let mut deleted_count = 0;
 
         for item_id in item_ids {
@@ -142,14 +140,14 @@ impl StorageLifecycleService {
             let item = UserFiles::find_by_id(&item_id)
                 .filter(user_files::Column::UserId.eq(user_id))
                 .filter(user_files::Column::DeletedAt.is_null())
-                .one(db)
+                .one(&txn)
                 .await?;
 
             if let Some(item) = item {
                 if item.is_folder {
-                    Self::delete_folder_recursive(db, storage, &item.id).await?;
+                    Self::delete_folder_recursive(&txn, storage, &item.id).await?;
                 }
-                Self::soft_delete_user_file(db, storage, &item).await?;
+                Self::soft_delete_user_file(&txn, storage, &item).await?;
                 deleted_count += 1;
             } else {
                 tracing::warn!(
@@ -160,6 +158,7 @@ impl StorageLifecycleService {
             }
         }
 
+        txn.commit().await?;
         tracing::info!("Bulk deleted {} items", deleted_count);
         Ok(deleted_count)
     }
