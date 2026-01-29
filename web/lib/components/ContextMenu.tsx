@@ -146,6 +146,19 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                         <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
                         Delete
                     </div>
+                    {file.isDir && (
+                        <>
+                            <div className="rfm-border-t my-1 border-slate-100" />
+                            <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
+                                <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
+                                New Folder
+                            </div>
+                            <div className="rfm-context-menu-item" onClick={() => { onUpload(); onClose(); }}>
+                                <SvgIcon svgType="upload" className="rfm-context-menu-icon" />
+                                Upload Files
+                            </div>
+                        </>
+                    )}
                 </>
             )}
             {!file && (
@@ -164,11 +177,6 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                 <div className="rfm-context-menu-item" onClick={handlePaste}>
                     <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
                     Paste
-                </div>
-            )}
-            {!file && !clipboard && (
-                <div className="rfm-context-menu-item disabled">
-                    No actions available
                 </div>
             )}
         </div>

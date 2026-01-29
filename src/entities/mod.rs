@@ -7,3 +7,4 @@ pub mod tags;
 pub mod tokens;
 pub mod user_files;
 pub mod users;
+pub mod user_settings;

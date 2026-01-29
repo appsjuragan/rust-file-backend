@@ -127,4 +127,10 @@ export const api = {
     }),
     getFolderPath: (id: string) => request(`/files/${id}/path`),
     getZipContents: (id: string) => request(`/files/${id}/zip-contents`),
+    getSettings: () => request('/settings'),
+    updateSettings: (settings: { theme?: string, view_style?: string }) => request('/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+    }),
 };

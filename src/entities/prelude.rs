@@ -5,3 +5,4 @@ pub use super::tags::Entity as Tags;
 pub use super::tokens::Entity as Tokens;
 pub use super::user_files::Entity as UserFiles;
 pub use super::users::Entity as Users;
+pub use super::user_settings::Entity as UserSettings;

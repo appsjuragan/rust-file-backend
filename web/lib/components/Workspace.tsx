@@ -8,12 +8,6 @@ import { ViewStyle } from "../types";
 import FileIcon from "./FileIcon";
 import NewFolderIcon from "./NewFolderIcon";
 import FolderPath from "./FolderPath";
-import NewFolderModal from "./NewFolderModal";
-import PreviewModal from "./PreviewModal";
-import UploadProgressToast from "./UploadProgressToast";
-import ContextMenu from "./ContextMenu";
-import MetadataModal from "./MetadataModal";
-import RenameModal from "./RenameModal";
 import { api } from "../../src/api";
 
 
@@ -80,24 +74,32 @@ const Workspace = () => {
     setUploadProgress,
     setIsUploading,
     setUploadFileName,
+    newFolderModalVisible,
+    setNewFolderModalVisible,
+    previewVisible,
+    setPreviewVisible,
+    previewFile,
+    setPreviewFile,
+    metadataVisible,
+    setMetadataVisible,
+    metadataFile,
+    setMetadataFile,
+    renameVisible,
+    setRenameVisible,
+    renameFile,
+    setRenameFile,
+    contextMenu,
+    setContextMenu,
+    setModalPosition,
   } = useFileManager();
-  const [newFolderModalVisible, setNewFolderModalVisible] =
-    useState<boolean>(false);
-  const [previewVisible, setPreviewVisible] = useState<boolean>(false);
-  const [previewFile, setPreviewFile] = useState<FileType | null>(null);
-  const [metadataVisible, setMetadataVisible] = useState<boolean>(false);
-  const [metadataFile, setMetadataFile] = useState<FileType | null>(null);
-  const [renameVisible, setRenameVisible] = useState<boolean>(false);
-  const [renameFile, setRenameFile] = useState<FileType | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
 
-  useEffect(() => {
-    if (newFolderModalVisible) {
-      setNewFolderModalVisible(false);
-    }
-  }, [currentFolder]);
+
 
   const handleContextMenu = (e: React.MouseEvent, file: FileType | null) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      return;
+    }
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, file });
   };
@@ -139,6 +141,13 @@ const Workspace = () => {
     onDrop: onDrop,
   });
 
+  const { setOpenUpload } = useFileManager();
+  useEffect(() => {
+    if (setOpenUpload) {
+      setOpenUpload(() => open);
+    }
+  }, [open, setOpenUpload]);
+
   const currentFolderFiles = useMemo(() => {
     const files = fs.filter((f: FileType) => f.parentId === currentFolder);
     return files;
@@ -151,7 +160,7 @@ const Workspace = () => {
     },
   })
 
-  const handleClick = async (file: FileType) => {
+  const handleClick = async (file: FileType, e?: React.MouseEvent) => {
     if (file.scanStatus === 'pending') return;
 
     if (file.isDir) {
@@ -165,6 +174,9 @@ const Workspace = () => {
       }
     } else {
       // Preview media files on click
+      if (e) {
+        setModalPosition({ x: e.clientX, y: e.clientY });
+      }
       setPreviewFile(file);
       setPreviewVisible(true);
     }
@@ -201,6 +213,7 @@ const Workspace = () => {
               const isPending = f.scanStatus === 'pending';
               return (
                 <button
+                  onClick={(e) => handleClick(f, e)}
                   onDoubleClick={() => handleDoubleClick(f)}
                   key={key}
                   onContextMenu={(e) => {
@@ -218,7 +231,10 @@ const Workspace = () => {
             }
             )}
             {!viewOnly && (
-              <NewFolderIcon onClick={() => setNewFolderModalVisible(true)} />
+              <NewFolderIcon onClick={(e) => {
+                setModalPosition({ x: e.clientX, y: e.clientY });
+                setNewFolderModalVisible(true);
+              }} />
             )}
           </div>
         )}
@@ -252,85 +268,34 @@ const Workspace = () => {
                     }}
                   >
                     {row.getVisibleCells().map(cell => (
-                      <td className="rfm-workspace-list-align-txt" key={cell.id} onClick={() => handleClick(row.original)} onDoubleClick={() => handleDoubleClick(row.original)}>
+                      <td className="rfm-workspace-list-align-txt" key={cell.id} onClick={(e) => handleClick(row.original, e)} onDoubleClick={() => handleDoubleClick(row.original)}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
                   </tr>
                 ))}
+                {currentFolderFiles.length === 0 && (
+                  <tr>
+                    <td colSpan={columns.length} className="py-10 text-center">
+                      <div
+                        className="rfm-empty-folder"
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          handleContextMenu(e, null);
+                        }}
+                      >
+                        <p>Empty folder</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
-            {currentFolderFiles.length === 0 && (
-              <div
-                className="rfm-empty-folder"
-                onContextMenu={(e) => {
-                  e.stopPropagation();
-                  handleContextMenu(e, null);
-                }}
-              >
-                <p>Empty folder</p>
-              </div>
-            )}
           </>
         )}
 
 
-        {!viewOnly && (
-          <>
-            <NewFolderModal
-              isVisible={newFolderModalVisible}
-              onClose={() => setNewFolderModalVisible(false)}
-            />
-            {previewFile && (
-              <PreviewModal
-                isVisible={previewVisible}
-                onClose={() => setPreviewVisible(false)}
-                fileName={previewFile.name}
-                fileUrl={api.getFileUrl(previewFile.id)}
-                mimeType={previewFile.mimeType}
-                size={previewFile.size}
-              />
-            )}
-          </>
-        )}
-        <UploadProgressToast />
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            file={contextMenu.file}
-            onClose={() => setContextMenu(null)}
-            onPreview={(file) => {
-              setPreviewFile(file);
-              setPreviewVisible(true);
-            }}
-            onViewMetadata={(file) => {
-              setMetadataFile(file);
-              setMetadataVisible(true);
-            }}
-            onRename={(file) => {
-              setRenameFile(file);
-              setRenameVisible(true);
-            }}
-            onNewFolder={() => setNewFolderModalVisible(true)}
-            onUpload={open}
-          />
-        )}
-        <MetadataModal
-          isVisible={metadataVisible}
-          onClose={() => setMetadataVisible(false)}
-          file={metadataFile}
-        />
-        <RenameModal
-          isVisible={renameVisible}
-          onClose={() => setRenameVisible(false)}
-          currentName={renameFile?.name || ""}
-          onRename={(newName) => {
-            if (renameFile && onRename) {
-              onRename(renameFile.id, newName);
-            }
-          }}
-        />
+
       </div>
     </section>
   );

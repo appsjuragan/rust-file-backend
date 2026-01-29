@@ -5,6 +5,7 @@ import CommonModal from "./CommonModal";
 interface INewFolderModalProps {
   isVisible: boolean;
   onClose: () => void;
+  clickPosition?: { x: number; y: number } | null;
 }
 
 const NewFolderModal = (props: INewFolderModalProps) => {
@@ -25,7 +26,7 @@ const NewFolderModal = (props: INewFolderModalProps) => {
   };
 
   return (
-    <CommonModal title="Create New Folder" {...props}>
+    <CommonModal title="Create New Folder" {...props} autoHeight>
       <div>
         <form onSubmit={handleSubmit} className="rfm-new-folder-modal-form">
           <div>

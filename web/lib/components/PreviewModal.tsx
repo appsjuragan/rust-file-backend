@@ -9,6 +9,7 @@ interface IPreviewModalProps {
     fileUrl: string;
     mimeType?: string;
     size?: number;
+    clickPosition?: { x: number; y: number } | null;
 }
 
 const PreviewModal: React.FC<IPreviewModalProps> = ({
@@ -18,6 +19,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     fileUrl,
     mimeType,
     size,
+    clickPosition,
 }) => {
     const [textContent, setTextContent] = useState<string | null>(null);
     const [archiveEntries, setArchiveEntries] = useState<any[] | null>(null);
@@ -80,7 +82,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
         if (isTextFile && textContent !== null) {
             return (
-                <div className="rfm-preview-content">
+                <div className="rfm-preview-content rfm-preview-full">
                     <textarea
                         className="rfm-preview-textarea"
                         value={textContent}
@@ -151,7 +153,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
         if (extension === "pdf") {
             return (
-                <div className="rfm-preview-content">
+                <div className="rfm-preview-content rfm-preview-full">
                     <iframe src={fileUrl} className="rfm-preview-pdf" title={fileName} />
                 </div>
             );
@@ -169,7 +171,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     };
 
     return (
-        <CommonModal isVisible={isVisible} onClose={onClose} title={`Preview: ${fileName}`}>
+        <CommonModal isVisible={isVisible} onClose={onClose} title={`Preview: ${fileName}`} className="rfm-preview-modal" clickPosition={clickPosition}>
             {renderPreview()}
         </CommonModal>
     );

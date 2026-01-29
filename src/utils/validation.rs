@@ -54,6 +54,9 @@ pub const ALLOWED_MIME_TYPES: &[&str] = &[
     "application/x-zip",
     "application/x-rar",
     "application/octet-stream",
+    "application/x-gtar",
+    "application/x-tgz",
+    "application/x-gzip",
     "video/mp2t",
 ];
 

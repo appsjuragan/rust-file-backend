@@ -6,9 +6,10 @@ interface IMetadataModalProps {
     isVisible: boolean;
     onClose: () => void;
     file: FileType | null;
+    clickPosition?: { x: number; y: number } | null;
 }
 
-const MetadataModal: React.FC<IMetadataModalProps> = ({ isVisible, onClose, file }) => {
+const MetadataModal: React.FC<IMetadataModalProps> = ({ isVisible, onClose, file, clickPosition }) => {
     if (!file) return null;
 
     const formatSize = (bytes?: number) => {
@@ -21,7 +22,7 @@ const MetadataModal: React.FC<IMetadataModalProps> = ({ isVisible, onClose, file
     };
 
     return (
-        <CommonModal isVisible={isVisible} onClose={onClose} title="File Metadata">
+        <CommonModal isVisible={isVisible} onClose={onClose} title="File Metadata" className="rfm-metadata-modal" autoHeight clickPosition={clickPosition}>
             <div className="rfm-metadata-form">
                 <div className="rfm-form-group">
                     <label>Name</label>

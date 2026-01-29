@@ -12,7 +12,9 @@ const UploadProgressToast = () => {
         <div className={`rfm-upload-toast ${isMinimized ? "rfm-upload-toast--minimized" : ""}`}>
             <div className="rfm-upload-toast-header">
                 <span className="rfm-upload-toast-title">
-                    {uploadProgress === 100 ? "Processing..." : `Uploading ${uploadFileName}`}
+                    {uploadProgress === 100
+                        ? "Processing..."
+                        : (uploadFileName.startsWith("Uploading") ? uploadFileName : `Uploading ${uploadFileName}`)}
                 </span>
                 <div className="rfm-upload-toast-actions">
                     <button onClick={() => setIsMinimized(!isMinimized)} className="rfm-upload-toast-btn">
@@ -33,7 +35,7 @@ const UploadProgressToast = () => {
                             style={{ width: `${uploadProgress}%` }}
                         ></div>
                     </div>
-                    <span className="rfm-upload-progress-text">{uploadProgress}%</span>
+                    <span className="rfm-upload-progress-text">{Math.round(uploadProgress)}%</span>
                 </div>
             )}
         </div>

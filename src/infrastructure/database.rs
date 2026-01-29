@@ -1,4 +1,4 @@
-use crate::entities::{file_metadata, file_tags, storage_files, tags, tokens, user_files, users};
+use crate::entities::{file_metadata, file_tags, storage_files, tags, tokens, user_files, users, user_settings};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm::{ConnectionTrait, Schema};
 use std::env;
@@ -41,6 +41,13 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             "users",
             schema
                 .create_table_from_entity(users::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
+        (
+            "user_settings",
+            schema
+                .create_table_from_entity(user_settings::Entity)
                 .if_not_exists()
                 .to_owned(),
         ),

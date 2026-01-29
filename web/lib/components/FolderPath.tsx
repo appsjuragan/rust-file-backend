@@ -41,11 +41,11 @@ const FolderPath = () => {
   return (
     <div className="rfm-workspace-header">
       <div className="rfm-folder-path-container">
-        <SvgIcon
-          svgType="arrow-up"
-          onClick={goUp}
-          className="rfm-folder-path-svg"
-        />
+        <div className="rfm-folder-path-svg" onClick={goUp} title="Go up one folder">
+          <SvgIcon
+            svgType="arrow-up"
+          />
+        </div>
         <div className="rfm-breadcrumbs">
           <span
             className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""}`}
@@ -67,16 +67,20 @@ const FolderPath = () => {
         </div>
       </div>
       <div className="rfm-header-container">
-        <SvgIcon
-          svgType="list"
-          className={`rfm-header-icon ${viewStyle === ViewStyle.List && "rfm-header-icon--selected"}`}
+        <div
+          className={`rfm-header-icon ${viewStyle === ViewStyle.List ? "rfm-header-icon--selected" : ""}`}
           onClick={() => setViewStyle(ViewStyle.List)}
-        />
-        <SvgIcon
-          svgType="icons"
-          className={`rfm-header-icon ${viewStyle === ViewStyle.Icons && "rfm-header-icon--selected"}`}
+          title="List View"
+        >
+          <SvgIcon svgType="list" />
+        </div>
+        <div
+          className={`rfm-header-icon ${viewStyle === ViewStyle.Icons ? "rfm-header-icon--selected" : ""}`}
           onClick={() => setViewStyle(ViewStyle.Icons)}
-        />
+          title="Grid View"
+        >
+          <SvgIcon svgType="icons" />
+        </div>
       </div>
     </div>
   );

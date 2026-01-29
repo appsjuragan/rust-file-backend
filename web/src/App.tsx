@@ -31,6 +31,13 @@ function App() {
         if (isAuthenticated) {
             localStorage.setItem("currentFolder", currentFolder);
             localStorage.setItem("username", username);
+
+            // Fetch user settings
+            api.getSettings().then((settings: any) => {
+                if (settings && settings.theme) {
+                    setTheme(settings.theme);
+                }
+            }).catch(console.error);
         }
     }, [currentFolder, username, isAuthenticated]);
 
@@ -167,6 +174,27 @@ function App() {
         }
     };
 
+    const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+    const [profileModalVisible, setProfileModalVisible] = useState(false);
+    const [dropdownVisible, setDropdownVisible] = useState(false);
+    const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
+        if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+        } else {
+            document.documentElement.classList.remove("dark");
+        }
+    }, [theme]);
+
+    const toggleTheme = () => {
+        const newTheme = theme === "light" ? "dark" : "light";
+        setTheme(newTheme);
+        api.updateSettings({ theme: newTheme }).catch(console.error);
+    };
+
     const handleLogout = () => {
         clearAuthToken();
         setIsAuthenticated(false);
@@ -175,6 +203,7 @@ function App() {
         localStorage.removeItem("currentFolder");
         localStorage.removeItem("username");
         setUsername("");
+        setDropdownVisible(false);
     };
 
     const onRefresh = async (id: string) => {
@@ -225,7 +254,7 @@ function App() {
 
                 await performUpload(file, folderId, (p) => {
                     if (onProgress) {
-                        const totalProgress = (completedCount * 100 + p) / files.length;
+                        const totalProgress = Math.round((completedCount * 100 + p) / files.length);
                         onProgress(totalProgress);
                     }
                 }, totalSize);
@@ -278,7 +307,12 @@ function App() {
     const onRename = async (id: string, newName: string) => {
         try {
             await api.renameItem(id, newName);
-            await fetchFiles(currentFolder);
+            const item = fs.find(f => f.id === id);
+            const parentId = item?.parentId || "0";
+            await fetchFiles(parentId);
+            if (currentFolder === id) {
+                await fetchFiles(id);
+            }
         } catch (err: any) {
             alert("Rename failed: " + err.message);
         }
@@ -321,8 +355,33 @@ function App() {
             <header className="app-header">
                 <div className="logo">🚀 File Manager</div>
                 <div className="user-info">
-                    <span>{username}</span>
-                    <button onClick={handleLogout} className="logout-btn">Logout</button>
+                    <div className="user-dropdown-container" onClick={() => setDropdownVisible(!dropdownVisible)}>
+                        <div className="user-avatar">
+                            {username.charAt(0).toUpperCase()}
+                        </div>
+                        <span>{username}</span>
+                        {dropdownVisible && (
+                            <div className="dropdown-menu">
+                                <button className="dropdown-item" onClick={(e) => {
+                                    setModalPosition({ x: e.clientX, y: e.clientY });
+                                    setProfileModalVisible(true);
+                                }}>
+                                    👤 User Profile
+                                </button>
+                                <div className="dropdown-divider"></div>
+                                <div className="dropdown-item theme-toggle" onClick={(e) => { e.stopPropagation(); toggleTheme(); setDropdownVisible(false); }}>
+                                    <span>{theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}</span>
+                                    <div className={`w-8 h-4 rounded-full relative transition-colors ${theme === "dark" ? "bg-indigo-600" : "bg-slate-300"}`}>
+                                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${theme === "dark" ? "left-4.5" : "left-0.5"}`}></div>
+                                    </div>
+                                </div>
+                                <div className="dropdown-divider"></div>
+                                <button className="dropdown-item text-rose-500" onClick={handleLogout}>
+                                    🚪 Logout
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
             <main className="container">
@@ -359,6 +418,42 @@ function App() {
                                 onClick={() => setPendingUpload(null)}
                             >
                                 Cancel
+                            </button>
+                        </div>
+                    </div>
+                </CommonModal>
+
+                <CommonModal
+                    isVisible={profileModalVisible}
+                    title="User Profile"
+                    onClose={() => setProfileModalVisible(false)}
+                    centered={!modalPosition}
+                    clickPosition={modalPosition}
+                    autoHeight
+                >
+                    <div style={{ padding: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', color: 'white' }}>
+                                {username.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ width: '100%' }}>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '5px' }}>USERNAME</label>
+                                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '5px', border: '1px solid var(--border)' }}>
+                                    {username}
+                                </div>
+                            </div>
+                            <div style={{ width: '100%' }}>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '5px' }}>ACCOUNT TYPE</label>
+                                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '5px', border: '1px solid var(--border)' }}>
+                                    Enterprise User
+                                </div>
+                            </div>
+                            <button
+                                className="rfm-btn-primary"
+                                style={{ width: '100%' }}
+                                onClick={() => setProfileModalVisible(false)}
+                            >
+                                Close
                             </button>
                         </div>
                     </div>

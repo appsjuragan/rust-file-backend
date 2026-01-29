@@ -6,6 +6,7 @@ interface IRenameModalProps {
     onClose: () => void;
     onRename: (newName: string) => void;
     currentName: string;
+    clickPosition?: { x: number; y: number } | null;
 }
 
 const RenameModal: React.FC<IRenameModalProps> = ({
@@ -13,6 +14,7 @@ const RenameModal: React.FC<IRenameModalProps> = ({
     onClose,
     onRename,
     currentName,
+    clickPosition,
 }) => {
     const [newName, setNewName] = useState(currentName);
 
@@ -29,7 +31,7 @@ const RenameModal: React.FC<IRenameModalProps> = ({
     };
 
     return (
-        <CommonModal isVisible={isVisible} onClose={onClose} title="Rename Item">
+        <CommonModal isVisible={isVisible} onClose={onClose} title="Rename Item" autoHeight clickPosition={clickPosition}>
             <form onSubmit={handleSubmit} className="rfm-new-folder-modal-form">
                 <input
                     type="text"

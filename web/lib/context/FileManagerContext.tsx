@@ -28,6 +28,27 @@ interface ProviderInterface {
   setClipboard: Dispatch<FileType | null>;
   isCut: boolean;
   setIsCut: Dispatch<boolean>;
+  // Modal states
+  newFolderModalVisible: boolean;
+  setNewFolderModalVisible: Dispatch<boolean>;
+  previewVisible: boolean;
+  setPreviewVisible: Dispatch<boolean>;
+  previewFile: FileType | null;
+  setPreviewFile: Dispatch<FileType | null>;
+  metadataVisible: boolean;
+  setMetadataVisible: Dispatch<boolean>;
+  metadataFile: FileType | null;
+  setMetadataFile: Dispatch<FileType | null>;
+  renameVisible: boolean;
+  setRenameVisible: Dispatch<boolean>;
+  renameFile: FileType | null;
+  setRenameFile: Dispatch<FileType | null>;
+  contextMenu: { x: number; y: number; file: FileType | null } | null;
+  setContextMenu: Dispatch<{ x: number; y: number; file: FileType | null } | null>;
+  openUpload?: () => void;
+  setOpenUpload: Dispatch<(() => void) | null>;
+  modalPosition: { x: number; y: number } | null;
+  setModalPosition: Dispatch<{ x: number; y: number } | null>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);
