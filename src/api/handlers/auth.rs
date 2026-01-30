@@ -1,9 +1,6 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
-use crate::services::{
-    audit::{AuditEventType, AuditService},
-    encryption::EncryptionService,
-};
+use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::create_jwt;
 use argon2::{
     Argon2,
@@ -58,23 +55,20 @@ pub async fn register(
 
     let id = Uuid::new_v4().to_string();
 
-    // Generate User Keys
-    let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+    // Generate User Keys via Service
+    let (pub_key_pem, priv_key_path) = state
+        .key_service
+        .generate_and_store_key(&id)
+        .await
         .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
-
-    let master_secret =
-        env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
-    let master_key = EncryptionService::derive_key_from_hash(&master_secret);
-    let priv_key_enc =
-        EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
-            .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
 
     let user = users::ActiveModel {
         id: Set(id.clone()),
         username: Set(payload.username),
         password_hash: Set(Some(password_hash)),
         public_key: Set(Some(pub_key_pem)),
-        private_key_enc: Set(Some(priv_key_enc)),
+        private_key_path: Set(Some(priv_key_path)),
+        private_key_enc: Set(None),
         ..Default::default()
     };
 
@@ -423,16 +417,12 @@ pub async fn callback_oidc(
             // Create new user
             let id = Uuid::new_v4().to_string();
 
-            // Generate User Keys on Registration
-            let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+            // Generate User Keys via Service
+            let (pub_key_pem, priv_key_path) = state
+                .key_service
+                .generate_and_store_key(&id)
+                .await
                 .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
-
-            let master_secret =
-                env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
-            let master_key = EncryptionService::derive_key_from_hash(&master_secret);
-            let priv_key_enc =
-                EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
-                    .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
 
             let user = users::ActiveModel {
                 id: Set(id.clone()),
@@ -441,7 +431,8 @@ pub async fn callback_oidc(
                 email: Set(email),
                 password_hash: Set(None),
                 public_key: Set(Some(pub_key_pem)),
-                private_key_enc: Set(Some(priv_key_enc)),
+                private_key_path: Set(Some(priv_key_path)),
+                private_key_enc: Set(None),
                 ..Default::default()
             };
             let u = user
@@ -467,20 +458,18 @@ pub async fn callback_oidc(
     };
 
     // Ensure existing users have keys (Migration/Backfill)
+    // Ensure existing users have keys (Migration/Backfill)
     if user.public_key.is_none() {
-        let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+        let (pub_key_pem, priv_key_path) = state
+            .key_service
+            .generate_and_store_key(&user.id)
+            .await
             .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
-
-        let master_secret =
-            env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
-        let master_key = EncryptionService::derive_key_from_hash(&master_secret);
-        let priv_key_enc =
-            EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
-                .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
 
         let mut active: users::ActiveModel = user.clone().into();
         active.public_key = Set(Some(pub_key_pem));
-        active.private_key_enc = Set(Some(priv_key_enc));
+        active.private_key_path = Set(Some(priv_key_path));
+        active.private_key_enc = Set(None);
 
         user = active
             .update(&state.db)

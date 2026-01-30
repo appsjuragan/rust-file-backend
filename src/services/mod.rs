@@ -2,6 +2,7 @@ pub mod audit;
 pub mod encryption;
 pub mod expiration;
 pub mod file_service;
+pub mod key_management;
 pub mod metadata;
 pub mod scanner;
 pub mod storage;

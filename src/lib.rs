@@ -41,7 +41,9 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::bulk_delete,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
+        api::handlers::user_settings::update_settings,
         api::handlers::health::health_check,
+        api::handlers::users::rotate_keys,
     ),
     components(
         schemas(
@@ -60,7 +62,9 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::BulkDeleteResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
+            api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
+            api::handlers::users::RotateKeyResponse,
         )
     ),
     tags(
@@ -70,12 +74,15 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 pub struct ApiDoc;
 
+use crate::services::key_management::KeyManagementService;
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: DatabaseConnection,
     pub storage: Arc<dyn StorageService>,
     pub scanner: Arc<dyn VirusScanner>,
     pub file_service: Arc<FileService>,
+    pub key_service: Arc<KeyManagementService>,
     pub config: SecurityConfig,
 }
 
@@ -176,6 +183,13 @@ pub fn create_app(state: AppState) -> Router {
                     state.clone(),
                     api::middleware::auth::auth_middleware,
                 )),
+        )
+        .route(
+            "/users/keys/rotate",
+            post(api::handlers::users::rotate_keys).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .layer(
             CorsLayer::new()

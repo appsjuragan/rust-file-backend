@@ -369,21 +369,12 @@ pub async fn download_file(
 
     // Prepare Encryption Key if present
     let file_key = if let Some(enc_key_b64) = user_file.encryption_key.clone() {
-        let user = Users::find_by_id(&claims.sub)
-            .one(&state.db)
-            .await?
-            .ok_or(AppError::Unauthorized("User not found".to_string()))?;
-        let priv_enc = user
-            .private_key_enc
-            .ok_or(AppError::Internal("User keys missing".to_string()))?;
-
-        let master_secret =
-            std::env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
-        let master_key = EncryptionService::derive_key_from_hash(&master_secret);
-        let priv_key_pem_bytes = EncryptionService::decrypt_with_master_key(&priv_enc, &master_key)
-            .map_err(|e| AppError::Internal(format!("Failed to decrypt user key: {}", e)))?;
-        let priv_key_pem = String::from_utf8(priv_key_pem_bytes)
-            .map_err(|_e| AppError::Internal("Invalid PEM encoding".to_string()))?;
+        // Fetch Private Key via Service (handles MinIO + Cache + Legacy DB)
+        let priv_key_pem = state
+            .key_service
+            .fetch_private_key(&claims.sub)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to fetch user key: {}", e)))?;
 
         let key = EncryptionService::unwrap_key(&enc_key_b64, &priv_key_pem)
             .map_err(|e| AppError::Internal(format!("Failed to unwrap file key: {}", e)))?;

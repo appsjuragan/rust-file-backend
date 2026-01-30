@@ -455,6 +455,40 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Rotate Keys",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/keys/rotate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"keys",
+								"rotate"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [

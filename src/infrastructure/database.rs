@@ -135,6 +135,7 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL",
         "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS private_key_path TEXT DEFAULT NULL",
     ];
 
     let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;

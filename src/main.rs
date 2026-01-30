@@ -45,11 +45,19 @@ async fn main() -> anyhow::Result<()> {
         security_config.clone(),
     ));
 
+    let key_service = Arc::new(
+        rust_file_backend::services::key_management::KeyManagementService::new(
+            db.clone(),
+            storage_service.clone(),
+        ),
+    );
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
         scanner: scanner_service.clone(),
         file_service,
+        key_service,
         config: security_config.clone(),
     };
 
