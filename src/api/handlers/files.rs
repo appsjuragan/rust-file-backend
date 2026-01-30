@@ -1,5 +1,9 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
+use crate::services::{
+    audit::{AuditEventType, AuditService},
+    encryption::EncryptionService,
+};
 use crate::utils::auth::Claims;
 use crate::utils::validation::sanitize_filename;
 use axum::{
@@ -303,7 +307,7 @@ pub async fn download_file(
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
-    let user_file = UserFiles::find_by_id(file_id)
+    let user_file = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
@@ -341,7 +345,12 @@ pub async fn download_file(
 
     // Fallback for existing generic types
     if content_type == "application/octet-stream" || content_type == "application/stream" {
-        let extension = user_file.filename.split('.').next_back().unwrap_or("").to_lowercase();
+        let extension = user_file
+            .filename
+            .split('.')
+            .next_back()
+            .unwrap_or("")
+            .to_lowercase();
         content_type = match extension.as_str() {
             "mp4" => "video/mp4".to_string(),
             "webm" => "video/webm".to_string(),
@@ -358,6 +367,46 @@ pub async fn download_file(
         };
     }
 
+    // Prepare Encryption Key if present
+    let file_key = if let Some(enc_key_b64) = user_file.encryption_key.clone() {
+        let user = Users::find_by_id(&claims.sub)
+            .one(&state.db)
+            .await?
+            .ok_or(AppError::Unauthorized("User not found".to_string()))?;
+        let priv_enc = user
+            .private_key_enc
+            .ok_or(AppError::Internal("User keys missing".to_string()))?;
+
+        let master_secret =
+            std::env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
+        let master_key = EncryptionService::derive_key_from_hash(&master_secret);
+        let priv_key_pem_bytes = EncryptionService::decrypt_with_master_key(&priv_enc, &master_key)
+            .map_err(|e| AppError::Internal(format!("Failed to decrypt user key: {}", e)))?;
+        let priv_key_pem = String::from_utf8(priv_key_pem_bytes)
+            .map_err(|_e| AppError::Internal("Invalid PEM encoding".to_string()))?;
+
+        let key = EncryptionService::unwrap_key(&enc_key_b64, &priv_key_pem)
+            .map_err(|e| AppError::Internal(format!("Failed to unwrap file key: {}", e)))?;
+
+        // Audit Log
+        let audit = AuditService::new(state.db.clone());
+        audit
+            .log(
+                AuditEventType::FileDecrypt,
+                Some(claims.sub.clone()),
+                Some(file_id.clone()),
+                "decrypt",
+                "success",
+                None,
+                None,
+            )
+            .await;
+
+        Some(key)
+    } else {
+        None
+    };
+
     // 4. Prepare headers shared by both full and partial responses
     let ascii_filename = user_file
         .filename
@@ -373,12 +422,12 @@ pub async fn download_file(
 
     // RFC 5987 percent-encoding for UTF-8 filename
     let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
-    
-    let disposition_type = if content_type.starts_with("video/") 
-        || content_type.starts_with("audio/") 
-        || content_type.starts_with("image/") 
-        || content_type == "application/pdf" 
-        || content_type.starts_with("text/") 
+
+    let disposition_type = if content_type.starts_with("video/")
+        || content_type.starts_with("audio/")
+        || content_type.starts_with("image/")
+        || content_type == "application/pdf"
+        || content_type.starts_with("text/")
     {
         "inline"
     } else {
@@ -392,6 +441,58 @@ pub async fn download_file(
 
     // 5. Check for Range header
     let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
+
+    if let Some(key) = file_key {
+        // ENCRYPTED HANDLING
+        if range_header.is_some() {
+            // Deny Range for Encrypted Files (MVP)
+            // Or we could ignore it and send full file, but clients like Video Players might break.
+            // Sending 200 OK with full content usually works but inefficient.
+            // Let's error clearly.
+            // Actually, usually browsers handle 200 OK gracefully even if they asked for Range.
+            // But let's just stream full.
+        }
+
+        let s3_res = state
+            .storage
+            .get_object_stream(&storage_file.s3_key)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get S3 object stream: {}", e);
+                AppError::Internal("Failed to retrieve file".to_string())
+            })?;
+
+        let body_reader = s3_res.body.into_async_read();
+        let decrypted_stream = EncryptionService::decrypt_stream(Box::new(body_reader), key);
+        let body = Body::from_stream(decrypted_stream);
+
+        let mut response = (
+            [
+                (header::CONTENT_TYPE, content_type),
+                (header::ACCEPT_RANGES, "none".to_string()), // Indicate no range support
+                (header::CONTENT_DISPOSITION, content_disposition),
+            ],
+            body,
+        )
+            .into_response();
+
+        // Content Length: storage_file.size should be plaintext size
+        response.headers_mut().insert(
+            header::CONTENT_LENGTH,
+            storage_file
+                .size
+                .to_string()
+                .parse()
+                .unwrap_or(header::HeaderValue::from_static("0")),
+        );
+
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("public, max-age=31536000"),
+        );
+
+        return Ok(response);
+    }
 
     if let Some(range) = range_header {
         // 6. Get partial stream from S3
@@ -418,27 +519,30 @@ pub async fn download_file(
 
         *response.status_mut() = StatusCode::PARTIAL_CONTENT;
 
-        if let Some(content_range) = s3_res.content_range {
-            if let Ok(h_val) = content_range.parse() {
-                response.headers_mut().insert(header::CONTENT_RANGE, h_val);
-            }
+        if let Some(h_val) = s3_res.content_range.and_then(|c| c.parse().ok()) {
+            response.headers_mut().insert(header::CONTENT_RANGE, h_val);
         }
 
         if let Some(content_length) = s3_res.content_length {
             response.headers_mut().insert(
                 header::CONTENT_LENGTH,
-                content_length.to_string().parse().unwrap_or(header::HeaderValue::from_static("0")),
+                content_length
+                    .to_string()
+                    .parse()
+                    .unwrap_or(header::HeaderValue::from_static("0")),
             );
         }
 
-        if let Some(etag) = s3_res.e_tag {
-            if let Ok(h_val) = etag.parse() {
-                response.headers_mut().insert(header::ETAG, h_val);
-            }
+        if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
+            response.headers_mut().insert(header::ETAG, h_val);
         }
 
         if let Some(last_modified) = s3_res.last_modified {
-            let dt = chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos()).unwrap_or_default();
+            let dt = chrono::DateTime::from_timestamp(
+                last_modified.secs(),
+                last_modified.subsec_nanos(),
+            )
+            .unwrap_or_default();
             let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
             if let Ok(h_val) = rfc1123.parse() {
                 response.headers_mut().insert(header::LAST_MODIFIED, h_val);
@@ -486,14 +590,14 @@ pub async fn download_file(
         );
     }
 
-    if let Some(etag) = s3_res.e_tag {
-        if let Ok(h_val) = etag.parse() {
-            response.headers_mut().insert(header::ETAG, h_val);
-        }
+    if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
+        response.headers_mut().insert(header::ETAG, h_val);
     }
 
     if let Some(last_modified) = s3_res.last_modified {
-        let dt = chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos()).unwrap_or_default();
+        let dt =
+            chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos())
+                .unwrap_or_default();
         let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
         if let Ok(h_val) = rfc1123.parse() {
             response.headers_mut().insert(header::LAST_MODIFIED, h_val);
@@ -885,14 +989,15 @@ pub async fn rename_item(
 
             // Decrement ref count of the OVERWRITTEN storage file
             if let Some(old_id) = old_storage_file_id
-                && Some(old_id.clone()) != new_storage_file_id {
-                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                && Some(old_id.clone()) != new_storage_file_id
+            {
+                let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &state.db,
                         state.storage.as_ref(),
                         &old_id,
                     )
                     .await;
-                }
+            }
 
             // Return the updated existing file metadata
             return return_file_metadata(state, updated).await;

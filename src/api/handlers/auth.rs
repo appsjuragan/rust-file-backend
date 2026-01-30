@@ -1,24 +1,29 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
+use crate::services::{
+    audit::{AuditEventType, AuditService},
+    encryption::EncryptionService,
+};
 use crate::utils::auth::create_jwt;
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 use axum::{Json, extract::State, http::StatusCode};
+use axum::{
+    extract::Query,
+    response::{IntoResponse, Redirect},
+};
+use openidconnect::{
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse,
+    IssuerUrl, Nonce, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    core::{CoreAuthenticationFlow, CoreClient, CoreJsonWebKeySet, CoreProviderMetadata},
+};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use std::env;
 use utoipa::ToSchema;
 use uuid::Uuid;
-use axum::{extract::Query, response::{IntoResponse, Redirect}};
-use openidconnect::{
-    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreJsonWebKeySet},
-    ClientId, ClientSecret, IssuerUrl, RedirectUrl, Scope, AuthorizationCode,
-    Nonce, CsrfToken, TokenResponse,
-    HttpRequest, HttpResponse,
-    AuthUrl, TokenUrl,
-};
 
 #[derive(Deserialize, ToSchema)]
 pub struct AuthRequest {
@@ -53,16 +58,42 @@ pub async fn register(
 
     let id = Uuid::new_v4().to_string();
 
+    // Generate User Keys
+    let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+        .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
+
+    let master_secret =
+        env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
+    let master_key = EncryptionService::derive_key_from_hash(&master_secret);
+    let priv_key_enc =
+        EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
+            .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
+
     let user = users::ActiveModel {
-        id: Set(id),
+        id: Set(id.clone()),
         username: Set(payload.username),
         password_hash: Set(Some(password_hash)),
+        public_key: Set(Some(pub_key_pem)),
+        private_key_enc: Set(Some(priv_key_enc)),
         ..Default::default()
     };
 
     user.insert(&state.db)
         .await
         .map_err(|_e| AppError::BadRequest("Username already exists".to_string()))?;
+
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::UserRegister,
+            Some(id),
+            None,
+            "register",
+            "success",
+            None,
+            None,
+        )
+        .await;
 
     Ok(StatusCode::CREATED)
 }
@@ -86,13 +117,14 @@ pub async fn login(
         .await?
         .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?;
 
-    let password_hash = user.password_hash
+    let password_hash = user
+        .password_hash
         .as_ref()
         .ok_or(AppError::Unauthorized("Invalid credentials".to_string()))?;
 
     let argon2 = Argon2::default();
-    let parsed_hash = argon2::PasswordHash::new(password_hash)
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let parsed_hash =
+        argon2::PasswordHash::new(password_hash).map_err(|e| AppError::Internal(e.to_string()))?;
 
     argon2
         .verify_password(payload.password.as_bytes(), &parsed_hash)
@@ -134,9 +166,7 @@ impl std::fmt::Display for HttpClientError {
 
 impl std::error::Error for HttpClientError {}
 
-pub async fn async_http_client(
-    request: HttpRequest,
-) -> Result<HttpResponse, HttpClientError> {
+pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, HttpClientError> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -144,10 +174,8 @@ pub async fn async_http_client(
 
     let (parts, body) = request.into_parts();
     let url = parts.uri.to_string();
-    
-    let mut request_builder = client
-        .request(parts.method, url)
-        .body(body);
+
+    let mut request_builder = client.request(parts.method, url).body(body);
 
     for (name, value) in parts.headers {
         if let Some(n) = name {
@@ -166,44 +194,64 @@ pub async fn async_http_client(
         builder = builder.header(name, value);
     }
 
-    let body = response.bytes().await.map_err(|e| HttpClientError(Box::new(e)))?.to_vec();
+    let body = response
+        .bytes()
+        .await
+        .map_err(|e| HttpClientError(Box::new(e)))?
+        .to_vec();
 
     builder.body(body).map_err(|e| HttpClientError(Box::new(e)))
 }
 
-pub async fn login_oidc(State(state): State<crate::AppState>) -> Result<impl IntoResponse, AppError> {
-    let issuer_url = state.config.oidc_issuer_url.as_ref()
+pub async fn login_oidc(
+    State(state): State<crate::AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let issuer_url = state
+        .config
+        .oidc_issuer_url
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_ISSUER_URL not set".to_string()))?;
-    let client_id = state.config.oidc_client_id.as_ref()
+    let client_id = state
+        .config
+        .oidc_client_id
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_CLIENT_ID not set".to_string()))?;
-    let client_secret = state.config.oidc_client_secret.as_ref()
+    let client_secret = state
+        .config
+        .oidc_client_secret
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_CLIENT_SECRET not set".to_string()))?;
-    let redirect_url = state.config.oidc_redirect_url.as_ref()
+    let redirect_url = state
+        .config
+        .oidc_redirect_url
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_REDIRECT_URL not set".to_string()))?;
 
     if state.config.oidc_skip_discovery {
-        let issuer = IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
-        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        
+        let issuer =
+            IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
+        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url))
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url))
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
         // Fetch JWKS
         let jwks_url = format!("{}/.well-known/openid-configuration/jwks", issuer_url);
-        let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url).await
+        let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url)
+            .await
             .map_err(|e| AppError::Internal(format!("Failed to fetch JWKS: {}", e)))?
-            .json().await
+            .json()
+            .await
             .map_err(|e| AppError::Internal(format!("Failed to parse JWKS: {}", e)))?;
 
-        let client = CoreClient::new(
-            ClientId::new(client_id.clone()),
-            issuer,
-            jwks,
-        )
-        .set_client_secret(ClientSecret::new(client_secret.clone()))
-        .set_auth_uri(auth_url)
-        .set_token_uri(token_url)
-        .set_redirect_uri(
-            RedirectUrl::new(redirect_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?,
-        );
+        let client = CoreClient::new(ClientId::new(client_id.clone()), issuer, jwks)
+            .set_client_secret(ClientSecret::new(client_secret.clone()))
+            .set_auth_uri(auth_url)
+            .set_token_uri(token_url)
+            .set_redirect_uri(
+                RedirectUrl::new(redirect_url.clone())
+                    .map_err(|e| AppError::Internal(e.to_string()))?,
+            );
 
         let (auth_url, _csrf_token, _nonce) = client
             .authorize_url(
@@ -230,7 +278,8 @@ pub async fn login_oidc(State(state): State<crate::AppState>) -> Result<impl Int
             Some(ClientSecret::new(client_secret.clone())),
         )
         .set_redirect_uri(
-            RedirectUrl::new(redirect_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?,
+            RedirectUrl::new(redirect_url.clone())
+                .map_err(|e| AppError::Internal(e.to_string()))?,
         );
 
         let (auth_url, _csrf_token, _nonce) = client
@@ -251,38 +300,52 @@ pub async fn callback_oidc(
     State(state): State<crate::AppState>,
     Query(params): Query<AuthCallbackParams>,
 ) -> Result<impl IntoResponse, AppError> {
-    let issuer_url = state.config.oidc_issuer_url.as_ref()
+    let issuer_url = state
+        .config
+        .oidc_issuer_url
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_ISSUER_URL not set".to_string()))?;
-    let client_id = state.config.oidc_client_id.as_ref()
+    let client_id = state
+        .config
+        .oidc_client_id
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_CLIENT_ID not set".to_string()))?;
-    let client_secret = state.config.oidc_client_secret.as_ref()
+    let client_secret = state
+        .config
+        .oidc_client_secret
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_CLIENT_SECRET not set".to_string()))?;
-    let redirect_url = state.config.oidc_redirect_url.as_ref()
+    let redirect_url = state
+        .config
+        .oidc_redirect_url
+        .as_ref()
         .ok_or_else(|| AppError::Internal("OIDC_REDIRECT_URL not set".to_string()))?;
 
     let token_response = if state.config.oidc_skip_discovery {
-        let issuer = IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
-        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url)).map_err(|e| AppError::Internal(e.to_string()))?;
-        
+        let issuer =
+            IssuerUrl::new(issuer_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?;
+        let auth_url = AuthUrl::new(format!("{}/connect/authorize", issuer_url))
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let token_url = TokenUrl::new(format!("{}/connect/token", issuer_url))
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
         // Fetch JWKS
         let jwks_url = format!("{}/.well-known/openid-configuration/jwks", issuer_url);
-        let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url).await
+        let jwks: CoreJsonWebKeySet = reqwest::get(&jwks_url)
+            .await
             .map_err(|e| AppError::Internal(format!("Failed to fetch JWKS: {}", e)))?
-            .json().await
+            .json()
+            .await
             .map_err(|e| AppError::Internal(format!("Failed to parse JWKS: {}", e)))?;
 
-        let client = CoreClient::new(
-            ClientId::new(client_id.clone()),
-            issuer,
-            jwks,
-        )
-        .set_client_secret(ClientSecret::new(client_secret.clone()))
-        .set_auth_uri(auth_url)
-        .set_token_uri(token_url)
-        .set_redirect_uri(
-            RedirectUrl::new(redirect_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?,
-        );
+        let client = CoreClient::new(ClientId::new(client_id.clone()), issuer, jwks)
+            .set_client_secret(ClientSecret::new(client_secret.clone()))
+            .set_auth_uri(auth_url)
+            .set_token_uri(token_url)
+            .set_redirect_uri(
+                RedirectUrl::new(redirect_url.clone())
+                    .map_err(|e| AppError::Internal(e.to_string()))?,
+            );
 
         let token_response = client
             .exchange_code(AuthorizationCode::new(params.code))
@@ -291,12 +354,14 @@ pub async fn callback_oidc(
             .map_err(|e| AppError::Internal(format!("Token exchange failed: {}", e)))?;
 
         // Validate ID Token
-        let id_token = token_response.id_token()
+        let id_token = token_response
+            .id_token()
             .ok_or_else(|| AppError::Internal("No ID token received".to_string()))?;
-            
-        let claims = id_token.claims(&client.id_token_verifier(), &Nonce::new_random())
+
+        let claims = id_token
+            .claims(&client.id_token_verifier(), &Nonce::new_random())
             .map_err(|e| AppError::Internal(format!("Invalid ID token: {}", e)))?;
-            
+
         (claims.clone(), token_response)
     } else {
         let provider_metadata = CoreProviderMetadata::discover_async(
@@ -312,7 +377,8 @@ pub async fn callback_oidc(
             Some(ClientSecret::new(client_secret.clone())),
         )
         .set_redirect_uri(
-            RedirectUrl::new(redirect_url.clone()).map_err(|e| AppError::Internal(e.to_string()))?,
+            RedirectUrl::new(redirect_url.clone())
+                .map_err(|e| AppError::Internal(e.to_string()))?,
         );
 
         let token_response = client
@@ -323,12 +389,14 @@ pub async fn callback_oidc(
             .map_err(|e| AppError::Internal(format!("Token exchange failed: {}", e)))?;
 
         // Validate ID Token
-        let id_token = token_response.id_token()
+        let id_token = token_response
+            .id_token()
             .ok_or_else(|| AppError::Internal("No ID token received".to_string()))?;
-            
-        let claims = id_token.claims(&client.id_token_verifier(), &Nonce::new_random())
+
+        let claims = id_token
+            .claims(&client.id_token_verifier(), &Nonce::new_random())
             .map_err(|e| AppError::Internal(format!("Invalid ID token: {}", e)))?;
-            
+
         (claims.clone(), token_response)
     };
 
@@ -336,7 +404,8 @@ pub async fn callback_oidc(
 
     let oidc_sub = claims.subject().as_str().to_string();
     let email = claims.email().map(|e| e.as_str().to_string());
-    let username = claims.preferred_username()
+    let username = claims
+        .preferred_username()
         .map(|n| n.as_str().to_string())
         .or(email.clone())
         .unwrap_or_else(|| format!("user_{}", Uuid::new_v4()));
@@ -348,24 +417,89 @@ pub async fn callback_oidc(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let user = match user {
+    let mut user = match user {
         Some(u) => u,
         None => {
             // Create new user
             let id = Uuid::new_v4().to_string();
+
+            // Generate User Keys on Registration
+            let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+                .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
+
+            let master_secret =
+                env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
+            let master_key = EncryptionService::derive_key_from_hash(&master_secret);
+            let priv_key_enc =
+                EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
+                    .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
+
             let user = users::ActiveModel {
-                id: Set(id),
+                id: Set(id.clone()),
                 username: Set(username),
                 oidc_sub: Set(Some(oidc_sub)),
                 email: Set(email),
                 password_hash: Set(None),
+                public_key: Set(Some(pub_key_pem)),
+                private_key_enc: Set(Some(priv_key_enc)),
                 ..Default::default()
             };
-            user.insert(&state.db)
+            let u = user
+                .insert(&state.db)
                 .await
-                .map_err(|e| AppError::Internal(format!("Failed to create user: {}", e)))?
+                .map_err(|e| AppError::Internal(format!("Failed to create user: {}", e)))?;
+
+            let audit = AuditService::new(state.db.clone());
+            audit
+                .log(
+                    AuditEventType::UserRegister,
+                    Some(id),
+                    None,
+                    "oidc_register",
+                    "success",
+                    None,
+                    None,
+                )
+                .await;
+
+            u
         }
     };
+
+    // Ensure existing users have keys (Migration/Backfill)
+    if user.public_key.is_none() {
+        let (pub_key_pem, priv_key_pem) = EncryptionService::generate_user_keys()
+            .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
+
+        let master_secret =
+            env::var("SYSTEM_SECRET").unwrap_or_else(|_| "system_secret_default".to_string());
+        let master_key = EncryptionService::derive_key_from_hash(&master_secret);
+        let priv_key_enc =
+            EncryptionService::encrypt_with_master_key(priv_key_pem.as_bytes(), &master_key)
+                .map_err(|e| AppError::Internal(format!("Failed to encrypt key: {}", e)))?;
+
+        let mut active: users::ActiveModel = user.clone().into();
+        active.public_key = Set(Some(pub_key_pem));
+        active.private_key_enc = Set(Some(priv_key_enc));
+
+        user = active
+            .update(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to backfill user keys: {}", e)))?;
+
+        let audit = AuditService::new(state.db.clone());
+        audit
+            .log(
+                AuditEventType::KeyGeneration,
+                Some(user.id.clone()),
+                None,
+                "backfill_keys",
+                "success",
+                None,
+                None,
+            )
+            .await;
+    }
 
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
     let token_str = create_jwt(&user.id, &secret).map_err(|e| AppError::Internal(e.to_string()))?;
@@ -384,6 +518,10 @@ pub async fn callback_oidc(
     token_model.insert(&state.db).await?;
 
     // Redirect to frontend with token
-    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-    Ok(Redirect::to(&format!("{}/?token={}", frontend_url, token_str)))
+    let frontend_url =
+        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    Ok(Redirect::to(&format!(
+        "{}/?token={}",
+        frontend_url, token_str
+    )))
 }

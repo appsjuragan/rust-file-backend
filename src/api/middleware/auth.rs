@@ -1,5 +1,12 @@
 use crate::utils::auth::validate_jwt;
-use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
+use crate::{AppState, entities::prelude::Users};
+use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::Next,
+    response::Response,
+};
+use sea_orm::EntityTrait;
 use serde::Deserialize;
 use std::env;
 
@@ -8,7 +15,11 @@ struct AuthQuery {
     token: Option<String>,
 }
 
-pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(
+    State(state): State<AppState>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
     let auth_header = req
         .headers()
         .get("Authorization")
@@ -30,8 +41,17 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, S
         let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
 
         if let Ok(claims) = validate_jwt(&token, &secret) {
-            req.extensions_mut().insert(claims);
-            return Ok(next.run(req).await);
+            // Check if user still exists in DB
+            let user_exists = Users::find_by_id(claims.sub.clone())
+                .one(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .is_some();
+
+            if user_exists {
+                req.extensions_mut().insert(claims);
+                return Ok(next.run(req).await);
+            }
         }
     }
 

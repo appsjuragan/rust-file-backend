@@ -1,14 +1,9 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
 use crate::utils::auth::Claims;
-use axum::{
-    Extension, Json,
-    extract::State,
-};
+use axum::{Extension, Json, extract::State};
 use chrono::Utc;
-use sea_orm::{
-    ActiveModelTrait, EntityTrait, Set, IntoActiveModel
-};
+use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -49,6 +44,18 @@ pub async fn get_settings(
             view_style: settings.view_style,
         }))
     } else {
+        // Check if user exists first to avoid FK constraint failure
+        let user_exists = Users::find_by_id(claims.sub.clone())
+            .one(&state.db)
+            .await?
+            .is_some();
+
+        if !user_exists {
+            return Err(AppError::Unauthorized(
+                "User account no longer exists".to_string(),
+            ));
+        }
+
         // Create default settings if not found
         let new_settings = user_settings::ActiveModel {
             user_id: Set(claims.sub.clone()),
@@ -99,6 +106,18 @@ pub async fn update_settings(
         active_model.updated_at = Set(Utc::now());
         active_model.update(&state.db).await?
     } else {
+        // Check if user exists first to avoid FK constraint failure
+        let user_exists = Users::find_by_id(claims.sub.clone())
+            .one(&state.db)
+            .await?
+            .is_some();
+
+        if !user_exists {
+            return Err(AppError::Unauthorized(
+                "User account no longer exists".to_string(),
+            ));
+        }
+
         let active_model = user_settings::ActiveModel {
             user_id: Set(claims.sub.clone()),
             theme: Set(req.theme.unwrap_or("dark".to_string())),

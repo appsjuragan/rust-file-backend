@@ -1,3 +1,5 @@
+pub mod audit;
+pub mod encryption;
 pub mod expiration;
 pub mod file_service;
 pub mod metadata;

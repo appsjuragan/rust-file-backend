@@ -12,6 +12,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub oidc_sub: Option<String>,
     pub email: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub public_key: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub private_key_enc: Option<String>,
     pub created_at: Option<DateTimeUtc>,
 }
 
@@ -21,6 +25,8 @@ pub enum Relation {
     Tokens,
     #[sea_orm(has_many = "super::user_files::Entity")]
     UserFiles,
+    #[sea_orm(has_many = "super::audit_logs::Entity")]
+    AuditLogs,
 }
 
 impl Related<super::tokens::Entity> for Entity {
@@ -32,6 +38,12 @@ impl Related<super::tokens::Entity> for Entity {
 impl Related<super::user_files::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserFiles.def()
+    }
+}
+
+impl Related<super::audit_logs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AuditLogs.def()
     }
 }
 

@@ -3,7 +3,7 @@ use crate::config::SecurityConfig;
 use crate::entities::{prelude::*, *};
 use crate::services::metadata::MetadataService;
 use crate::services::storage::StorageService;
-use crate::utils::validation::{validate_file_size, validate_upload};
+use crate::utils::validation::validate_upload;
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
@@ -11,6 +11,12 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
 
 use crate::services::scanner::VirusScanner;
+use crate::services::{
+    audit::{AuditEventType, AuditService},
+    encryption::EncryptionService,
+};
+use tempfile::NamedTempFile;
+use tokio::io::AsyncWriteExt;
 
 pub struct FileService {
     db: DatabaseConnection,
@@ -61,42 +67,92 @@ impl FileService {
 
         // Reconstruct stream
         let header_cursor = std::io::Cursor::new(header.to_vec());
-        let chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
+        let mut chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
 
-        // 3. Upload to Staging
+        // 3. Buffer to Temp File and Calculate Hash
+        let temp_file = NamedTempFile::new().map_err(|e| AppError::Internal(e.to_string()))?;
+        let temp_path = temp_file.path().to_owned();
+        let mut temp_file_async = tokio::fs::File::from_std(
+            temp_file
+                .reopen()
+                .map_err(|e| AppError::Internal(e.to_string()))?,
+        );
+
+        let mut hasher = blake3::Hasher::new();
+        let mut buffer = [0u8; 8192];
+        let mut total_size = 0;
+
+        loop {
+            let n = chained_reader
+                .read(&mut buffer)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buffer[..n]);
+            temp_file_async
+                .write_all(&buffer[..n])
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+            total_size += n as i64;
+
+            if total_size > self.config.max_file_size as i64 {
+                // Return PayloadTooLarge immediately
+                return Err(AppError::PayloadTooLarge(
+                    "File size limits exceeded".to_string(),
+                ));
+            }
+        }
+        temp_file_async
+            .flush()
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        // 4. Derive Key and Upload Encrypted
+        let hash = hasher.finalize().to_hex().to_string();
+        let key = EncryptionService::derive_key_from_hash(&hash);
+
+        // Re-open temp file for reading
+        let temp_reader = tokio::fs::File::open(&temp_path)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        let encrypted_stream = EncryptionService::encrypt_stream(Box::new(temp_reader), key);
+        // Map std::io::Error to crate::api::error::AppError explicitly if needed,
+        // but StreamReader expects io::Result items, which encrypt_stream now provides.
+        // Pin the stream to satisfy Unpin requirement for StreamReader -> Box<dyn AsyncRead>
+        let pinned_stream = Box::pin(encrypted_stream);
+        let stream_reader = tokio_util::io::StreamReader::new(pinned_stream);
+        // S3 expects AsyncRead. StreamReader implements it but errors are likely distinct.
+        // We wrap it in a box. Mapping failure logic is needed if StreamReader::read fails?
+        // StreamReader returns io::Result.
+
+        // Convert to Box<dyn AsyncRead + Unpin + Send>
+        // StreamReader is Unpin if inner stream is Unpin. `encrypt_stream` yields `Bytes` which is unpin.
+        // However, `encrypt_stream` returns `impl Stream`. We might need `Box::pin` depending on types.
+        // `encrypt_stream` return type `impl Stream`.
+
         let staging_key = format!("staging/{}", Uuid::new_v4());
         tracing::info!(
-            "Starting S3 staging upload for {} to {}",
+            "Starting Encrypted S3 upload for {} to {}",
             filename,
             staging_key
         );
-        let res = self
-            .storage
-            .upload_stream_with_hash(&staging_key, Box::new(chained_reader))
-            .await
-            .map_err(|e| {
-                let err_msg = e.to_string();
-                if err_msg.contains("length limit exceeded") {
-                    AppError::PayloadTooLarge(
-                        "File size exceeds the maximum allowed limit".to_string(),
-                    )
-                } else {
-                    tracing::error!("S3 staging upload failed for {}: {:?}", filename, e);
-                    AppError::Internal(format!("Upload failed: {}", e))
-                }
-            })?;
 
-        // 4. Post-upload Size Validation
-        if let Err(e) = validate_file_size(res.size as usize, self.config.max_file_size) {
-            let _ = self.storage.delete_file(&staging_key).await;
-            return Err(AppError::PayloadTooLarge(e.to_string()));
-        }
+        let _res = self
+            .storage
+            .upload_stream_with_hash(&staging_key, Box::new(stream_reader))
+            .await
+            .map_err(|e| AppError::Internal(format!("Upload failed: {}", e)))?;
+
+        // `res.hash` will be hash of CIPHERTEXT. We ignore it for logic, we use Plaintext Hash.
 
         Ok(StagedFile {
-            key: staging_key,
-            hash: res.hash,
-            size: res.size,
-            s3_key: res.s3_key,
+            key: staging_key.clone(),
+            hash,             // Plaintext Hash
+            size: total_size, // Plaintext Size
+            s3_key: staging_key,
         })
     }
 
@@ -109,6 +165,13 @@ impl FileService {
         expiration_hours: Option<i64>,
         total_size: Option<u64>,
     ) -> Result<(String, Option<chrono::DateTime<Utc>>), AppError> {
+        // Get User for Keys
+        let user = Users::find_by_id(&user_id)
+            .one(&self.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
         // Check for deduplication
         let existing_storage_file = StorageFiles::find()
             .filter(storage_files::Column::Hash.eq(&staged.hash))
@@ -127,19 +190,26 @@ impl FileService {
         } else {
             // New unique file!
 
-            // 1. Download file from staging for processing (needed for metadata)
+            // 1. Download/Decrypt file from staging for processing
             let stream = self
                 .storage
                 .get_object_stream(&staged.s3_key)
                 .await
                 .map_err(|e| AppError::Internal(format!("Failed to open for processing: {}", e)))?;
 
-            let bytes = stream
-                .body
-                .collect()
+            let file_key = EncryptionService::derive_key_from_hash(&staged.hash);
+            let body_reader = stream.body.into_async_read();
+            let decrypted_stream =
+                EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
+            let pinned_decrypted_stream = Box::pin(decrypted_stream);
+            let mut decrypted_reader = tokio_util::io::StreamReader::new(pinned_decrypted_stream);
+
+            let mut bytes = Vec::new();
+            tokio::io::copy(&mut decrypted_reader, &mut bytes)
                 .await
-                .map(|b| b.into_bytes())
-                .map_err(|e| AppError::Internal(e.to_string()))?;
+                .map_err(|e| {
+                    AppError::Internal(format!("Failed to decrypt for analysis: {}", e))
+                })?;
 
             // 2. Metadata Analysis
             let analysis = MetadataService::analyze(&bytes, &filename);
@@ -168,33 +238,31 @@ impl FileService {
             let mut scan_result = None;
             let mut scanned_at = None;
 
-            // Immediate scan if file < 20MB and total upload <= 100MB
+            // Immediate scan (On Plaintext Bytes)
             if self.config.enable_virus_scan
                 && staged.size < 20 * 1024 * 1024
                 && total_size.unwrap_or(0) <= 100 * 1024 * 1024
             {
                 tracing::info!("🚀 Starting immediate scan for file: {}", id);
-                if let Ok(stream) = self.storage.get_object_stream(&permanent_key).await {
-                    let reader = Box::pin(stream.body.into_async_read());
-                    match self.scanner.scan(reader).await {
-                        Ok(crate::services::scanner::ScanResult::Clean) => {
-                            tracing::info!("✅ Immediate scan clean: {}", id);
-                            scan_status = "clean".to_string();
-                            scanned_at = Some(Utc::now());
-                        }
-                        Ok(crate::services::scanner::ScanResult::Infected { threat_name }) => {
-                            tracing::warn!("🚨 Immediate scan infected: {} ({})", id, threat_name);
-                            scan_status = "infected".to_string();
-                            scan_result = Some(threat_name);
-                            scanned_at = Some(Utc::now());
-                        }
-                        Ok(crate::services::scanner::ScanResult::Error { reason }) => {
-                            tracing::error!("❌ Immediate scan error for {}: {}", id, reason);
-                            // Keep as pending to retry later
-                        }
-                        Err(e) => {
-                            tracing::error!("❌ Immediate scan failed for {}: {}", id, e);
-                        }
+                // We already have `bytes` from decryption above. Use them.
+                let cursor = std::io::Cursor::new(bytes);
+                match self.scanner.scan(Box::pin(cursor)).await {
+                    Ok(crate::services::scanner::ScanResult::Clean) => {
+                        tracing::info!("✅ Immediate scan clean: {}", id);
+                        scan_status = "clean".to_string();
+                        scanned_at = Some(Utc::now());
+                    }
+                    Ok(crate::services::scanner::ScanResult::Infected { threat_name }) => {
+                        tracing::warn!("🚨 Immediate scan infected: {} ({})", id, threat_name);
+                        scan_status = "infected".to_string();
+                        scan_result = Some(threat_name);
+                        scanned_at = Some(Utc::now());
+                    }
+                    Ok(crate::services::scanner::ScanResult::Error { reason }) => {
+                        tracing::error!("❌ Immediate scan error for {}: {}", id, reason);
+                    }
+                    Err(e) => {
+                        tracing::error!("❌ Immediate scan failed for {}: {}", id, e);
                     }
                 }
             }
@@ -202,7 +270,7 @@ impl FileService {
             #[allow(clippy::needless_update)]
             let new_storage_file = storage_files::ActiveModel {
                 id: Set(id.clone()),
-                hash: Set(staged.hash),
+                hash: Set(staged.hash.clone()),
                 s3_key: Set(permanent_key),
                 size: Set(staged.size),
                 ref_count: Set(1),
@@ -219,6 +287,14 @@ impl FileService {
         };
 
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
+
+        // Generate Wrapped Key for User
+        let user_pub_key = user
+            .public_key
+            .ok_or_else(|| AppError::Internal("User lacks public key".to_string()))?;
+        let file_key = EncryptionService::derive_key_from_hash(&staged.hash);
+        let wrapped_key = EncryptionService::wrap_key(&file_key, &user_pub_key)
+            .map_err(|e| AppError::Internal(format!("Failed to wrap key: {}", e)))?;
 
         // Check for existing file with same name in the same folder for merging
         let existing_user_file = UserFiles::find()
@@ -238,6 +314,7 @@ impl FileService {
             let mut active: user_files::ActiveModel = existing.into();
             active.storage_file_id = Set(Some(storage_file_id.clone()));
             active.expires_at = Set(expires_at);
+            active.encryption_key = Set(Some(wrapped_key)); // Update Key
             active.created_at = Set(Some(Utc::now())); // Update timestamp to "latest"
             active.update(&self.db).await.map_err(|e| {
                 tracing::error!("Failed to update existing user_file: {}", e);
@@ -246,14 +323,15 @@ impl FileService {
 
             // Decrement ref count of old storage file if it's different
             if let Some(old_id) = old_storage_file_id
-                && old_id != storage_file_id {
-                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                && old_id != storage_file_id
+            {
+                let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &self.db,
                         self.storage.as_ref(),
                         &old_id,
                     )
                     .await;
-                }
+            }
             existing_id
         } else {
             // No existing file, create new one
@@ -261,20 +339,36 @@ impl FileService {
             #[allow(clippy::needless_update)]
             let new_user_file = user_files::ActiveModel {
                 id: Set(new_id.clone()),
-                user_id: Set(user_id),
+                user_id: Set(user_id.clone()),
                 storage_file_id: Set(Some(storage_file_id.clone())),
                 filename: Set(filename.clone()),
-                expires_at: Set(expires_at),
                 parent_id: Set(parent_id),
-                is_folder: Set(false),
+                expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
+                is_folder: Set(false),
+                encryption_key: Set(Some(wrapped_key)), // Set Key
                 ..Default::default()
             };
 
-            new_user_file.insert(&self.db).await.map_err(|e| {
+            let _res = new_user_file.insert(&self.db).await.map_err(|e| {
                 tracing::error!("Failed to insert user_file: {}", e);
                 AppError::Internal(e.to_string())
             })?;
+
+            // Audit Log
+            let audit = AuditService::new(self.db.clone());
+            audit
+                .log(
+                    AuditEventType::FileUpload,
+                    Some(user_id.clone()), // Use captured user_id
+                    Some(new_id.clone()),
+                    "upload",
+                    "success",
+                    None,
+                    None,
+                )
+                .await;
+
             new_id
         };
 
@@ -333,14 +427,15 @@ impl FileService {
 
             // Decrement ref count of old storage file if it's different
             if let Some(old_id) = old_storage_file_id
-                && old_id != storage_file_id {
-                    let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
+                && old_id != storage_file_id
+            {
+                let _ = crate::services::storage_lifecycle::StorageLifecycleService::decrement_ref_count(
                         &self.db,
                         self.storage.as_ref(),
                         &old_id,
                     )
                     .await;
-                }
+            }
             existing_id
         } else {
             // 3. Create user file entry

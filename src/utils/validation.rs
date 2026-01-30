@@ -131,7 +131,9 @@ pub fn validate_file_size(size: usize, max_size: usize) -> Result<()> {
             code: "FILE_TOO_LARGE",
             message: format!(
                 "File size {} bytes exceeds maximum allowed {} bytes ({} MB)",
-                size, max_size, max_size / 1024 / 1024
+                size,
+                max_size,
+                max_size / 1024 / 1024
             ),
         }));
     }

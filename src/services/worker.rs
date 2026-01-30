@@ -69,7 +69,13 @@ impl BackgroundWorker {
                 }
 
                 let stream = stream_res.unwrap();
-                let reader = Box::pin(stream.body.into_async_read());
+
+                use crate::services::encryption::EncryptionService;
+                let file_key = EncryptionService::derive_key_from_hash(&sf.hash);
+                let body_reader = stream.body.into_async_read();
+                let decrypted_stream =
+                    EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
+                let reader = Box::pin(tokio_util::io::StreamReader::new(decrypted_stream));
 
                 let mut active: storage_files::ActiveModel = sf.clone().into();
                 match self.scanner.scan(reader).await {

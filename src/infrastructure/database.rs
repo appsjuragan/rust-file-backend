@@ -1,4 +1,7 @@
-use crate::entities::{file_metadata, file_tags, storage_files, tags, tokens, user_files, users, user_settings};
+use crate::entities::{
+    audit_logs, file_metadata, file_tags, storage_files, tags, tokens, user_files, user_settings,
+    users,
+};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm::{ConnectionTrait, Schema};
 use std::env;
@@ -93,6 +96,13 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
                 .if_not_exists()
                 .to_owned(),
         ),
+        (
+            "audit_logs",
+            schema
+                .create_table_from_entity(audit_logs::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
     ];
 
     for (name, stmt) in stmts {
@@ -127,19 +137,37 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
     ];
 
+    let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;
+
     for query in schema_updates {
+        // SQLite doesn't support ADD COLUMN IF NOT EXISTS or ALTER COLUMN
+        let mut final_query = query.to_owned();
+        if is_sqlite {
+            final_query = final_query.replace(" IF NOT EXISTS", "");
+            if final_query.contains("ALTER COLUMN") {
+                tracing::debug!("   - Skipping unsupported SQLite update: {}", final_query);
+                continue;
+            }
+        }
+
         match db
             .execute(sea_orm::Statement::from_string(
-                db.get_database_backend(),
-                query.to_owned(),
+                builder,
+                final_query.clone(),
             ))
             .await
         {
-            Ok(_) => info!("   - Executed schema update: {}", query),
+            Ok(_) => info!("   - Executed schema update: {}", final_query),
             Err(e) => {
-                // sqlite doesn't support ALTER COLUMN DROP NOT NULL the same way, and IF NOT EXISTS on indexes is fine
-                // We ignore errors here as some might be DB-specific or already done
-                tracing::debug!("   - Schema update info (ignoring): {} -> {}", query, e);
+                let err_msg = e.to_string().to_lowercase();
+                if err_msg.contains("duplicate column") || err_msg.contains("already exists") {
+                    info!(
+                        "   - Column/Index already exists (skipped): {}",
+                        final_query
+                    );
+                } else {
+                    tracing::warn!("   - Schema update warning: {} -> {}", final_query, e);
+                }
             }
         }
     }

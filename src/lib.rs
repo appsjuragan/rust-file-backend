@@ -12,7 +12,7 @@ use crate::services::scanner::VirusScanner;
 use crate::services::storage::StorageService;
 use axum::{
     Router,
-    middleware::from_fn,
+    middleware::{from_fn, from_fn_with_state},
     routing::{get, post},
 };
 use sea_orm::DatabaseConnection;
@@ -88,16 +88,23 @@ pub fn create_app(state: AppState) -> Router {
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
         .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))
-        .route("/auth/oidc/callback", get(api::handlers::auth::callback_oidc))
+        .route(
+            "/auth/oidc/callback",
+            get(api::handlers::auth::callback_oidc),
+        )
         .route(
             "/pre-check",
-            post(api::handlers::files::pre_check_dedup)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            post(api::handlers::files::pre_check_dedup).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files/link",
-            post(api::handlers::files::link_file)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            post(api::handlers::files::link_file).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/upload",
@@ -105,49 +112,70 @@ pub fn create_app(state: AppState) -> Router {
                 .layer(axum::extract::DefaultBodyLimit::max(
                     state.config.max_file_size + 10 * 1024 * 1024, // Add 10MB buffer for multipart overhead
                 ))
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    api::middleware::auth::auth_middleware,
+                )),
         )
         .route(
             "/files/:id",
             get(api::handlers::files::download_file)
                 .delete(api::handlers::files::delete_item)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    api::middleware::auth::auth_middleware,
+                )),
         )
         .route(
             "/files/:id/rename",
-            axum::routing::put(api::handlers::files::rename_item)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            axum::routing::put(api::handlers::files::rename_item).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files/:id/path",
-            get(api::handlers::files::get_folder_path)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            get(api::handlers::files::get_folder_path).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files/:id/zip-contents",
-            get(api::handlers::files::get_zip_contents)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            get(api::handlers::files::get_zip_contents).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files",
-            get(api::handlers::files::list_files)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            get(api::handlers::files::list_files).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/folders",
-            post(api::handlers::files::create_folder)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            post(api::handlers::files::create_folder).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files/bulk-delete",
-            post(api::handlers::files::bulk_delete)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+            post(api::handlers::files::bulk_delete).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/settings",
             get(api::handlers::user_settings::get_settings)
                 .put(api::handlers::user_settings::update_settings)
-                .layer(from_fn(api::middleware::auth::auth_middleware)),
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    api::middleware::auth::auth_middleware,
+                )),
         )
         .layer(
             CorsLayer::new()
