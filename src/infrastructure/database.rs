@@ -1,6 +1,6 @@
 use crate::entities::{
     audit_logs, file_metadata, file_tags, storage_files, tags, tokens, user_files, user_settings,
-    users,
+    users, user_file_facts,
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm::{ConnectionTrait, Schema};
@@ -100,6 +100,13 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             "audit_logs",
             schema
                 .create_table_from_entity(audit_logs::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
+        (
+            "user_file_facts",
+            schema
+                .create_table_from_entity(user_file_facts::Entity)
                 .if_not_exists()
                 .to_owned(),
         ),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ReactFileManager, CommonModal } from "../lib";
 import { api, getAuthToken, setAuthToken, clearAuthToken } from "./api";
+import { formatFriendlyError } from "./utils/errorFormatter";
 import type { FileSystemType, FileType, UploadStatus } from "../lib/types";
 import "./App.css";
 import "../lib/tailwind.css";
@@ -19,6 +20,7 @@ function App() {
         return localStorage.getItem("currentFolder") || "0";
     });
     const [profile, setProfile] = useState<{ id: string, name?: string, email?: string, avatarUrl?: string }>({ id: "", name: "", email: "", avatarUrl: "" });
+    const [userFacts, setUserFacts] = useState<any>(null);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -63,23 +65,14 @@ function App() {
         }
     }, []);
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            localStorage.setItem("currentFolder", currentFolder);
-            // localStorage.setItem("username", username);
-
-            // Fetch user settings
-            api.getSettings().then((settings: any) => {
-                if (settings && settings.theme) {
-                    setTheme(settings.theme);
-                }
-            }).catch(console.error);
-
-            // Fetch profile
-            fetchProfile();
+    const fetchUserFacts = useCallback(async () => {
+        try {
+            const data = await api.getUserFacts();
+            setUserFacts(data);
+        } catch (err) {
+            console.error("Failed to fetch user facts:", err);
         }
-    }, [currentFolder, username, isAuthenticated, fetchProfile]);
-
+    }, []);
 
     const fetchFiles = useCallback(async (parentId?: string, silent = false) => {
         if (!silent) setLoading(true);
@@ -117,6 +110,35 @@ function App() {
             if (!silent) setLoading(false);
         }
     }, [setFs]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            localStorage.setItem("currentFolder", currentFolder);
+            // localStorage.setItem("username", username);
+
+            // Fetch user settings
+            api.getSettings().then((settings: any) => {
+                if (settings && settings.theme) {
+                    setTheme(settings.theme);
+                }
+            }).catch(console.error);
+
+            // Fetch profile and facts
+            fetchProfile();
+            fetchUserFacts();
+            fetchFiles(currentFolder);
+        }
+    }, [currentFolder, username, isAuthenticated, fetchProfile, fetchUserFacts, fetchFiles]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            const interval = setInterval(fetchUserFacts, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, fetchUserFacts]);
+
+
+
 
     const fsRef = React.useRef(fs);
     useEffect(() => {
@@ -211,7 +233,7 @@ function App() {
             setAuthToken(res.token);
             setIsAuthenticated(true);
         } catch (err: any) {
-            setError(err.message);
+            setError(formatFriendlyError(err.message));
         } finally {
             setAuthLoading(false);
         }
@@ -228,7 +250,7 @@ function App() {
             setAuthToken(res.token);
             setIsAuthenticated(true);
         } catch (err: any) {
-            setError(err.message);
+            setError(formatFriendlyError(err.message));
         } finally {
             setAuthLoading(false);
         }
@@ -258,7 +280,7 @@ function App() {
             await fetchProfile();
             setProfileModalVisible(false);
         } catch (err: any) {
-            alert("Failed to update profile: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -268,7 +290,7 @@ function App() {
                 await api.uploadAvatar(e.target.files[0]);
                 await fetchProfile();
             } catch (err: any) {
-                alert("Failed to upload avatar: " + err.message);
+                alert(formatFriendlyError(err.message));
             }
         }
     };
@@ -311,6 +333,7 @@ function App() {
 
     const onRefresh = async (id: string) => {
         await fetchFiles(id);
+        fetchUserFacts();
     };
 
     const [pendingUpload, setPendingUpload] = useState<{ file: File, folderId: string, onProgress?: (p: number) => void } | null>(null);
@@ -385,6 +408,8 @@ function App() {
 
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
+            if (!part) continue;
+
             const currentPath = parts.slice(0, i + 1).join('/');
             const subCacheKey = `${rootId}:${currentPath}`;
 
@@ -395,8 +420,10 @@ function App() {
 
             try {
                 // Try to create the folder
-                const res = await api.createFolder(part, (currentParentId === "0" ? undefined : currentParentId) as any);
-                currentParentId = res.id;
+                const res = await api.createFolder(part, currentParentId === "0" ? undefined : currentParentId);
+                if (res && res.id) {
+                    currentParentId = res.id;
+                }
             } catch (err: any) {
                 // If creation fails (most likely folder exists), find its ID
                 // Check if the currentParentId is "0", which means we look in the root
@@ -525,6 +552,7 @@ function App() {
 
 
         await fetchFiles(folderId);
+        fetchUserFacts();
 
         // Clean up completed uploads after a delay
         setTimeout(() => {
@@ -538,8 +566,9 @@ function App() {
             const parentId = currentFolder === "0" ? undefined : currentFolder;
             await api.createFolder(name, parentId as any);
             await fetchFiles(currentFolder);
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Create folder failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -555,8 +584,9 @@ function App() {
             } else {
                 await fetchFiles(currentFolder);
             }
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Delete failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -564,8 +594,9 @@ function App() {
         try {
             await api.bulkDeleteItem(ids);
             await fetchFiles(currentFolder);
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Bulk delete failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -576,22 +607,22 @@ function App() {
             if (newParentId !== currentFolder) {
                 await fetchFiles(newParentId, true);
             }
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Move failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
     const onBulkMove = async (ids: string[], newParentId: string) => {
         try {
-            for (const id of ids) {
-                await api.renameItem(id, undefined, newParentId);
-            }
+            await api.bulkMove(ids, newParentId);
             await fetchFiles(currentFolder);
             if (newParentId !== currentFolder) {
                 await fetchFiles(newParentId, true);
             }
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Bulk move failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -604,8 +635,9 @@ function App() {
             if (currentFolder === id) {
                 await fetchFiles(id);
             }
+            fetchUserFacts();
         } catch (err: any) {
-            alert("Rename failed: " + err.message);
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -702,6 +734,7 @@ function App() {
                     setCurrentFolder={setCurrentFolder}
                     activeUploads={activeUploads}
                     setActiveUploads={setActiveUploads}
+                    userFacts={userFacts}
                 />
 
                 <CommonModal

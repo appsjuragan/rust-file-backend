@@ -53,6 +53,7 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 - ☁️ **S3-Compatible**: Works perfectly with AWS S3, MinIO, DigitalOcean Spaces, and more.
 - 📂 **Folder Support**: Full recursive folder management and bulk operations.
 - 🔐 **End-to-End Encryption Readiness**: Automatic key generation for per-user file encryption (AES-256).
+- 📊 **File Facts & Statistics**: Real-time per-user storage statistics including total size and file type classification.
 - ⏳ **Auto-Expiration**: Set files to self-destruct after a certain number of hours.
 - 📖 **Swagger UI**: Beautiful, interactive API documentation out of the box.
 - 🏥 **Health Monitoring**: Real-time status of your database and storage connectivity.

@@ -138,7 +138,13 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_ids: ids }),
     }),
+    bulkMove: (ids: string[], newParentId: string) => request('/files/bulk-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_ids: ids, parent_id: newParentId === '0' ? null : newParentId }),
+    }),
     getProfile: () => request('/users/me'),
+    getUserFacts: () => request('/users/me/facts'),
     updateProfile: (body: { email?: string, name?: string, password?: string }) => request('/users/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

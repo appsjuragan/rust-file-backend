@@ -616,6 +616,35 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Get User Facts",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwtToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/me/facts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"me",
+								"facts"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		}

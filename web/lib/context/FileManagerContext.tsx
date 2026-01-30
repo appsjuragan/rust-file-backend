@@ -70,6 +70,15 @@ interface ProviderInterface {
   }>;
   showAlert: (message: string, title?: string) => void;
   showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
+  userFacts?: {
+    total_files: number;
+    total_size: number;
+    video_count: number;
+    audio_count: number;
+    document_count: number;
+    others_count: number;
+    updated_at: string;
+  };
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

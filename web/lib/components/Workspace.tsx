@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { useFileManager } from "../context";
 import type { FileType } from "../types";
 import { ViewStyle } from "../types";
+import { isDescendantOrSelf } from "../utils/fileUtils";
 
 // Components
 import FileIcon from "./FileIcon";
@@ -188,10 +189,10 @@ const Workspace = () => {
   const handleDragOver = (e: React.DragEvent, folder: FileType) => {
     if (!folder.isDir) return;
 
-    // Don't allow dropping on itself or items being dragged
-    const draggedIds = JSON.parse(e.dataTransfer.types.includes("application/json") ? "[]" : "[]"); // Can't read dataTransfer during dragover
-    // Simplified: check if this is a directory and not already selected
-    if (folder.isDir && !selectedIds.includes(folder.id)) {
+    // Don't allow dropping on any of the dragged folders or their subfolders
+    const canDrop = !selectedIds.some(id => isDescendantOrSelf(fs, id, folder.id));
+
+    if (canDrop) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       setDragOverId(folder.id);
@@ -207,12 +208,17 @@ const Workspace = () => {
     e.stopPropagation();
     setDragOverId(null);
 
+    // Only allow drops on directory
+    if (!folder.isDir) return;
+
     const data = e.dataTransfer.getData("application/json");
     if (!data) return;
 
     try {
       const idsToMove = JSON.parse(data);
-      if (idsToMove.length > 0 && folder.id !== currentFolder) {
+      const validIds = idsToMove.filter((id: string) => !isDescendantOrSelf(fs, id, folder.id));
+
+      if (validIds.length > 0 && folder.id !== currentFolder) {
         setIsMoving(true);
         if (onBulkMove) {
           await onBulkMove(idsToMove, folder.id);

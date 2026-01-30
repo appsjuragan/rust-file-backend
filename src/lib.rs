@@ -39,6 +39,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::get_folder_path,
         api::handlers::files::get_zip_contents,
         api::handlers::files::bulk_delete,
+        api::handlers::files::bulk_move,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
         api::handlers::user_settings::update_settings,
@@ -47,6 +48,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::users::update_profile,
         api::handlers::users::upload_avatar,
         api::handlers::users::get_avatar,
+        api::handlers::users::get_user_facts,
     ),
     components(
         schemas(
@@ -63,6 +65,8 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::LinkFileRequest,
             api::handlers::files::ZipEntry,
             api::handlers::files::BulkDeleteResponse,
+            api::handlers::files::BulkMoveRequest,
+            api::handlers::files::BulkMoveResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::user_settings::UpdateUserSettingsRequest,
@@ -180,6 +184,13 @@ pub fn create_app(state: AppState) -> Router {
             )),
         )
         .route(
+            "/files/bulk-move",
+            post(api::handlers::files::bulk_move).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
+        )
+        .route(
             "/settings",
             get(api::handlers::user_settings::get_settings)
                 .put(api::handlers::user_settings::update_settings)
@@ -206,6 +217,13 @@ pub fn create_app(state: AppState) -> Router {
                     state.clone(),
                     api::middleware::auth::auth_middleware,
                 )),
+        )
+        .route(
+            "/users/me/facts",
+            get(api::handlers::users::get_user_facts).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .layer(
             CorsLayer::new()

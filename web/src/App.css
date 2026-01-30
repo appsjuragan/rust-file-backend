@@ -50,13 +50,10 @@ body {
     z-index: 0;
 }
 
-
-
 .auth-card {
     position: relative;
     z-index: 1;
     background: var(--card-bg);
-    /* ... rest unchanged */
     padding: 1.25rem;
     border-radius: 1rem;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -463,4 +460,35 @@ body {
     letter-spacing: 0.05em;
     margin-bottom: 0.5rem;
     text-transform: uppercase;
+}
+
+/* Sidebar Facts */
+.rfm-sidebar-facts {
+    margin-top: auto;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+}
+
+[data-theme='dark'] .rfm-sidebar-facts {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.rfm-facts-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.rfm-fact-item {
+    margin-bottom: 0.25rem;
+}
+
+.rfm-fact-sub-item {
+    margin-left: 1rem;
+    margin-bottom: 0.125rem;
 }

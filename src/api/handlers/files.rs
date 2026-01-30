@@ -106,6 +106,17 @@ pub struct BulkDeleteRequest {
 }
 
 #[derive(Deserialize, ToSchema)]
+pub struct BulkMoveRequest {
+    pub item_ids: Vec<String>,
+    pub parent_id: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BulkMoveResponse {
+    pub moved_count: usize,
+}
+
+#[derive(Deserialize, ToSchema)]
 pub struct LinkFileRequest {
     pub storage_file_id: String,
     pub filename: String,
@@ -801,39 +812,7 @@ pub async fn delete_item(
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, AppError> {
-    use crate::services::storage_lifecycle::StorageLifecycleService;
-
-    let item = UserFiles::find_by_id(id)
-        .filter(user_files::Column::UserId.eq(&claims.sub))
-        .filter(user_files::Column::DeletedAt.is_null()) // Only non-deleted items
-        .one(&state.db)
-        .await?
-        .ok_or(AppError::NotFound(
-            "Item not found or already deleted".to_string(),
-        ))?;
-
-    let txn = state.db.begin().await?;
-
-    if item.is_folder {
-        // Recursively delete folder and all children
-        StorageLifecycleService::delete_folder_recursive(&txn, state.storage.as_ref(), &item.id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to delete folder recursively: {}", e);
-                AppError::Internal(e.to_string())
-            })?;
-    }
-
-    // Soft delete the item and decrement ref count
-    StorageLifecycleService::soft_delete_user_file(&txn, state.storage.as_ref(), &item)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to soft delete user file: {}", e);
-            AppError::Internal(e.to_string())
-        })?;
-
-    txn.commit().await?;
-
+    state.file_service.delete_item(&claims.sub, &id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -880,6 +859,32 @@ pub async fn rename_item(
         Some(p) => Some(p),
         None => item.parent_id.clone(),
     };
+
+    // Circularity check: prevent moving a folder into itself or its descendants
+    if let Some(ref target_id) = target_parent_id {
+        if item.is_folder {
+            if target_id == &item.id {
+                return Err(AppError::BadRequest("Cannot move a folder into itself".to_string()));
+            }
+
+            let mut current_check_id = target_id.clone();
+            // Traverse up from target parent to root
+            while let Some(parent) = UserFiles::find_by_id(current_check_id)
+                .filter(user_files::Column::UserId.eq(&claims.sub))
+                .one(&state.db)
+                .await?
+            {
+                if parent.id == item.id {
+                    return Err(AppError::BadRequest("Cannot move a folder into its own subfolder".to_string()));
+                }
+                if let Some(next_id) = parent.parent_id {
+                    current_check_id = next_id;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
 
     // Check if target already exists (only for files)
     if !item.is_folder {
@@ -1229,23 +1234,44 @@ pub async fn bulk_delete(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDeleteRequest>,
 ) -> Result<Json<BulkDeleteResponse>, AppError> {
-    use crate::services::storage_lifecycle::StorageLifecycleService;
-
     if req.item_ids.is_empty() {
         return Err(AppError::BadRequest("No items provided".to_string()));
     }
 
-    let deleted_count = StorageLifecycleService::bulk_delete(
-        &state.db,
-        state.storage.as_ref(),
-        &claims.sub,
-        req.item_ids,
-    )
-    .await
-    .map_err(|e| {
-        tracing::error!("Bulk delete failed: {}", e);
-        AppError::Internal(e.to_string())
-    })?;
+    let deleted_count = state
+        .file_service
+        .bulk_delete(&claims.sub, req.item_ids)
+        .await?;
 
     Ok(Json(BulkDeleteResponse { deleted_count }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/bulk-move",
+    request_body = BulkMoveRequest,
+    responses(
+        (status = 200, description = "Items moved", body = BulkMoveResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 400, description = "Bad request")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn bulk_move(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<BulkMoveRequest>,
+) -> Result<Json<BulkMoveResponse>, AppError> {
+    if req.item_ids.is_empty() {
+        return Err(AppError::BadRequest("No items provided".to_string()));
+    }
+
+    let moved_count = state
+        .file_service
+        .bulk_move(&claims.sub, req.item_ids, req.parent_id)
+        .await?;
+
+    Ok(Json(BulkMoveResponse { moved_count }))
 }

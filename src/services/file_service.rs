@@ -22,6 +22,7 @@ pub struct FileService {
     storage: Arc<dyn StorageService>,
     scanner: Arc<dyn VirusScanner>,
     config: SecurityConfig,
+    bulk_lock: tokio::sync::Mutex<()>,
 }
 
 pub struct StagedFile {
@@ -45,6 +46,7 @@ impl FileService {
             storage,
             scanner,
             config,
+            bulk_lock: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -358,18 +360,28 @@ impl FileService {
                     
                     id
                 },
-                Err(DbErr::Exec(sea_orm::RuntimeErr::SqlxError(e)))
-                    if e.as_database_error()
-                        .map_or(false, |x| x.code().as_deref() == Some("2067")) =>
+                Err(e) if e.to_string().contains("23505") || e.to_string().contains("2067") || e.to_string().contains("duplicate") =>
                 {
                     // Fallback to dedup (race condition)
-                     tracing::warn!("Duplicate hash detected during insert (race condition).");
-                     // ... (Existing fallback logic similar to original code)
+                     tracing::warn!("Duplicate hash detected during insert (race condition). Using existing record.");
                      let existing = StorageFiles::find()
                         .filter(storage_files::Column::Hash.eq(&staged.hash))
                         .one(&self.db)
-                        .await.ok().flatten().unwrap(); // Simplify for brevity
-                     existing.id
+                        .await
+                        .map_err(|e| AppError::Internal(e.to_string()))?
+                        .ok_or_else(|| AppError::Internal("Race condition: duplicate signaled but record not found".to_string()))?;
+                    
+                    // Increment ref_count for the existing record
+                    let mut active: storage_files::ActiveModel = existing.clone().into();
+                    active.ref_count = Set(existing.ref_count + 1);
+                    active.update(&self.db).await.map_err(|e| AppError::Internal(e.to_string()))?;
+
+                    // Clean up the S3 object we just uploaded (since we don't need it)
+                    if staged.s3_key != "skipped" {
+                        let _ = self.storage.delete_file(&staged.s3_key).await;
+                    }
+
+                    existing.id
                 }
                 Err(e) => return Err(AppError::Internal(e.to_string())),
             }
@@ -627,5 +639,111 @@ impl FileService {
         }
 
         Ok(())
+    }
+    pub async fn delete_item(
+        &self,
+        user_id: &str,
+        id: &str,
+    ) -> Result<(), AppError> {
+        use crate::services::storage_lifecycle::StorageLifecycleService;
+
+        let item = UserFiles::find_by_id(id)
+            .filter(user_files::Column::UserId.eq(user_id))
+            .filter(user_files::Column::DeletedAt.is_null())
+            .one(&self.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .ok_or_else(|| AppError::NotFound("Item not found".to_string()))?;
+
+        // If it's a folder, it's a bulk operation, so we lock.
+        let _lock = if item.is_folder {
+            let lock = self.bulk_lock.lock().await;
+            tracing::info!("🔒 Bulk lock acquired for folder delete: {}", item.filename);
+            Some(lock)
+        } else {
+            None
+        };
+
+        if item.is_folder {
+            StorageLifecycleService::delete_folder_recursive(&self.db, self.storage.as_ref(), &item.id)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+        }
+
+        StorageLifecycleService::soft_delete_user_file(&self.db, self.storage.as_ref(), &item)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub async fn bulk_delete(
+        &self,
+        user_id: &str,
+        item_ids: Vec<String>,
+    ) -> Result<usize, AppError> {
+        let _lock = self.bulk_lock.lock().await;
+        tracing::info!("🔒 Bulk lock acquired for delete by user {}", user_id);
+
+        use crate::services::storage_lifecycle::StorageLifecycleService;
+        let count = StorageLifecycleService::bulk_delete(
+            &self.db,
+            self.storage.as_ref(),
+            user_id,
+            item_ids,
+        )
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        // Background update facts
+        let db = self.db.clone();
+        let uid = user_id.to_string();
+        tokio::spawn(async move {
+            let _ = crate::services::facts_service::FactsService::update_user_facts(&db, &uid).await;
+        });
+
+        Ok(count)
+    }
+
+    pub async fn bulk_move(
+        &self,
+        user_id: &str,
+        item_ids: Vec<String>,
+        new_parent_id: Option<String>,
+    ) -> Result<usize, AppError> {
+        let _lock = self.bulk_lock.lock().await;
+        tracing::info!("🔒 Bulk lock acquired for move by user {}", user_id);
+
+        let mut moved_count = 0;
+        for id in item_ids {
+            // Reusing the logic from rename_item but in a bulk context
+            let item = UserFiles::find_by_id(&id)
+                .filter(user_files::Column::UserId.eq(user_id))
+                .one(&self.db)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?
+                .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
+
+            // Basic circularity check (simplified for bulk)
+            if let Some(ref target_id) = new_parent_id {
+                if item.is_folder && target_id == &item.id {
+                    continue; // Skip invalid moves in bulk
+                }
+            }
+
+            let mut active: user_files::ActiveModel = item.into();
+            active.parent_id = Set(new_parent_id.clone());
+            active.update(&self.db).await.map_err(|e| AppError::Internal(e.to_string()))?;
+            moved_count += 1;
+        }
+
+        // Background update facts
+        let db = self.db.clone();
+        let uid = user_id.to_string();
+        tokio::spawn(async move {
+            let _ = crate::services::facts_service::FactsService::update_user_facts(&db, &uid).await;
+        });
+
+        Ok(moved_count)
     }
 }

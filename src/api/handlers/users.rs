@@ -1,5 +1,5 @@
 use crate::api::error::AppError;
-use crate::entities::{prelude::*, users};
+use crate::entities::{prelude::*, users, user_file_facts};
 use crate::utils::auth::Claims;
 use argon2::{
     Argon2,
@@ -214,6 +214,41 @@ pub async fn get_avatar(
     }
 
     Err(AppError::NotFound("Avatar not found".to_string()))
+}
+
+#[utoipa::path(
+    get,
+    path = "/users/me/facts",
+    responses(
+        (status = 200, description = "Facts retrieved successfully", body = user_file_facts::Model),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_user_facts(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+) -> Result<Json<user_file_facts::Model>, AppError> {
+    let facts = UserFileFacts::find_by_id(&claims.sub)
+        .one(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    match facts {
+        Some(f) => Ok(Json(f)),
+        None => {
+            // If not found, trigger an update and return something
+            crate::services::facts_service::FactsService::update_user_facts(&state.db, &claims.sub).await?;
+            let facts = UserFileFacts::find_by_id(&claims.sub)
+                .one(&state.db)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?
+                .ok_or_else(|| AppError::Internal("Failed to generate facts".to_string()))?;
+            Ok(Json(facts))
+        }
+    }
 }
 
 

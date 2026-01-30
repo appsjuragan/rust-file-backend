@@ -50,11 +50,19 @@ impl BackgroundWorker {
                 _ = sleep(Duration::from_secs(10)) => {
                     self.perform_virus_scans().await;
                 }
+                _ = sleep(Duration::from_secs(30)) => {
+                    self.perform_facts_update().await;
+                }
                 _ = sleep(Duration::from_secs(60)) => {
                     self.perform_cleanup().await;
                 }
             }
         }
+    }
+
+    async fn perform_facts_update(&self) {
+        use crate::services::facts_service::FactsService;
+        let _ = FactsService::update_all_users(&self.db).await;
     }
 
     async fn perform_virus_scans(&self) {

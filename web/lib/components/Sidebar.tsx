@@ -2,13 +2,15 @@ import React, { useMemo } from "react";
 import { useFileManager } from "../context";
 import SvgIcon from "./SvgIcon";
 import type { FileType } from "../types";
+import { isDescendantOrSelf, formatSize } from "../utils/fileUtils";
 
 const FolderTreeItem = ({ folder, level }: { folder: FileType; level: number }) => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving } = useFileManager();
     const [isDragOver, setIsDragOver] = React.useState(false);
 
     const handleDragOver = (e: React.DragEvent) => {
-        if (!selectedIds.includes(folder.id)) {
+        const canDrop = !selectedIds.some(id => isDescendantOrSelf(fs, id, folder.id));
+        if (canDrop) {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
             setIsDragOver(true);
@@ -29,7 +31,8 @@ const FolderTreeItem = ({ folder, level }: { folder: FileType; level: number }) 
 
         try {
             const idsToMove = JSON.parse(data);
-            if (idsToMove.length > 0 && !idsToMove.includes(folder.id)) {
+            const validIds = idsToMove.filter((id: string) => !isDescendantOrSelf(fs, id, folder.id));
+            if (validIds.length > 0) {
                 setIsMoving(true);
                 if (onBulkMove) {
                     await onBulkMove(idsToMove, folder.id);
@@ -95,7 +98,7 @@ const FolderTreeItem = ({ folder, level }: { folder: FileType; level: number }) 
 };
 
 const Sidebar = () => {
-    const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving } = useFileManager();
+    const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, userFacts } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = React.useState(false);
 
     const handleDragOverRoot = (e: React.DragEvent) => {
@@ -169,6 +172,21 @@ const Sidebar = () => {
                     ))}
                 </div>
             </div>
+
+            {userFacts && (
+                <div className="rfm-sidebar-facts">
+                    <div className="rfm-facts-title">Storage Statistics</div>
+                    <div className="rfm-facts-content">
+                        <div className="rfm-fact-item">- Number of files: {userFacts.total_files}</div>
+                        <div className="rfm-fact-item">- Size: {formatSize(userFacts.total_size)}</div>
+                        <div className="rfm-fact-item">Common type:</div>
+                        <div className="rfm-fact-sub-item">- Video: {userFacts.video_count}</div>
+                        <div className="rfm-fact-sub-item">- Audio: {userFacts.audio_count}</div>
+                        <div className="rfm-fact-sub-item">- Document: {userFacts.document_count}</div>
+                        <div className="rfm-fact-sub-item">- Others: {userFacts.others_count}</div>
+                    </div>
+                </div>
+            )}
         </aside>
     );
 };

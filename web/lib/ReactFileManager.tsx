@@ -33,6 +33,7 @@ export interface IFileManagerProps {
   setCurrentFolder?: (id: string) => void;
   activeUploads?: UploadStatus[];
   setActiveUploads?: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
+  userFacts?: any;
 }
 
 export const ReactFileManager = ({
@@ -52,6 +53,7 @@ export const ReactFileManager = ({
   setCurrentFolder: propSetCurrentFolder,
   activeUploads: propActiveUploads,
   setActiveUploads: propSetActiveUploads,
+  userFacts,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -181,6 +183,7 @@ export const ReactFileManager = ({
         setDialogState,
         showAlert,
         showConfirm,
+        userFacts,
       }}
     >
 
