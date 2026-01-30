@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ReactFileManager, CommonModal } from "../lib";
 import { api, getAuthToken, setAuthToken, clearAuthToken } from "./api";
-import type { FileSystemType, FileType } from "../lib/types";
+import type { FileSystemType, FileType, UploadStatus } from "../lib/types";
 import "./App.css";
 import "../lib/tailwind.css";
 
@@ -76,7 +76,7 @@ function App() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, []);
+    }, [setFs]);
 
     const fsRef = React.useRef(fs);
     useEffect(() => {
@@ -239,39 +239,166 @@ function App() {
         }
     };
 
-    const onUpload = async (fileData: any, folderId: string, onProgress?: (p: number) => void) => {
-        const files = Array.from(fileData) as File[];
+    const [activeUploads, setActiveUploads] = useState<UploadStatus[]>([]);
+
+    const ensureFolderExists = async (path: string, rootId: string, cache: Map<string, string>): Promise<string> => {
+        if (!path || path === "" || path === ".") return rootId;
+        const cacheKey = `${rootId}:${path}`;
+        if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+
+        const parts = path.split('/').filter(p => p !== "");
+        let currentParentId = rootId;
+
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const currentPath = parts.slice(0, i + 1).join('/');
+            const subCacheKey = `${rootId}:${currentPath}`;
+
+            if (cache.has(subCacheKey)) {
+                currentParentId = cache.get(subCacheKey)!;
+                continue;
+            }
+
+            try {
+                // Try to create the folder
+                const res = await api.createFolder(part, (currentParentId === "0" ? undefined : currentParentId) as any);
+                currentParentId = res.id;
+            } catch (err: any) {
+                // If creation fails (most likely folder exists), find its ID
+                // Check if the currentParentId is "0", which means we look in the root
+                const effectiveParentId = currentParentId === "0" ? undefined : currentParentId;
+                const files = await api.listFiles(effectiveParentId as any);
+
+                // Check for folder match, being careful with null vs undefined vs "0"
+                const existing = files.find((f: any) => {
+                    // Try strict match first, then case-insensitive to handle FS differences
+                    const safePart = part || "";
+                    const isNameMatch = f.filename === part || f.filename.toLowerCase() === safePart.toLowerCase();
+                    const isFolder = f.is_folder;
+                    const parentMatch = (!f.parent_id && !effectiveParentId) ||
+                        (f.parent_id === effectiveParentId) ||
+                        (f.parent_id === "0" && !effectiveParentId) ||
+                        (!f.parent_id && effectiveParentId === "0");
+                    return isNameMatch && isFolder && parentMatch;
+                });
+
+                if (existing) {
+                    currentParentId = existing.id;
+                } else {
+                    console.error(`Folder "${part}" not found in parent ${currentParentId} after failure.`, {
+                        part,
+                        parentId: currentParentId,
+                        filesInParent: files.map((f: any) => ({ name: f.filename, id: f.id, isFolder: f.is_folder }))
+                    });
+                    throw err;
+                }
+            }
+            cache.set(subCacheKey, currentParentId);
+        }
+        return currentParentId;
+    };
+
+
+
+    const onUpload = async (files: { file: File, path: string }[], folderId: string) => {
         if (files.length === 0) return;
 
-        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-        let completedCount = 0;
-        try {
-            for (const file of files) {
-                if (file.size > MAX_FILE_SIZE) {
-                    alert(`❌ Upload failed: "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 256MB.`);
-                    continue;
+        const statusItems = files.map(f => ({
+            id: Math.random().toString(36).substring(7),
+            name: f.path,
+            progress: 0,
+            status: 'uploading' as const,
+            size: f.file.size
+        }));
+        setActiveUploads(prev => [...prev, ...statusItems]);
+
+        const updateStatus = (id: string, progress: number, status: 'uploading' | 'completed' | 'error', error?: string) => {
+            setActiveUploads(prev => prev.map(u =>
+                u.id === id ? { ...u, progress, status, error } : u
+            ));
+        };
+
+        const uploadQueue = files.map((f, i) => ({ ...f, id: statusItems[i]?.id || Math.random().toString(36).substring(7) }));
+        const CONCURRENCY = 3;
+        const folderCache = new Map<string, string>();
+
+        // Pre-create all folders first to ensure structure exists before files are uploaded
+        const uniqueFolders = Array.from(new Set(uploadQueue.map(item => {
+            const pathParts = item.path.split('/');
+            pathParts.pop();
+            return pathParts.join('/');
+        }))).sort((a, b) => a.length - b.length);
+
+        for (const relPath of uniqueFolders) {
+            try {
+                if (relPath && relPath !== "." && relPath !== "/") {
+                    await ensureFolderExists(relPath, folderId, folderCache);
+                }
+            } catch (err) {
+                console.error(`Failed to pre-create folder structure for "${relPath}":`, err);
+            }
+        }
+        const worker = async () => {
+            while (uploadQueue.length > 0) {
+                const item = uploadQueue.shift();
+                if (!item) continue;
+
+                const { file, path, id } = item;
+                const pathParts = path.split('/');
+                const fileName = pathParts.pop() || file.name;
+                const relativeFolderPath = pathParts.join('/');
+
+                try {
+                    // targetFolderId should now be in the cache from the pre-pass
+                    const targetFolderId = await ensureFolderExists(relativeFolderPath, folderId, folderCache);
+
+                    if (file.size > MAX_FILE_SIZE) {
+                        updateStatus(id, 0, 'error', 'File too large');
+                        continue;
+                    }
+
+                    const hash = await calculateHash(file);
+                    const preCheck = await api.preCheck(hash, file.size);
+
+                    if (preCheck.exists && preCheck.file_id) {
+                        await api.linkFile(preCheck.file_id, fileName, targetFolderId as any);
+                        updateStatus(id, 100, 'completed');
+                    } else {
+                        await api.uploadFile(file, targetFolderId as any, (p) => {
+                            updateStatus(id, p, 'uploading');
+                        });
+                        updateStatus(id, 100, 'completed');
+                    }
+                } catch (err: any) {
+                    console.error(`Failed to upload ${path}:`, err);
+                    updateStatus(id, 0, 'error', err.message);
                 }
 
-                await performUpload(file, folderId, (p) => {
-                    if (onProgress) {
-                        const totalProgress = Math.round((completedCount * 100 + p) / files.length);
-                        onProgress(totalProgress);
-                    }
-                }, totalSize);
-                completedCount++;
             }
-        } catch (err: any) {
-            alert("Upload failed: " + err.message);
-        } finally {
-            await fetchFiles(folderId);
-            setPendingUpload(null);
+        };
+
+        // Start workers
+        const workers = [];
+        const numWorkers = Math.min(CONCURRENCY, files.length);
+        for (let i = 0; i < numWorkers; i++) {
+            workers.push(worker());
         }
+        await Promise.all(workers);
+
+
+        await fetchFiles(folderId);
+
+        // Clean up completed uploads after a delay
+        setTimeout(() => {
+            setActiveUploads(prev => prev.filter(u => u.status === 'uploading' || u.status === 'error'));
+        }, 5000);
     };
+
 
     const onCreateFolder = async (name: string) => {
         try {
             const parentId = currentFolder === "0" ? undefined : currentFolder;
-            await api.createFolder(name, parentId);
+            await api.createFolder(name, parentId as any);
             await fetchFiles(currentFolder);
         } catch (err: any) {
             alert("Create folder failed: " + err.message);
@@ -295,12 +422,32 @@ function App() {
         }
     };
 
+    const onBulkDelete = async (ids: string[]) => {
+        try {
+            await api.bulkDeleteItem(ids);
+            await fetchFiles(currentFolder);
+        } catch (err: any) {
+            alert("Bulk delete failed: " + err.message);
+        }
+    };
+
     const onMove = async (id: string, newParentId: string) => {
         try {
-            await api.renameItem(id, undefined, newParentId);
-            await fetchFiles(newParentId);
+            await api.renameItem(id, undefined, newParentId === "0" ? undefined : newParentId);
+            await fetchFiles(currentFolder);
         } catch (err: any) {
             alert("Move failed: " + err.message);
+        }
+    };
+
+    const onBulkMove = async (ids: string[], newParentId: string) => {
+        try {
+            for (const id of ids) {
+                await api.renameItem(id, undefined, (newParentId === "0" ? undefined : newParentId) as any);
+            }
+            await fetchFiles(currentFolder);
+        } catch (err: any) {
+            alert("Bulk move failed: " + err.message);
         }
     };
 
@@ -392,11 +539,16 @@ function App() {
                     onUpload={onUpload}
                     onCreateFolder={onCreateFolder}
                     onDelete={onDelete}
+                    onBulkDelete={onBulkDelete}
                     onMove={onMove}
+                    onBulkMove={onBulkMove}
                     onRename={onRename}
                     currentFolder={currentFolder}
                     setCurrentFolder={setCurrentFolder}
+                    activeUploads={activeUploads}
+                    setActiveUploads={setActiveUploads}
                 />
+
                 <CommonModal
                     isVisible={!!pendingUpload}
                     title="Duplicate Filename"

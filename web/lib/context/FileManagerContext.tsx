@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, ViewStyle, FileType } from "../types";
+import type { FileSystemType, ViewStyle, FileType, UploadStatus } from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
@@ -9,7 +9,7 @@ interface ProviderInterface {
   viewOnly?: boolean;
   onDoubleClick?: (id: string) => Promise<void>;
   onRefresh?: (id: string) => Promise<void>;
-  onUpload?: (fileData: any, folderId: string, onProgress?: (p: number) => void) => Promise<void>;
+  onUpload?: (files: { file: File, path: string }[], folderId: string) => Promise<void>;
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
   onMove?: (id: string, newParentId: string) => Promise<void>;
@@ -18,16 +18,17 @@ interface ProviderInterface {
   setUploadedFileData: Dispatch<any>;
   viewStyle: ViewStyle,
   setViewStyle: Dispatch<ViewStyle>,
-  uploadProgress: number;
-  setUploadProgress: Dispatch<number>;
-  isUploading: boolean;
-  setIsUploading: Dispatch<boolean>;
-  uploadFileName: string;
-  setUploadFileName: Dispatch<string>;
-  clipboard: FileType | null;
-  setClipboard: Dispatch<FileType | null>;
+  activeUploads: UploadStatus[];
+  setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
+  selectedIds: string[];
+  setSelectedIds: Dispatch<string[]>;
+  clipboardIds: string[];
+  setClipboardIds: Dispatch<string[]>;
   isCut: boolean;
   setIsCut: Dispatch<boolean>;
+  onBulkDelete?: (ids: string[]) => Promise<void>;
+  onBulkMove?: (ids: string[], newParentId: string) => Promise<void>;
+  onBulkCopy?: (ids: string[], newParentId: string) => Promise<void>;
   // Modal states
   newFolderModalVisible: boolean;
   setNewFolderModalVisible: Dispatch<boolean>;

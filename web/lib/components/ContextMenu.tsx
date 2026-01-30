@@ -29,11 +29,16 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 }) => {
     const {
         onDelete,
-        clipboard,
-        setClipboard,
+        onBulkDelete,
+        selectedIds,
+        setSelectedIds,
+        clipboardIds,
+        setClipboardIds,
         setIsCut,
         isCut,
         onMove,
+        onBulkMove,
+        onBulkCopy,
         currentFolder,
         onRefresh,
     } = useFileManager();
@@ -84,7 +89,18 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     };
 
     const handleDelete = async () => {
-        if (file && onDelete) {
+        if (file && selectedIds.length > 0) {
+            if (confirm(`Are you sure you want to delete ${selectedIds.length} item(s)?`)) {
+                if (onBulkDelete) {
+                    await onBulkDelete(selectedIds);
+                } else if (onDelete) {
+                    for (const id of selectedIds) {
+                        await onDelete(id);
+                    }
+                }
+                setSelectedIds([]);
+            }
+        } else if (file && onDelete) {
             if (confirm(`Are you sure you want to delete ${file.name}?`)) {
                 await onDelete(file.id);
             }
@@ -92,25 +108,52 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         onClose();
     };
 
+    const handleCopy = () => {
+        if (selectedIds.length > 0) {
+            setClipboardIds(selectedIds);
+            setIsCut(false);
+        } else if (file) {
+            setClipboardIds([file.id]);
+            setIsCut(false);
+        }
+        onClose();
+    };
+
     const handleCut = () => {
-        if (file) {
-            setClipboard(file);
+        if (selectedIds.length > 0) {
+            setClipboardIds(selectedIds);
+            setIsCut(true);
+        } else if (file) {
+            setClipboardIds([file.id]);
             setIsCut(true);
         }
         onClose();
     };
 
     const handlePaste = async () => {
-        if (clipboard && onMove) {
-            await onMove(clipboard.id, currentFolder);
+        if (clipboardIds.length > 0) {
             if (isCut) {
-                setClipboard(null);
+                if (onBulkMove) {
+                    await onBulkMove(clipboardIds, currentFolder);
+                } else if (onMove) {
+                    for (const id of clipboardIds) {
+                        await onMove(id, currentFolder);
+                    }
+                }
+                setClipboardIds([]);
                 setIsCut(false);
+            } else {
+                if (onBulkCopy) {
+                    await onBulkCopy(clipboardIds, currentFolder);
+                }
+                // Don't clear clipboard on copy
             }
+
             if (onRefresh) await onRefresh(currentFolder);
         }
         onClose();
     };
+
 
     return (
         <div
@@ -137,6 +180,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     <div className="rfm-context-menu-item" onClick={handleOpen}>
                         <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
                         Open (Preview)
+                    </div>
+                    <div className="rfm-context-menu-item" onClick={handleCopy}>
+                        <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                        Copy
                     </div>
                     <div className="rfm-context-menu-item" onClick={handleCut}>
                         <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
@@ -173,12 +220,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     </div>
                 </>
             )}
-            {!file && clipboard && (
+            {clipboardIds.length > 0 && (
                 <div className="rfm-context-menu-item" onClick={handlePaste}>
                     <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
-                    Paste
+                    Paste ({clipboardIds.length} item{clipboardIds.length > 1 ? 's' : ''})
                 </div>
             )}
+
         </div>
     );
 };

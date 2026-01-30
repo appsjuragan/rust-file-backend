@@ -1,3 +1,12 @@
+export type UploadStatus = {
+  id: string;
+  name: string;
+  progress: number;
+  status: 'uploading' | 'completed' | 'error';
+  error?: string;
+  size?: number;
+};
+
 // Be careful: even a folder is a file!
 export type FileType = {
   id: string; // Unique ID given to this file
@@ -13,3 +22,4 @@ export type FileType = {
 };
 
 export type FileSystemType = FileType[];
+

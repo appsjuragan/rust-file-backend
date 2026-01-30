@@ -133,4 +133,10 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
     }),
+    bulkDeleteItem: (ids: string[]) => request('/files/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_ids: ids }),
+    }),
 };
+

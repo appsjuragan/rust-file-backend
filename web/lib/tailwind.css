@@ -351,23 +351,23 @@
   }
 
   .rfm-upload-toast-header {
-    @apply flex items-center justify-between px-2 py-1.5 bg-slate-50 border-b border-slate-100 dark:bg-slate-800 dark:border-slate-800;
+    @apply flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 dark:bg-slate-800 dark:border-slate-700;
   }
 
   .rfm-upload-toast-title {
-    @apply text-sm font-semibold text-slate-700 truncate pr-2 dark:text-slate-200;
+    @apply text-sm font-bold text-slate-800 truncate dark:text-slate-100;
   }
 
   .rfm-upload-toast-actions {
-    @apply flex items-center gap-1;
+    @apply flex items-center gap-1.5;
   }
 
   .rfm-upload-toast-btn {
-    @apply p-0.5 hover:bg-slate-200 rounded-md transition-colors text-slate-500 dark:hover:bg-slate-700 dark:text-slate-400;
+    @apply p-1 hover:bg-slate-200 rounded-lg transition-all duration-200 text-slate-600 dark:hover:bg-slate-700 dark:text-slate-300;
   }
 
   .rfm-upload-toast-body {
-    @apply p-2;
+    @apply p-1 bg-white dark:bg-slate-900;
   }
 
   .rfm-upload-progress-container {
@@ -451,5 +451,47 @@
     font-weight: bold;
     color: #92400e;
     z-index: 10;
+  }
+
+  /* Multiple Upload Progress */
+  .rfm-upload-list {
+    @apply flex flex-col gap-1 max-h-60 overflow-y-auto mt-2;
+  }
+
+  .rfm-upload-item {
+    @apply flex items-center justify-between gap-3 p-2 rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-slate-800;
+  }
+
+  .rfm-upload-item-info {
+    @apply flex flex-col flex-1 min-w-0;
+  }
+
+  .rfm-upload-item-name {
+    @apply text-xs font-medium text-slate-700 truncate dark:text-slate-300;
+  }
+
+  .rfm-upload-item-progress-container {
+    @apply h-1 w-full bg-slate-100 rounded-full overflow-hidden mt-1 dark:bg-slate-700;
+  }
+
+  .rfm-upload-item-progress-bar {
+    @apply h-full bg-indigo-500 transition-all duration-300 ease-out;
+  }
+
+  .rfm-upload-item-icon {
+    @apply w-5 h-5 flex-shrink-0 flex items-center justify-center;
+  }
+
+  /* Selection and Marquee */
+  .rfm-selected {
+    @apply bg-sky-100 dark:bg-sky-900/40 ring-1 ring-sky-300 dark:ring-sky-700/50 !important;
+  }
+
+  .rfm-icons-grid button.rfm-selected {
+    @apply border-sky-400 dark:border-sky-600;
+  }
+
+  .rfm-marquee-selection {
+    @apply fixed border border-sky-500 bg-sky-500/10 pointer-events-none z-[3000];
   }
 }
