@@ -478,6 +478,13 @@ impl FileService {
             tracing::error!("Failed to save metadata and tags: {}", e);
         }
 
+        // Background update facts
+        let db = self.db.clone();
+        let uid = user_id.clone();
+        tokio::spawn(async move {
+            let _ = crate::services::facts_service::FactsService::update_user_facts(&db, &uid).await;
+        });
+
         Ok((user_file_id, expires_at))
     }
 
@@ -616,8 +623,10 @@ impl FileService {
         };
 
         for tag_name in tags_to_link {
+            let normalized_name = tag_name.to_lowercase();
+            
             let tag = match Tags::find()
-                .filter(tags::Column::Name.eq(&tag_name))
+                .filter(tags::Column::Name.eq(&normalized_name))
                 .one(&self.db)
                 .await?
             {
@@ -625,9 +634,21 @@ impl FileService {
                 None => {
                     let new_tag = tags::ActiveModel {
                         id: Set(Uuid::new_v4().to_string()),
-                        name: Set(tag_name.clone()),
+                        name: Set(normalized_name.clone()),
                     };
-                    new_tag.insert(&self.db).await?
+                    
+                    match new_tag.insert(&self.db).await {
+                        Ok(t) => t,
+                        Err(e) if e.to_string().contains("duplicate") || e.to_string().contains("unique") => {
+                            // Race condition: another thread inserted it. Refetch.
+                            Tags::find()
+                                .filter(tags::Column::Name.eq(&normalized_name))
+                                .one(&self.db)
+                                .await?
+                                .ok_or_else(|| AppError::Internal("Tag missing after duplicate error".to_string()))?
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
                 }
             };
 
@@ -635,6 +656,8 @@ impl FileService {
                 user_file_id: Set(user_file_id.to_string()),
                 tag_id: Set(tag.id),
             };
+            
+            // Ignore error if link already exists (unique primary key)
             let _ = link.insert(&self.db).await;
         }
 
@@ -673,6 +696,13 @@ impl FileService {
         StorageLifecycleService::soft_delete_user_file(&self.db, self.storage.as_ref(), &item)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        // Background update facts
+        let db = self.db.clone();
+        let uid = user_id.to_string();
+        tokio::spawn(async move {
+            let _ = crate::services::facts_service::FactsService::update_user_facts(&db, &uid).await;
+        });
 
         Ok(())
     }
