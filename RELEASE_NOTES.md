@@ -1,32 +1,65 @@
 # Release Notes
 
-## Version 0.1.0-beta.4 (2026-01-29)
+## Version 0.1.0-beta.4 (2026-01-31)
 
-### New Features
-- **RAR Archive Support**: Added full support for RAR archive preview using the `unrar` crate. Users can now preview the contents of RAR files alongside ZIP, 7z, TAR, and TAR.GZ formats.
+### 🎯 Major Features
+
+#### **File Statistics & Analytics**
+- **Per-User File Facts**: Real-time statistics tracking for each user including:
+  - Total file count and storage size
+  - Categorized file counts (images, videos, audio, documents, others)
+  - Automatic background updates with intelligent caching (10-second refresh threshold)
+- **Interactive Storage Visualization**: 
+  - Beautiful SVG-based pie chart showing file type distribution
+  - Hover effects with smooth transitions and scaling animations
+  - Synchronized highlighting between pie chart segments and category legend
+  - Empty state handling with graceful fallback display
+
+#### **Archive Support**
+- **RAR Archive Support**: Added full support for RAR archive preview using the `unrar` crate
+- **Multi-Format Preview**: Support for ZIP, 7z, TAR, TAR.GZ, and RAR formats with file names and sizes
+
+### 🎨 UI/UX Improvements
 - **Enhanced File List UI**: 
-  - Implemented sticky table headers that remain visible while scrolling through long file lists
-  - Fixed scrolling behavior to keep folder path and controls fixed at the top
-  - Added visual separation with bottom borders on sticky headers
-- **Improved Archive Preview**: Extended archive content preview to support multiple formats (ZIP, 7z, TAR, TAR.GZ, RAR) with file names and sizes displayed in a clean interface.
-
-### UI/UX Improvements
+  - Sticky table headers that remain visible while scrolling through long file lists
+  - Fixed scrolling behavior to keep folder path and controls at the top
+  - Visual separation with bottom borders on sticky headers
+- **Interactive Sidebar**:
+  - Dynamic pie chart with hover interactions
+  - Category highlighting with visual feedback
+  - Smooth animations and transitions throughout
 - **Better Scrolling**: File listing area now properly scrolls while keeping navigation elements fixed
 - **Visual Polish**: Added subtle borders and improved spacing for better readability
-- **Responsive Layout**: Enhanced flexbox layout ensures proper height calculations and overflow handling
 
-### Code Quality
+### ⚡ Performance Optimizations
+- **Background Worker Efficiency**: 
+  - Optimized intervals (virus scan: 10s, facts update: 60s, cleanup: 60s)
+  - Reduced frontend polling from 5s to 60s for facts updates
+  - Intelligent caching prevents unnecessary database queries
+- **Database Optimization**: 
+  - Fixed join relationships in facts_service for proper metadata retrieval
+  - Added comprehensive logging for debugging and monitoring
+
+### 🧹 Code Quality
+- **Production-Ready Cleanup**:
+  - Removed all debug console.log statements
+  - Deleted 16 temporary inspection/debug scripts from src/bin/
+  - Applied `cargo fmt` across entire codebase
 - **Clippy Compliance**: Fixed all clippy warnings for production code
-- **Code Formatting**: Applied `cargo fmt` across the entire codebase
-- **Refactoring**: Collapsed nested if statements for better readability
-- **Type Safety**: Removed unnecessary type casts and improved Arc reference handling
+- **Type Safety**: Improved Arc reference handling and removed unnecessary type casts
+- **Better Architecture**: Collapsed nested if statements for improved readability
 
-### Dependencies
+### 🗄️ Database Changes
+- **New Schema**: Added `image_count` field to `user_file_facts` table
+- **Auto-Migration**: Automatic schema updates on application startup
+
+### 📦 Dependencies
 - Added `unrar` v0.5.8 for RAR archive support
 
-### Notes
+### 📝 Notes
 - RAR preview requires the UnRAR library to be installed on the server
 - All existing features from beta.3 remain fully functional
+- Recommended to clear browser cache for optimal UI experience
 
 ## Version 0.1.0-beta.3 (2026-01-26)
 
