@@ -132,7 +132,7 @@ function App() {
 
     useEffect(() => {
         if (isAuthenticated) {
-            const interval = setInterval(fetchUserFacts, 30000);
+            const interval = setInterval(fetchUserFacts, 5000);
             return () => clearInterval(interval);
         }
     }, [isAuthenticated, fetchUserFacts]);

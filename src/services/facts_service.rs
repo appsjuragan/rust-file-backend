@@ -18,20 +18,8 @@ impl FactsService {
         let results = UserFiles::find()
             .column_as(storage_files::Column::Size, "size")
             .column_as(file_metadata::Column::Category, "category")
-            .join_rev(
-                JoinType::LeftJoin,
-                storage_files::Entity::belongs_to(user_files::Entity)
-                    .from(storage_files::Column::Id)
-                    .to(user_files::Column::StorageFileId)
-                    .into()
-            )
-            .join_rev(
-                JoinType::LeftJoin,
-                file_metadata::Entity::belongs_to(user_files::Entity)
-                    .from(file_metadata::Column::StorageFileId)
-                    .to(user_files::Column::StorageFileId)
-                    .into()
-            )
+            .join(JoinType::LeftJoin, user_files::Relation::StorageFiles.def())
+            .join(JoinType::LeftJoin, storage_files::Relation::FileMetadata.def())
             .filter(user_files::Column::UserId.eq(user_id))
             .filter(user_files::Column::DeletedAt.is_null())
             .filter(user_files::Column::IsFolder.eq(false))

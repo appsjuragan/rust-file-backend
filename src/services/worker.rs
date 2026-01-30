@@ -50,7 +50,7 @@ impl BackgroundWorker {
                 _ = sleep(Duration::from_secs(10)) => {
                     self.perform_virus_scans().await;
                 }
-                _ = sleep(Duration::from_secs(30)) => {
+                _ = sleep(Duration::from_secs(5)) => {
                     self.perform_facts_update().await;
                 }
                 _ = sleep(Duration::from_secs(60)) => {
