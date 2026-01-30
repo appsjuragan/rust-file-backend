@@ -50,6 +50,26 @@ interface ProviderInterface {
   setOpenUpload: Dispatch<(() => void) | null>;
   modalPosition: { x: number; y: number } | null;
   setModalPosition: Dispatch<{ x: number; y: number } | null>;
+  isMoving: boolean;
+  setIsMoving: Dispatch<boolean>;
+  dialogState: {
+    isVisible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm';
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  };
+  setDialogState: Dispatch<{
+    isVisible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm';
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  }>;
+  showAlert: (message: string, title?: string) => void;
+  showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

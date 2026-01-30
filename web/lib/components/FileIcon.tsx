@@ -14,8 +14,8 @@ interface IFileIcon {
 }
 
 const FileIcon = (props: IFileIcon) => {
-  const { setCurrentFolder, onRefresh, clipboard, isCut } = useFileManager();
-  const isBeingCut = isCut && clipboard?.id === props.id;
+  const { setCurrentFolder, onRefresh, clipboardIds, isCut } = useFileManager();
+  const isBeingCut = isCut && clipboardIds?.includes(props.id);
 
   const handleClick = async () => {
     if (props.onClick) {
@@ -45,18 +45,12 @@ const FileIcon = (props: IFileIcon) => {
 
   return (
     <>
-      <div
-        onClick={handleClick}
-        onContextMenu={props.onContextMenu}
-        className={`rfm-file-icon-container ${isBeingCut ? "opacity-50" : ""}`}
-      >
-        <SvgIcon
-          svgType={props.isDir ? "folder" : "file"}
-          className="rfm-file-icon-svg"
-        />
-        <span className="rfm-file-icon-extension">{fileExtension}</span>
-        <span className="rfm-file-icon-name">{props.name}</span>
-      </div>
+      <SvgIcon
+        svgType={props.isDir ? "folder" : "file"}
+        className="rfm-file-icon-svg"
+      />
+      <span className="rfm-file-icon-extension">{fileExtension}</span>
+      <span className="rfm-file-icon-name">{props.name}</span>
     </>
   );
 };

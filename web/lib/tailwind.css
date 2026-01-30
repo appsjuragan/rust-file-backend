@@ -22,9 +22,18 @@
   }
 
   .rfm-modal-container {
-    @apply absolute rounded-xl bg-white z-[999] border border-slate-200 top-[10%] left-[10%] w-[400px] h-[300px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
-    box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3), 0 0 25px rgba(0, 0, 0, 0.1);
+    @apply absolute rounded-2xl bg-white z-[999] border border-slate-200 top-[10%] left-[10%] w-[450px] h-[350px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     resize: both;
+  }
+
+  /* Specific sizing for different modal types */
+  .rfm-preview-modal {
+    @apply w-[800px] h-[600px] max-w-[90vw] max-h-[85vh];
+  }
+
+  .rfm-metadata-modal {
+    @apply w-[500px] h-auto;
   }
 
   .rfm-modal-container::after {
@@ -33,36 +42,52 @@
   }
 
   .rfm-modal-header {
-    @apply flex items-center justify-between p-2 border-b border-slate-100 bg-slate-50/50 cursor-grab active:cursor-grabbing dark:bg-slate-800/50 dark:border-slate-800;
+    @apply flex items-center justify-between px-4 py-2.5 cursor-grab active:cursor-grabbing;
+    background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   .rfm-modal-title {
-    @apply text-lg font-bold text-slate-800 truncate pr-8 flex-1 text-center dark:text-slate-100;
+    @apply text-[11px] font-bold text-white/90 truncate pr-4 flex-1 uppercase tracking-[0.2em] antialiased;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
 
   .rfm-modal-body {
-    @apply flex flex-col flex-1 p-2 min-h-0;
+    @apply flex flex-col flex-1 min-h-0 p-5 overflow-hidden;
   }
 
   .rfm-modal-icon {
-    @apply w-5 h-5 fill-slate-400 cursor-pointer transition-colors duration-200 hover:fill-slate-600 dark:fill-slate-500 dark:hover:fill-slate-300;
+    @apply w-6 h-6 p-1 flex items-center justify-center text-white cursor-pointer transition-all duration-200 rounded-md;
+    opacity: 1 !important;
+  }
+
+  .rfm-modal-icon svg {
+    @apply w-full h-full;
+    fill: white !important;
+  }
+
+  .rfm-modal-icon:hover {
+    @apply bg-rose-500 text-white rotate-90 !important;
+    opacity: 1 !important;
   }
 
   /* FileIcon */
   .rfm-file-icon-container {
-    @apply flex flex-col justify-center items-center overflow-hidden cursor-pointer transition-colors duration-300 hover:bg-sky-100 active:bg-sky-300 p-1 rounded-lg dark:hover:bg-gray-600;
+    @apply relative flex flex-col justify-center items-center overflow-hidden cursor-pointer transition-all duration-300 p-2 rounded-xl dark:hover:bg-gray-700/50;
   }
 
   .rfm-file-icon-svg {
-    @apply w-24 h-24;
+    @apply w-20 h-20 mb-2;
   }
 
   .rfm-file-icon-extension {
-    @apply absolute text-slate-100 select-none;
+    @apply absolute top-[42px] text-[10px] font-bold text-white select-none pointer-events-none uppercase;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   .rfm-file-icon-name {
-    @apply w-24 text-center text-ellipsis overflow-hidden whitespace-nowrap select-none;
+    @apply w-full text-xs text-center text-ellipsis overflow-hidden whitespace-nowrap px-1 select-none font-medium;
   }
 
   /* Content header */
@@ -83,7 +108,7 @@
   }
 
   .rfm-workspace-list-align-txt {
-    @apply text-left last:text-right px-4 py-3;
+    @apply text-left last:text-right px-4 py-1.5;
   }
 
   .rfm-workspace-list-th {
@@ -103,11 +128,11 @@
   }
 
   .rfm-workspace-list-icon-row {
-    @apply cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 active:bg-gray-200 transition-all duration-200;
+    @apply cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 active:bg-gray-200 transition-all duration-200 select-none;
   }
 
   .rfm-workspace-list-icon-td {
-    @apply flex gap-3 py-2 items-center;
+    @apply flex gap-3 py-1.5 items-center;
   }
 
   .rfm-workspace-list-icon {
@@ -174,24 +199,24 @@
 
   /* NewFolderIcon */
   .rfm-folder-icon-container {
-    @apply border-dashed border-[3px] border-slate-300 w-24 h-24 p-1 flex justify-center items-center self-center rounded-lg cursor-pointer mb-10;
+    @apply border-dashed border-[3px] border-slate-300 w-20 h-20 flex flex-col justify-center items-center rounded-lg cursor-pointer transition-colors hover:border-sky-400 hover:bg-sky-50 dark:border-slate-700 dark:hover:border-sky-600 dark:hover:bg-slate-800;
   }
 
   .rfm-folder-icon-span {
-    @apply text-slate-300 text-3xl select-none;
+    @apply text-slate-300 text-3xl select-none font-light;
   }
 
   /* NewFolderModal */
   .rfm-new-folder-modal-form {
-    @apply flex flex-col gap-6 my-6;
+    @apply flex flex-col gap-4;
   }
 
   .rfm-new-folder-modal-input {
-    @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-gray-500 focus:border-gray-500 block w-full p-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:focus:ring-sky-500 dark:focus:border-sky-500;
+    @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full px-3 py-2.5 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:focus:ring-sky-500 dark:focus:border-sky-500;
   }
 
   .rfm-new-folder-modal-btn {
-    @apply text-white bg-sky-500 hover:bg-sky-700 focus:ring-4 focus:outline-none focus:ring-sky-600 font-medium rounded-lg text-sm w-full sm:w-auto px-2.5 py-1 text-center;
+    @apply text-white bg-sky-600 hover:bg-sky-700 focus:ring-4 focus:outline-none focus:ring-sky-600 font-semibold rounded-lg text-sm w-full px-4 py-2.5 text-center transition-all;
   }
 
   /* UploadFileModal */
@@ -221,12 +246,31 @@
     min-height: 400px;
   }
 
+  .rfm-workspace.rfm-selecting {
+    user-select: none !important;
+  }
+
   .rfm-workspace-dropzone {
     @apply bg-sky-100;
   }
 
   .rfm-workspace-file-listing {
-    @apply flex flex-col gap-4 flex-1 overflow-y-auto;
+    @apply flex flex-col gap-4 flex-1 overflow-y-auto overflow-x-hidden;
+    /* Custom scrollbar for better aesthetics */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .rfm-workspace-file-listing::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .rfm-workspace-file-listing::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .rfm-workspace-file-listing::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700 rounded-full;
   }
 
   .rfm-empty-folder {
@@ -310,13 +354,12 @@
 
   /* Preview */
   .rfm-preview-content {
-    @apply mt-4 flex flex-1 items-stretch overflow-hidden rounded-lg bg-slate-50 min-h-0 h-full;
-    min-width: 300px;
+    @apply mt-0 flex flex-1 items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-950 min-h-0 h-full p-4;
     height: 100% !important;
   }
 
   .rfm-preview-full {
-    @apply mt-0 items-stretch justify-stretch bg-transparent border-none p-0 h-full;
+    @apply p-0 items-stretch justify-stretch bg-transparent;
   }
 
   .rfm-metadata-modal {
@@ -329,9 +372,16 @@
 
   .rfm-preview-image {
     @apply max-w-full max-h-full object-contain;
+    width: auto;
+    height: auto;
   }
 
-  .rfm-preview-video,
+  .rfm-preview-video {
+    @apply max-w-full max-h-full;
+    width: auto;
+    height: auto;
+  }
+
   .rfm-preview-audio {
     @apply w-full;
   }
@@ -488,14 +538,77 @@
 
   /* Selection and Marquee */
   .rfm-selected {
-    @apply bg-sky-100 dark:bg-sky-900/40 ring-1 ring-sky-300 dark:ring-sky-700/50 !important;
+    @apply bg-sky-100 dark:bg-sky-900/40 ring-2 ring-sky-400 dark:ring-sky-600 !important;
   }
 
-  .rfm-icons-grid button.rfm-selected {
-    @apply border-sky-400 dark:border-sky-600;
+  .rfm-drag-over {
+    @apply bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-500 !important;
+    transform: scale(1.02);
+  }
+
+  .rfm-icons-grid {
+    @apply grid gap-4 p-4 pt-0;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    padding-bottom: 2rem;
+    /* Spacing for the bottom row */
+  }
+
+  .rfm-file-item {
+    @apply relative transition-all duration-200 border border-transparent outline-none select-none;
+  }
+
+  .rfm-icons-grid .rfm-file-item {
+    @apply flex flex-col items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50;
+  }
+
+  .rfm-icons-grid .rfm-file-item.rfm-selected {
+    @apply bg-sky-100 dark:bg-sky-900/40 border-sky-300 dark:border-sky-700 ring-2 ring-sky-400;
+  }
+
+  /* Fix for List View rows */
+  .rfm-workspace-list-icon-row.rfm-selected {
+    @apply bg-sky-50 dark:bg-sky-900/20 !important;
   }
 
   .rfm-marquee-selection {
     @apply fixed border border-sky-500 bg-sky-500/10 pointer-events-none z-[3000];
+  }
+
+  .rfm-operation-toast {
+    @apply fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-[5000] flex items-center border border-slate-700/50;
+    animation: rfm-toast-in 0.3s ease-out;
+  }
+
+  .rfm-operation-toast-content {
+    @apply flex items-center;
+  }
+
+  .rfm-spinner-small {
+    @apply w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin;
+  }
+
+  @keyframes rfm-toast-in {
+    from {
+      transform: translate(-50%, 20px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
+
+  /* Dialog Modal */
+  .rfm-dialog-content {
+    @apply flex flex-col gap-4;
+  }
+
+  .rfm-dialog-message {
+    @apply text-sm text-slate-600 dark:text-slate-300 leading-relaxed;
+  }
+
+  .rfm-dialog-footer {
+    @apply flex justify-end gap-3 mt-2;
   }
 }

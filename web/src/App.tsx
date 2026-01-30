@@ -7,8 +7,10 @@ import "../lib/tailwind.css";
 
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(!!getAuthToken());
-    const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [bgImage, setBgImage] = useState("");
+    const [bgLoaded, setBgLoaded] = useState(false);
     const [error, setError] = useState("");
     const [fs, setFs] = useState<FileSystemType>([]);
     const [loading, setLoading] = useState(false);
@@ -18,6 +20,24 @@ function App() {
     });
     const [profile, setProfile] = useState<{ id: string, name?: string, email?: string, avatarUrl?: string }>({ id: "", name: "", email: "", avatarUrl: "" });
 
+    useEffect(() => {
+        if (!isAuthenticated) {
+            const idx = Math.floor(Math.random() * 8);
+            fetch(`https://bing.biturl.top/?resolution=1920&format=json&index=${idx}&mkt=en-US`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.url) {
+                        const img = new Image();
+                        img.onload = () => {
+                            setBgImage(data.url);
+                            setBgLoaded(true);
+                        };
+                        img.src = data.url;
+                    }
+                })
+                .catch(err => console.error("Failed to load background:", err));
+        }
+    }, [isAuthenticated]);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -46,7 +66,7 @@ function App() {
     useEffect(() => {
         if (isAuthenticated) {
             localStorage.setItem("currentFolder", currentFolder);
-            localStorage.setItem("username", username);
+            // localStorage.setItem("username", username);
 
             // Fetch user settings
             api.getSettings().then((settings: any) => {
@@ -80,7 +100,7 @@ function App() {
 
             setFs(prevFs => {
                 // Remove existing items that belong to this parent to handle deletions
-                let newFs = prevFs.filter(f => f.parentId !== effectiveParentId && f.id !== "0");
+                let newFs = prevFs.filter(f => (f.parentId || "0") !== effectiveParentId && f.id !== "0");
 
                 // Add the new items
                 newFs = [...newFs, ...mappedFs];
@@ -169,9 +189,22 @@ function App() {
         }
     }, [isAuthenticated, fetchFiles, currentFolder]);
 
+    const validateInputs = () => {
+        if (username.length < 3) {
+            setError("Username must be at least 3 characters");
+            return false;
+        }
+        if (password.length < 8) {
+            setError("Password must be at least 8 characters");
+            return false;
+        }
+        return true;
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        if (!validateInputs()) return;
         setAuthLoading(true);
         try {
             const res = await api.login({ username, password });
@@ -187,6 +220,7 @@ function App() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        if (!validateInputs()) return;
         setAuthLoading(true);
         try {
             await api.register({ username, password });
@@ -269,6 +303,7 @@ function App() {
         localStorage.removeItem("theme");
         setTheme("dark");
         setUsername("");
+        setPassword("");
         setProfile({ id: "", name: "", email: "", avatarUrl: "" });
         setDropdownVisible(false);
     };
@@ -343,7 +378,7 @@ function App() {
     const ensureFolderExists = async (path: string, rootId: string, cache: Map<string, string>): Promise<string> => {
         if (!path || path === "" || path === ".") return rootId;
         const cacheKey = `${rootId}:${path}`;
-        if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+        if (cache.has(cacheKey)) return cache.get(cacheKey) || rootId;
 
         const parts = path.split('/').filter(p => p !== "");
         let currentParentId = rootId;
@@ -354,7 +389,7 @@ function App() {
             const subCacheKey = `${rootId}:${currentPath}`;
 
             if (cache.has(subCacheKey)) {
-                currentParentId = cache.get(subCacheKey)!;
+                currentParentId = cache.get(subCacheKey) || currentParentId;
                 continue;
             }
 
@@ -536,8 +571,11 @@ function App() {
 
     const onMove = async (id: string, newParentId: string) => {
         try {
-            await api.renameItem(id, undefined, newParentId === "0" ? undefined : newParentId);
+            await api.renameItem(id, undefined, newParentId);
             await fetchFiles(currentFolder);
+            if (newParentId !== currentFolder) {
+                await fetchFiles(newParentId, true);
+            }
         } catch (err: any) {
             alert("Move failed: " + err.message);
         }
@@ -546,9 +584,12 @@ function App() {
     const onBulkMove = async (ids: string[], newParentId: string) => {
         try {
             for (const id of ids) {
-                await api.renameItem(id, undefined, (newParentId === "0" ? undefined : newParentId) as any);
+                await api.renameItem(id, undefined, newParentId);
             }
             await fetchFiles(currentFolder);
+            if (newParentId !== currentFolder) {
+                await fetchFiles(newParentId, true);
+            }
         } catch (err: any) {
             alert("Bulk move failed: " + err.message);
         }
@@ -570,7 +611,10 @@ function App() {
 
     if (!isAuthenticated) {
         return (
-            <div className="auth-container">
+            <div
+                className={`auth-container ${bgLoaded ? 'bg-visible' : ''}`}
+                style={bgImage ? { backgroundImage: `url(${bgImage})` } : {}}
+            >
                 <div className="auth-card">
                     <h1>🚀 Enterprise File Manager</h1>
                     <p>Secure, Fast, Reliable</p>

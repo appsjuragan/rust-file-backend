@@ -61,3 +61,4 @@ base64 = "0.22.1"
 async-stream = "0.3.6"
 bytes = "1.11.0"
 tempfile = "3.24.0"
+validator = { version = "0.20.0", features = ["derive"] }

@@ -9,7 +9,8 @@ use axum::{Extension, Json, extract::{State, Multipart, Query}, response::IntoRe
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use tokio::io::AsyncReadExt; // Not used here but keep if needed for other methods, actually I'll remove it
+use tokio::io::AsyncReadExt; 
+use validator::Validate;
 
 #[derive(Serialize, ToSchema, Deserialize)]
 pub struct UserProfileResponse {
@@ -20,10 +21,13 @@ pub struct UserProfileResponse {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct UpdateProfileRequest {
+    #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
+    #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
+    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: Option<String>,
 }
 
@@ -81,6 +85,8 @@ pub async fn update_profile(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<UpdateProfileRequest>,
 ) -> Result<Json<UserProfileResponse>, AppError> {
+    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let user = Users::find_by_id(&claims.sub)
         .one(&state.db)
         .await

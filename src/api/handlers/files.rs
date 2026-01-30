@@ -50,9 +50,13 @@ pub struct FileMetadataResponse {
     pub scan_result: Option<String>,
 }
 
-#[derive(Deserialize, ToSchema)]
+use validator::Validate;
+
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct PreCheckRequest {
+    #[validate(length(min = 64, max = 64, message = "Invalid hash format"))]
     pub full_hash: String,
+    #[validate(range(min = 1, message = "File size must be positive"))]
     pub size: i64,
     pub chunk_hashes: Option<Vec<ChunkHash>>,
 }
@@ -83,8 +87,9 @@ pub struct ListFilesQuery {
     pub max_size: Option<i64>,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct CreateFolderRequest {
+    #[validate(length(min = 1, max = 255, message = "Folder name must be between 1 and 255 characters"))]
     pub name: String,
     pub parent_id: Option<String>,
 }
@@ -138,6 +143,8 @@ pub async fn pre_check_dedup(
     Extension(_claims): Extension<Claims>,
     Json(req): Json<PreCheckRequest>,
 ) -> Result<Json<PreCheckResponse>, AppError> {
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let existing = StorageFiles::find()
         .filter(storage_files::Column::Hash.eq(&req.full_hash))
         .filter(storage_files::Column::Size.eq(req.size))

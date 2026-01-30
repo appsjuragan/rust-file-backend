@@ -12,3 +12,5 @@ export { default as ContextMenu } from "./ContextMenu";
 export { default as Sidebar } from "./Sidebar";
 export { default as MetadataModal } from "./MetadataModal";
 export { default as RenameModal } from "./RenameModal";
+export { default as OperationToast } from "./OperationToast";
+export { default as DialogModal } from "./DialogModal";

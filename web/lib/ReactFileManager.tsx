@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 // Context
 import { FileManagerContext } from "./context";
 // Components
@@ -9,6 +9,8 @@ import UploadProgressToast from "./components/UploadProgressToast";
 import ContextMenu from "./components/ContextMenu";
 import MetadataModal from "./components/MetadataModal";
 import RenameModal from "./components/RenameModal";
+import OperationToast from "./components/OperationToast";
+import DialogModal from "./components/DialogModal";
 import { api } from "../src/api";
 // Types
 import type { FileSystemType, FileType } from "./types";
@@ -80,6 +82,49 @@ export const ReactFileManager = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
   const [openUpload, setOpenUpload] = useState<(() => void) | null>(null);
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [dialogState, setDialogState] = useState<{
+    isVisible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm';
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  }>({
+    isVisible: false,
+    title: "",
+    message: "",
+    type: 'alert',
+  });
+
+  const showAlert = (message: string, title: string = "Alert") => {
+    setDialogState({
+      isVisible: true,
+      title,
+      message,
+      type: 'alert',
+    });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title: string = "Confirm") => {
+    setDialogState({
+      isVisible: true,
+      title,
+      message,
+      type: 'confirm',
+      onConfirm,
+    });
+  };
+
+  useEffect(() => {
+    const originalAlert = window.alert;
+    window.alert = (message: any) => {
+      showAlert(String(message));
+    };
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [showAlert]);
 
   return (
     <FileManagerContext.Provider
@@ -130,6 +175,12 @@ export const ReactFileManager = ({
         setOpenUpload,
         modalPosition,
         setModalPosition,
+        isMoving,
+        setIsMoving,
+        dialogState,
+        setDialogState,
+        showAlert,
+        showConfirm,
       }}
     >
 
@@ -159,6 +210,8 @@ export const ReactFileManager = ({
           </>
         )}
         <UploadProgressToast />
+        <OperationToast />
+        <DialogModal />
         {contextMenu && (
           <ContextMenu
             x={contextMenu.x}

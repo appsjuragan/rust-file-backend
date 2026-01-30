@@ -141,9 +141,94 @@ const Workspace = () => {
     setModalPosition,
     selectedIds,
     setSelectedIds,
+    isMoving,
+    setIsMoving,
+    setDialogState,
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLastSelectedId(null);
+  }, [currentFolder]);
+
+  const handleDragStart = (e: React.DragEvent, file: FileType) => {
+    if (file.scanStatus === 'pending') {
+      e.preventDefault();
+      return;
+    }
+
+    let idsToMove = selectedIds;
+    if (!selectedIds.includes(file.id)) {
+      idsToMove = [file.id];
+      setSelectedIds(idsToMove);
+    }
+
+    e.dataTransfer.setData("application/json", JSON.stringify(idsToMove));
+    e.dataTransfer.effectAllowed = "move";
+
+    // Create a ghost image if multiple items
+    if (idsToMove.length > 1) {
+      const dragIcon = document.createElement("div");
+      dragIcon.style.padding = "5px 10px";
+      dragIcon.style.background = "#3b82f6";
+      dragIcon.style.color = "white";
+      dragIcon.style.borderRadius = "4px";
+      dragIcon.style.position = "absolute";
+      dragIcon.style.top = "-1000px";
+      dragIcon.innerText = `Moving ${idsToMove.length} items`;
+      document.body.appendChild(dragIcon);
+      e.dataTransfer.setDragImage(dragIcon, 0, 0);
+      setTimeout(() => document.body.removeChild(dragIcon), 0);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, folder: FileType) => {
+    if (!folder.isDir) return;
+
+    // Don't allow dropping on itself or items being dragged
+    const draggedIds = JSON.parse(e.dataTransfer.types.includes("application/json") ? "[]" : "[]"); // Can't read dataTransfer during dragover
+    // Simplified: check if this is a directory and not already selected
+    if (folder.isDir && !selectedIds.includes(folder.id)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDragOverId(folder.id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, folder: FileType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverId(null);
+
+    const data = e.dataTransfer.getData("application/json");
+    if (!data) return;
+
+    try {
+      const idsToMove = JSON.parse(data);
+      if (idsToMove.length > 0 && folder.id !== currentFolder) {
+        setIsMoving(true);
+        if (onBulkMove) {
+          await onBulkMove(idsToMove, folder.id);
+        } else if (onMove) {
+          for (const id of idsToMove) await onMove(id, folder.id);
+        }
+
+        if (onRefresh) await onRefresh(currentFolder);
+        setSelectedIds([]);
+        setIsMoving(false);
+      }
+    } catch (err) {
+      console.error("Move via DND failed", err);
+      setIsMoving(false);
+    }
+  };
 
   const handleContextMenu = (e: React.MouseEvent, file: FileType | null) => {
     const target = e.target as HTMLElement;
@@ -228,14 +313,30 @@ const Workspace = () => {
     e.stopPropagation();
     if (file.scanStatus === 'pending') return;
 
-    if (e.ctrlKey || e.metaKey) {
+    if (e.shiftKey && lastSelectedId) {
+      const idx1 = currentFolderFiles.findIndex(f => f.id === lastSelectedId);
+      const idx2 = currentFolderFiles.findIndex(f => f.id === file.id);
+      if (idx1 !== -1 && idx2 !== -1) {
+        const start = Math.min(idx1, idx2);
+        const end = Math.max(idx1, idx2);
+        const rangeIds = currentFolderFiles.slice(start, end + 1).map(f => f.id);
+        // If ctrl is also pressed, merge with existing selection (Windows behavior)
+        if (e.ctrlKey || e.metaKey) {
+          setSelectedIds(Array.from(new Set([...selectedIds, ...rangeIds])));
+        } else {
+          setSelectedIds(rangeIds);
+        }
+      }
+    } else if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(file.id)) {
         setSelectedIds(selectedIds.filter(id => id !== file.id));
       } else {
         setSelectedIds([...selectedIds, file.id]);
       }
+      setLastSelectedId(file.id);
     } else {
       setSelectedIds([file.id]);
+      setLastSelectedId(file.id);
     }
   };
 
@@ -266,7 +367,9 @@ const Workspace = () => {
     const startX = e.clientX;
     const startY = e.clientY;
 
-    if (!e.ctrlKey && !e.metaKey) {
+    e.preventDefault(); // Prevent text selection
+
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
       setSelectedIds([]);
     }
 
@@ -298,7 +401,7 @@ const Workspace = () => {
         }
       });
 
-      if (e.ctrlKey || e.metaKey) {
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
         const combined = new Set([...selectedIds, ...newlySelected]);
         setSelectedIds(Array.from(combined));
       } else {
@@ -354,6 +457,7 @@ const Workspace = () => {
         e.preventDefault();
         if (clipboardIds.length > 0) {
           if (isCut) {
+            setIsMoving(true);
             if (onBulkMove) {
               await onBulkMove(clipboardIds, currentFolder);
             } else if (onMove) {
@@ -361,6 +465,7 @@ const Workspace = () => {
             }
             setClipboardIds([]);
             setIsCut(false);
+            setIsMoving(false);
           } else {
             if (onBulkCopy) await onBulkCopy(clipboardIds, currentFolder);
           }
@@ -372,14 +477,20 @@ const Workspace = () => {
       if (e.key === 'Delete') {
         e.preventDefault();
         if (selectedIds.length > 0) {
-          if (confirm(`Are you sure you want to delete ${selectedIds.length} item(s)?`)) {
-            if (onBulkDelete) {
-              await onBulkDelete(selectedIds);
-            } else if (onDelete) {
-              for (const id of selectedIds) await onDelete(id);
+          setDialogState({
+            isVisible: true,
+            title: "Confirm Delete",
+            message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+            type: "confirm",
+            onConfirm: async () => {
+              if (onBulkDelete) {
+                await onBulkDelete(selectedIds);
+              } else if (onDelete) {
+                for (const id of selectedIds) await onDelete(id);
+              }
+              setSelectedIds([]);
             }
-            setSelectedIds([]);
-          }
+          });
         }
       }
 
@@ -472,8 +583,7 @@ const Workspace = () => {
   return (
     <section
       id="react-file-manager-workspace"
-      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
-        }`}
+      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""} ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
       onClick={() => {
@@ -513,12 +623,17 @@ const Workspace = () => {
                   onDoubleClick={() => handleDoubleClick(f)}
                   key={key}
                   data-id={f.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, f)}
+                  onDragOver={(e) => handleDragOver(e, f)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDropOnFolder(e, f)}
                   onContextMenu={(e) => {
                     if (isPending) return;
                     e.stopPropagation();
                     handleContextMenu(e, f);
                   }}
-                  className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isSelected ? "rfm-selected" : ""}`}
+                  className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isSelected ? "rfm-selected" : ""} ${dragOverId === f.id ? "rfm-drag-over" : ""}`}
                   disabled={isPending}
                 >
                   <FileIcon id={f.id} name={f.name} isDir={f.isDir} />
@@ -528,10 +643,12 @@ const Workspace = () => {
             }
             )}
             {!viewOnly && (
-              <NewFolderIcon onClick={(e) => {
-                setModalPosition({ x: e.clientX, y: e.clientY });
-                setNewFolderModalVisible(true);
-              }} />
+              <div className="rfm-file-item">
+                <NewFolderIcon onClick={(e) => {
+                  setModalPosition({ x: e.clientX, y: e.clientY });
+                  setNewFolderModalVisible(true);
+                }} />
+              </div>
             )}
           </div>
         )}
@@ -561,7 +678,12 @@ const Workspace = () => {
                     <tr
                       key={row.id}
                       data-id={row.original.id}
-                      className={`rfm-file-item rfm-workspace-list-icon-row ${row.original.scanStatus === 'pending' ? 'rfm-pending' : ''} ${isSelected ? "rfm-selected" : ""}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, row.original)}
+                      onDragOver={(e) => handleDragOver(e, row.original)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDropOnFolder(e, row.original)}
+                      className={`rfm-file-item rfm-workspace-list-icon-row ${row.original.scanStatus === 'pending' ? 'rfm-pending' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""}`}
                       onContextMenu={(e) => {
                         e.stopPropagation();
                         handleContextMenu(e, row.original);

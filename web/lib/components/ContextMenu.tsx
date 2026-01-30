@@ -41,6 +41,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         onBulkCopy,
         currentFolder,
         onRefresh,
+        setDialogState,
     } = useFileManager();
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -90,20 +91,32 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
     const handleDelete = async () => {
         if (file && selectedIds.length > 0) {
-            if (confirm(`Are you sure you want to delete ${selectedIds.length} item(s)?`)) {
-                if (onBulkDelete) {
-                    await onBulkDelete(selectedIds);
-                } else if (onDelete) {
-                    for (const id of selectedIds) {
-                        await onDelete(id);
+            setDialogState({
+                isVisible: true,
+                title: "Confirm Delete",
+                message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+                type: "confirm",
+                onConfirm: async () => {
+                    if (onBulkDelete) {
+                        await onBulkDelete(selectedIds);
+                    } else if (onDelete) {
+                        for (const id of selectedIds) {
+                            await onDelete(id);
+                        }
                     }
+                    setSelectedIds([]);
                 }
-                setSelectedIds([]);
-            }
+            });
         } else if (file && onDelete) {
-            if (confirm(`Are you sure you want to delete ${file.name}?`)) {
-                await onDelete(file.id);
-            }
+            setDialogState({
+                isVisible: true,
+                title: "Confirm Delete",
+                message: `Are you sure you want to delete ${file.name}?`,
+                type: "confirm",
+                onConfirm: async () => {
+                    await onDelete(file.id);
+                }
+            });
         }
         onClose();
     };
