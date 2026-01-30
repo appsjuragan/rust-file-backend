@@ -435,15 +435,91 @@ pub async fn download_file(
 
     if let Some(key) = file_key {
         // ENCRYPTED HANDLING
-        if range_header.is_some() {
-            // Deny Range for Encrypted Files (MVP)
-            // Or we could ignore it and send full file, but clients like Video Players might break.
-            // Sending 200 OK with full content usually works but inefficient.
-            // Let's error clearly.
-            // Actually, usually browsers handle 200 OK gracefully even if they asked for Range.
-            // But let's just stream full.
+        if let Some(range) = range_header {
+            // Parse Range Header: bytes=start-end
+            // Simple parser for "bytes=start-end" or "bytes=start-"
+            let range_val = range.trim_start_matches("bytes=");
+            let parts: Vec<&str> = range_val.split('-').collect();
+            
+            let file_size = storage_file.size as u64;
+            let start: u64 = parts[0].parse().unwrap_or(0);
+            let end: u64 = if parts.len() > 1 && !parts[1].is_empty() {
+                parts[1].parse().unwrap_or(file_size - 1)
+            } else {
+                file_size - 1
+            };
+
+            let start = std::cmp::min(start, file_size - 1);
+            let end = std::cmp::min(end, file_size - 1);
+            
+            if start > end {
+                 return Err(AppError::BadRequest("Invalid Range".to_string()));
+            }
+
+            // Calculate Encrypted Chunks needed
+            // Plaintext Chunk Size = 64KB (from EncryptionService)
+            const CHUNK_SIZE: u64 = 64 * 1024;
+            // Encrypted Chunk Size = 64KB + 12 (nonce) + 16 (tag)
+            const ENC_CHUNK_SIZE: u64 = CHUNK_SIZE + 12 + 16;
+
+            let start_chunk = start / CHUNK_SIZE;
+            let end_chunk = end / CHUNK_SIZE;
+
+            // Byte range in S3 (Encrypted)
+            let s3_start = start_chunk * ENC_CHUNK_SIZE;
+            let s3_end = (end_chunk + 1) * ENC_CHUNK_SIZE - 1; 
+
+            // Fetch Encrypted Chunks from S3
+            // passing s3_range as "bytes=start-end"
+            let s3_range_header = format!("bytes={}-{}", s3_start, s3_end);
+            
+            let s3_res = state
+                .storage
+                .get_object_range(&storage_file.s3_key, &s3_range_header)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to get S3 object range for encrypted file: {}", e);
+                    AppError::Internal("Failed to retrieve file range".to_string())
+                })?;
+
+            let body_reader = s3_res.body.into_async_read();
+            let decrypted_stream = EncryptionService::decrypt_range(
+                Box::new(body_reader),
+                key,
+                start_chunk,
+                end_chunk,
+                start,
+                end
+            );
+            
+            let body = Body::from_stream(decrypted_stream);
+            
+            let content_len = end - start + 1;
+            let content_range = format!("bytes {}-{}/{}", start, end, file_size);
+
+             let mut response = (
+                [
+                    (header::CONTENT_TYPE, content_type),
+                    (header::ACCEPT_RANGES, "bytes".to_string()),
+                    (header::CONTENT_DISPOSITION, content_disposition),
+                ],
+                body,
+            )
+                .into_response();
+
+            *response.status_mut() = StatusCode::PARTIAL_CONTENT;
+            
+            response.headers_mut().insert(header::CONTENT_RANGE, content_range.parse().unwrap());
+            response.headers_mut().insert(header::CONTENT_LENGTH, content_len.to_string().parse().unwrap());
+             response.headers_mut().insert(
+                header::CACHE_CONTROL,
+                header::HeaderValue::from_static("public, max-age=31536000"),
+            );
+
+            return Ok(response);
         }
 
+        // Full File Download (Encrypted)
         let s3_res = state
             .storage
             .get_object_stream(&storage_file.s3_key)
@@ -460,7 +536,7 @@ pub async fn download_file(
         let mut response = (
             [
                 (header::CONTENT_TYPE, content_type),
-                (header::ACCEPT_RANGES, "none".to_string()), // Indicate no range support
+                (header::ACCEPT_RANGES, "bytes".to_string()), // We support ranges now!
                 (header::CONTENT_DISPOSITION, content_disposition),
             ],
             body,
@@ -1063,18 +1139,23 @@ pub async fn get_zip_contents(
         ));
     }
 
-    // 3. Download from S3
+    // 3. Download and Decrypt from S3
     let s3_res = state
         .storage
         .get_object_stream(&storage_file.s3_key)
         .await
         .map_err(|e| AppError::Internal(format!("Failed to get S3 object: {}", e)))?;
 
+    let file_key = EncryptionService::derive_key_from_hash(&storage_file.hash);
+    let body_reader = s3_res.body.into_async_read();
+    let decrypted_stream = EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
+    let pinned_decrypted_stream = Box::pin(decrypted_stream);
+    let mut decrypted_reader = StreamReader::new(pinned_decrypted_stream);
+
     let mut data = Vec::with_capacity(storage_file.size as usize);
-    let mut reader = s3_res.body.into_async_read();
-    tokio::io::copy(&mut reader, &mut data)
+    tokio::io::copy(&mut decrypted_reader, &mut data)
         .await
-        .map_err(|e| AppError::Internal(format!("Failed to read file data: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Failed to decrypt/read file data: {}", e)))?;
 
     // 4. Parse Archive based on extension
     let extension = user_file

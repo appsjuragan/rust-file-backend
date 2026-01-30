@@ -283,19 +283,50 @@ function App() {
     const MAX_FILE_SIZE = 256 * 1024 * 1024; // 256MB
 
     const calculateHash = async (file: File): Promise<string> => {
-        const arrayBuffer = await file.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        return hashHex;
+        // Limit client-side hashing to 100MB to prevent UI freezing
+        if (file.size > 100 * 1024 * 1024) {
+            console.log("File too large for client-side hashing, skipping pre-check");
+            return "";
+        }
+
+        try {
+            // Dynamic import to avoid issues with SSR or initial load if WASM is heavy
+            const { createBLAKE3 } = await import('hash-wasm');
+            const hasher = await createBLAKE3();
+            hasher.init();
+
+            // Read in chunks to keep memory usage low
+            const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+            let offset = 0;
+
+            while (offset < file.size) {
+                const chunk = file.slice(offset, offset + chunkSize);
+                const buffer = await chunk.arrayBuffer();
+                hasher.update(new Uint8Array(buffer));
+                offset += chunkSize;
+            }
+
+            return hasher.digest();
+        } catch (err) {
+            console.error("Hashing failed:", err);
+            return "";
+        }
     };
 
     const performUpload = async (file: File, folderId: string, onProgress?: (p: number) => void, totalSize?: number) => {
         // 1. Calculate hash for deduplication
-        const hash = await calculateHash(file);
+        let hash = "";
+        try {
+            hash = await calculateHash(file);
+        } catch (e) {
+            console.warn("Hash calculation skipped/failed", e);
+        }
 
-        // 2. Pre-check if file exists
-        const preCheck = await api.preCheck(hash, file.size);
+        // 2. Pre-check if file exists (only if we have a hash)
+        let preCheck = { exists: false, file_id: null };
+        if (hash) {
+            preCheck = await api.preCheck(hash, file.size);
+        }
 
         if (preCheck.exists && preCheck.file_id) {
             // 3. Link existing file instead of uploading (saves bandwidth!)

@@ -209,4 +209,74 @@ impl EncryptionService {
 
         Ok(plaintext)
     }
+
+    /// Decrypt a range of bytes from an encrypted stream.
+    /// This requires the reader to be seekable (or we simulate it by reading)
+    /// But since we get a stream from S3 that corresponds to a range of *encrypted* chunks,
+    /// we expect the reader to contain exactly the sequence of encrypted chunks covering the plaintext range.
+    pub fn decrypt_range(
+        mut reader: Box<dyn AsyncRead + Unpin + Send>,
+        key: [u8; 32],
+        start_chunk_index: u64,
+        end_chunk_index: u64,
+        range_start: u64,
+        range_end: u64,
+    ) -> impl Stream<Item = std::io::Result<bytes::Bytes>> + Send {
+        async_stream::try_stream! {
+            let cipher = ChaCha20Poly1305::new(&Key::from(key));
+            let encrypted_chunk_size = CHUNK_SIZE + 12 + 16;
+            let mut buffer = vec![0u8; encrypted_chunk_size];
+            let mut current_chunk = start_chunk_index;
+
+            loop {
+                // Read one encrypted chunk
+                let mut valid_bytes = 0;
+                while valid_bytes < encrypted_chunk_size {
+                    let n = reader.read(&mut buffer[valid_bytes..]).await?;
+                    if n == 0 {
+                        break;
+                    }
+                    valid_bytes += n;
+                }
+
+                if valid_bytes == 0 {
+                    break;
+                }
+                
+                if valid_bytes < 12 + 16 {
+                     Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "corrupt chunk: too short"))?;
+                }
+
+                let nonce_slice = &buffer[0..12];
+                let ciphertext_slice = &buffer[12..valid_bytes];
+                let nonce = Nonce::from_slice(nonce_slice);
+                
+                let plaintext = cipher.decrypt(nonce, ciphertext_slice)
+                     .map_err(|e| std::io::Error::other(format!("decryption failed: {}", e)))?;
+
+                // Calculate which part of this plaintext we need
+                // Global plaintext definition:
+                // Chunk 0: 0..CHUNK_SIZE
+                // Chunk 1: CHUNK_SIZE..2*CHUNK_SIZE
+                
+                let chunk_start_offset = current_chunk * CHUNK_SIZE as u64;
+                let chunk_end_offset = chunk_start_offset + plaintext.len() as u64;
+
+                // Intersection with requested range [range_start, range_end]
+                let intersect_start = std::cmp::max(chunk_start_offset, range_start);
+                let intersect_end = std::cmp::min(chunk_end_offset, range_end + 1); // range_end is inclusive? HTTP Range is inclusive.
+
+                if intersect_start < intersect_end {
+                     let slice_start = (intersect_start - chunk_start_offset) as usize;
+                     let slice_end = (intersect_end - chunk_start_offset) as usize;
+                     yield bytes::Bytes::from(plaintext[slice_start..slice_end].to_vec());
+                }
+
+                current_chunk += 1;
+                if current_chunk > end_chunk_index {
+                    break;
+                }
+            }
+        }
+    }
 }

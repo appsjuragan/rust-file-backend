@@ -34,6 +34,7 @@ pub trait StorageService: Send + Sync {
         range: &str,
     ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
     async fn get_file(&self, key: &str) -> Result<Vec<u8>>;
+    async fn list_objects(&self, prefix: &str) -> Result<Vec<String>>;
 }
 
 pub struct S3StorageService {
@@ -237,5 +238,37 @@ impl StorageService for S3StorageService {
         let res = self.get_object_stream(key).await?;
         let data = res.body.collect().await?.to_vec();
         Ok(data)
+    }
+
+    async fn list_objects(&self, prefix: &str) -> Result<Vec<String>> {
+        let mut objects = Vec::new();
+        let mut continuation_token = None;
+
+        loop {
+            let res = self
+                .client
+                .list_objects_v2()
+                .bucket(&self.bucket)
+                .prefix(prefix)
+                .set_continuation_token(continuation_token)
+                .send()
+                .await?;
+
+            if let Some(contents) = res.contents {
+                for object in contents {
+                    if let Some(key) = object.key {
+                        objects.push(key);
+                    }
+                }
+            }
+
+            if res.is_truncated.unwrap_or(false) {
+                continuation_token = res.next_continuation_token;
+            } else {
+                break;
+            }
+        }
+
+        Ok(objects)
     }
 }
