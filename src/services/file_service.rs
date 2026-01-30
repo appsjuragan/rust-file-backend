@@ -5,7 +5,7 @@ use crate::services::metadata::MetadataService;
 use crate::services::storage::StorageService;
 use crate::utils::validation::validate_upload;
 use chrono::{Duration, Utc};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
@@ -271,7 +271,7 @@ impl FileService {
             let new_storage_file = storage_files::ActiveModel {
                 id: Set(id.clone()),
                 hash: Set(staged.hash.clone()),
-                s3_key: Set(permanent_key),
+                s3_key: Set(permanent_key.clone()),
                 size: Set(staged.size),
                 ref_count: Set(1),
                 mime_type: Set(Some(mime_type)),
@@ -281,9 +281,38 @@ impl FileService {
                 ..Default::default()
             };
 
-            new_storage_file.insert(&self.db).await?;
+            match new_storage_file.insert(&self.db).await {
+                Ok(_) => id,
+                Err(DbErr::Exec(sea_orm::RuntimeErr::SqlxError(e)))
+                    if e.as_database_error()
+                        .map_or(false, |x| x.code().as_deref() == Some("2067")) =>
+                {
+                    tracing::warn!(
+                        "Duplicate hash detected during insert (race condition). Falling back to dedup."
+                    );
+                    let existing = StorageFiles::find()
+                        .filter(storage_files::Column::Hash.eq(&staged.hash))
+                        .one(&self.db)
+                        .await
+                        .map_err(|e| AppError::Internal(e.to_string()))?
+                        .ok_or_else(|| {
+                            AppError::Internal(
+                                "Race condition: Hash collision but file not found".to_string(),
+                            )
+                        })?;
 
-            id
+                    // Increment ref count
+                    let mut active: storage_files::ActiveModel = existing.clone().into();
+                    active.ref_count = Set(existing.ref_count + 1);
+                    active.update(&self.db).await.map_err(|e| AppError::Internal(e.to_string()))?;
+
+                    // Cleanup the redundant copy
+                    let _ = self.storage.delete_file(&permanent_key).await;
+
+                    existing.id
+                }
+                Err(e) => return Err(AppError::Internal(e.to_string())),
+            }
         };
 
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));

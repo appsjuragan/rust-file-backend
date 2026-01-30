@@ -12,6 +12,8 @@ pub struct Model {
     #[sea_orm(unique)]
     pub oidc_sub: Option<String>,
     pub email: Option<String>,
+    pub name: Option<String>,
+    pub avatar_url: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub public_key: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]

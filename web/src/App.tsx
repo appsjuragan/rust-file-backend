@@ -12,9 +12,12 @@ function App() {
     const [error, setError] = useState("");
     const [fs, setFs] = useState<FileSystemType>([]);
     const [loading, setLoading] = useState(false);
+    const [authLoading, setAuthLoading] = useState(false);
     const [currentFolder, setCurrentFolder] = useState<string>(() => {
         return localStorage.getItem("currentFolder") || "0";
     });
+    const [profile, setProfile] = useState<{ id: string, name?: string, email?: string, avatarUrl?: string }>({ id: "", name: "", email: "", avatarUrl: "" });
+
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -24,6 +27,19 @@ function App() {
             setIsAuthenticated(true);
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    const fetchProfile = useCallback(async () => {
+        try {
+            const p = await api.getProfile();
+            setProfile({
+                ...p,
+                avatarUrl: p.avatar_url ? api.getAvatarUrl(p.avatar_url) : undefined
+            });
+            if (p.username) setUsername(p.username);
+        } catch (err) {
+            console.error("Failed to fetch profile:", err);
         }
     }, []);
 
@@ -38,8 +54,12 @@ function App() {
                     setTheme(settings.theme);
                 }
             }).catch(console.error);
+
+            // Fetch profile
+            fetchProfile();
         }
-    }, [currentFolder, username, isAuthenticated]);
+    }, [currentFolder, username, isAuthenticated, fetchProfile]);
+
 
     const fetchFiles = useCallback(async (parentId?: string, silent = false) => {
         if (!silent) setLoading(true);
@@ -152,18 +172,22 @@ function App() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setAuthLoading(true);
         try {
             const res = await api.login({ username, password });
             setAuthToken(res.token);
             setIsAuthenticated(true);
         } catch (err: any) {
             setError(err.message);
+        } finally {
+            setAuthLoading(false);
         }
     };
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setAuthLoading(true);
         try {
             await api.register({ username, password });
             const res = await api.login({ username, password });
@@ -171,11 +195,50 @@ function App() {
             setIsAuthenticated(true);
         } catch (err: any) {
             setError(err.message);
+        } finally {
+            setAuthLoading(false);
         }
     };
 
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
     const [profileModalVisible, setProfileModalVisible] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editEmail, setEditEmail] = useState("");
+    const [editPassword, setEditPassword] = useState("");
+
+    useEffect(() => {
+        if (profileModalVisible) {
+            setEditName(profile.name || "");
+            setEditEmail(profile.email || "");
+            setEditPassword("");
+        }
+    }, [profileModalVisible, profile]);
+
+    const handleSaveProfile = async () => {
+        try {
+            await api.updateProfile({
+                name: editName,
+                email: editEmail,
+                password: editPassword || undefined
+            });
+            await fetchProfile();
+            setProfileModalVisible(false);
+        } catch (err: any) {
+            alert("Failed to update profile: " + err.message);
+        }
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                await api.uploadAvatar(e.target.files[0]);
+                await fetchProfile();
+            } catch (err: any) {
+                alert("Failed to upload avatar: " + err.message);
+            }
+        }
+    };
+
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -202,9 +265,14 @@ function App() {
         setCurrentFolder("0");
         localStorage.removeItem("currentFolder");
         localStorage.removeItem("username");
+        // Reset theme to default dark mode
+        localStorage.removeItem("theme");
+        setTheme("dark");
         setUsername("");
+        setProfile({ id: "", name: "", email: "", avatarUrl: "" });
         setDropdownVisible(false);
     };
+
 
     const onRefresh = async (id: string) => {
         await fetchFiles(id);
@@ -231,7 +299,7 @@ function App() {
 
         if (preCheck.exists && preCheck.file_id) {
             // 3. Link existing file instead of uploading (saves bandwidth!)
-            await api.linkFile(preCheck.file_id, file.name, folderId);
+            await api.linkFile(preCheck.file_id as string, file.name, folderId);
             if (onProgress) onProgress(100);
         } else {
             // 4. Upload new file
@@ -361,7 +429,7 @@ function App() {
                     const preCheck = await api.preCheck(hash, file.size);
 
                     if (preCheck.exists && preCheck.file_id) {
-                        await api.linkFile(preCheck.file_id, fileName, targetFolderId as any);
+                        await api.linkFile(preCheck.file_id as string, fileName, targetFolderId as any);
                         updateStatus(id, 100, 'completed');
                     } else {
                         await api.uploadFile(file, targetFolderId as any, (p) => {
@@ -492,8 +560,12 @@ function App() {
                         />
                         {error && <div className="error">{error}</div>}
                         <div className="auth-buttons">
-                            <button type="submit" className="login-btn">Login</button>
-                            <button type="button" onClick={handleRegister} className="register-btn">Register</button>
+                            <button type="submit" className="login-btn" disabled={authLoading}>
+                                {authLoading ? "Logging in..." : "Login"}
+                            </button>
+                            <button type="button" onClick={handleRegister} className="register-btn" disabled={authLoading}>
+                                {authLoading ? <div className="spinner-small"></div> : "Register"}
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -508,9 +580,13 @@ function App() {
                 <div className="user-info">
                     <div className="user-dropdown-container" onClick={() => setDropdownVisible(!dropdownVisible)}>
                         <div className="user-avatar">
-                            {username.charAt(0).toUpperCase()}
+                            {profile.avatarUrl ? (
+                                <img src={profile.avatarUrl} alt="Avatar" />
+                            ) : (
+                                (profile.name || username).charAt(0).toUpperCase()
+                            )}
                         </div>
-                        <span>{username}</span>
+                        <span>{profile.name || username}</span>
                         {dropdownVisible && (
                             <div className="dropdown-menu">
                                 <button className="dropdown-item" onClick={(e) => {
@@ -589,30 +665,81 @@ function App() {
                 >
                     <div style={{ padding: '20px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', color: 'white' }}>
-                                {username.charAt(0).toUpperCase()}
+                            <div
+                                className="profile-avatar-editable"
+                                onClick={() => document.getElementById('avatar-input')?.click()}
+                            >
+                                {profile.avatarUrl ? (
+                                    <img src={profile.avatarUrl} alt="Avatar" />
+                                ) : (
+                                    (profile.name || username).charAt(0).toUpperCase()
+                                )}
+                                <div className="profile-avatar-overlay">Change</div>
                             </div>
+                            <input type="file" id="avatar-input" hidden accept="image/*" onChange={handleAvatarChange} />
+
                             <div style={{ width: '100%' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '5px' }}>USERNAME</label>
-                                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '5px', border: '1px solid var(--border)' }}>
+                                <label className="profile-label">USERNAME</label>
+                                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '5px', border: '1px solid var(--border)', opacity: 0.7 }}>
                                     {username}
                                 </div>
                             </div>
+
                             <div style={{ width: '100%' }}>
-                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '5px' }}>ACCOUNT TYPE</label>
-                                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '5px', border: '1px solid var(--border)' }}>
-                                    Enterprise User
-                                </div>
+                                <label className="profile-label">FULL NAME</label>
+                                <input
+                                    type="text"
+                                    className="rfm-new-folder-modal-input"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    placeholder="Enter full name"
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
                             </div>
-                            <button
-                                className="rfm-btn-primary"
-                                style={{ width: '100%' }}
-                                onClick={() => setProfileModalVisible(false)}
-                            >
-                                Close
-                            </button>
+
+                            <div style={{ width: '100%' }}>
+                                <label className="profile-label">EMAIL</label>
+                                <input
+                                    type="email"
+                                    className="rfm-new-folder-modal-input"
+                                    value={editEmail}
+                                    onChange={(e) => setEditEmail(e.target.value)}
+                                    placeholder="Enter email address"
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            <div style={{ width: '100%' }}>
+                                <label className="profile-label">NEW PASSWORD</label>
+                                <input
+                                    type="password"
+                                    className="rfm-new-folder-modal-input"
+                                    value={editPassword}
+                                    onChange={(e) => setEditPassword(e.target.value)}
+                                    placeholder="Leave blank to keep current"
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                                <button
+                                    className="rfm-btn-primary"
+                                    style={{ flex: 1 }}
+                                    onClick={handleSaveProfile}
+                                >
+                                    Save Changes
+                                </button>
+                                <button
+                                    className="register-btn"
+                                    style={{ flex: 1, backgroundColor: '#64748b' }}
+                                    onClick={() => setProfileModalVisible(false)}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
+
                 </CommonModal>
             </main>
         </div>

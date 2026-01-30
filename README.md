@@ -48,8 +48,11 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 ## 🛠️ Features at a Glance
 
 - 🔑 **JWT Authentication**: Secure, industry-standard user management.
+- 👤 **Profile Management**: Update your name, email, and password with ease.
+- 🖼️ **Avatars & MinIO**: Integrated profile picture support, stored securely in S3-compatible buckets.
 - ☁️ **S3-Compatible**: Works perfectly with AWS S3, MinIO, DigitalOcean Spaces, and more.
 - 📂 **Folder Support**: Full recursive folder management and bulk operations.
+- 🔐 **End-to-End Encryption Readiness**: Automatic key generation for per-user file encryption (AES-256).
 - ⏳ **Auto-Expiration**: Set files to self-destruct after a certain number of hours.
 - 📖 **Swagger UI**: Beautiful, interactive API documentation out of the box.
 - 🏥 **Health Monitoring**: Real-time status of your database and storage connectivity.

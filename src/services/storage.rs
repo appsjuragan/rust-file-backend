@@ -33,6 +33,7 @@ pub trait StorageService: Send + Sync {
         key: &str,
         range: &str,
     ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
+    async fn get_file(&self, key: &str) -> Result<Vec<u8>>;
 }
 
 pub struct S3StorageService {
@@ -230,5 +231,11 @@ impl StorageService for S3StorageService {
             .send()
             .await?;
         Ok(res)
+    }
+
+    async fn get_file(&self, key: &str) -> Result<Vec<u8>> {
+        let res = self.get_object_stream(key).await?;
+        let data = res.body.collect().await?.to_vec();
+        Ok(data)
     }
 }

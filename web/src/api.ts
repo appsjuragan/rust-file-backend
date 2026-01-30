@@ -138,5 +138,24 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_ids: ids }),
     }),
+    getProfile: () => request('/users/me'),
+    updateProfile: (body: { email?: string, name?: string, password?: string }) => request('/users/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    }),
+    uploadAvatar: (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return request('/users/me/avatar', {
+            method: 'POST',
+            body: formData,
+        });
+    },
+    getAvatarUrl: (path?: string) => {
+        const effectivePath = path || '/users/me/avatar';
+        const separator = effectivePath.includes('?') ? '&' : '?';
+        return `${BASE_URL}${effectivePath}${separator}token=${getAuthToken()}`;
+    },
 };
 

@@ -135,7 +135,9 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL",
         "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS private_key_path TEXT DEFAULT NULL",
+        // Profile fields
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT NULL",
         // Obfuscation: Rename encryption_key to file_signature
         "ALTER TABLE user_files RENAME COLUMN encryption_key TO file_signature",
     ];
@@ -163,9 +165,12 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             Ok(_) => info!("   - Executed schema update: {}", final_query),
             Err(e) => {
                 let err_msg = e.to_string().to_lowercase();
-                if err_msg.contains("duplicate column") || err_msg.contains("already exists") {
+                if err_msg.contains("duplicate column")
+                    || err_msg.contains("already exists")
+                    || err_msg.contains("no such column")
+                {
                     info!(
-                        "   - Column/Index already exists (skipped): {}",
+                        "   - Column/Index already updated or missing (skipped): {}",
                         final_query
                     );
                 } else {

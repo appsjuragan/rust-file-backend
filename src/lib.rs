@@ -44,6 +44,10 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::user_settings::update_settings,
         api::handlers::health::health_check,
         api::handlers::users::rotate_keys,
+        api::handlers::users::get_profile,
+        api::handlers::users::update_profile,
+        api::handlers::users::upload_avatar,
+        api::handlers::users::get_avatar,
     ),
     components(
         schemas(
@@ -65,6 +69,9 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
             api::handlers::users::RotateKeyResponse,
+            api::handlers::users::UserProfileResponse,
+            api::handlers::users::UpdateProfileRequest,
+            api::handlers::users::AvatarResponse,
         )
     ),
     tags(
@@ -190,6 +197,24 @@ pub fn create_app(state: AppState) -> Router {
                 state.clone(),
                 api::middleware::auth::auth_middleware,
             )),
+        )
+        .route(
+            "/users/me",
+            get(api::handlers::users::get_profile)
+                .put(api::handlers::users::update_profile)
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    api::middleware::auth::auth_middleware,
+                )),
+        )
+        .route(
+            "/users/me/avatar",
+            get(api::handlers::users::get_avatar)
+                .post(api::handlers::users::upload_avatar)
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    api::middleware::auth::auth_middleware,
+                )),
         )
         .layer(
             CorsLayer::new()
