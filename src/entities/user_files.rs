@@ -14,7 +14,6 @@ pub struct Model {
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,
-
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

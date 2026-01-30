@@ -1,9 +1,9 @@
 pub mod audit;
 pub mod expiration;
+pub mod facts_service;
 pub mod file_service;
 pub mod metadata;
 pub mod scanner;
 pub mod storage;
 pub mod storage_lifecycle;
 pub mod worker;
-pub mod facts_service;

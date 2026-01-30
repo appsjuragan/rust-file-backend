@@ -11,6 +11,7 @@ pub struct Model {
     pub video_count: i64,
     pub audio_count: i64,
     pub document_count: i64,
+    pub image_count: i64,
     pub others_count: i64,
     pub updated_at: DateTimeUtc,
 }

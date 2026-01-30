@@ -263,14 +263,11 @@ const Workspace = () => {
           const dataTransfer = event?.dataTransfer || event?.nativeEvent?.dataTransfer;
 
           if (dataTransfer && dataTransfer.items && dataTransfer.items.length > 0) {
-            console.log("Scanning dataTransfer items...", dataTransfer.items.length);
             filesToUpload = await scanEntries(dataTransfer.items);
-            console.log("scanEntries result:", filesToUpload.length, filesToUpload);
           }
 
           // Fallback to acceptedFiles if scanEntries found nothing
           if (filesToUpload.length === 0 && acceptedFiles.length > 0) {
-            console.log("Fallback to acceptedFiles");
             filesToUpload = acceptedFiles.map(f => ({
               file: f,
               path: (f as any).webkitRelativePath || f.name

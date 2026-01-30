@@ -1,16 +1,22 @@
 use crate::api::error::AppError;
-use crate::entities::{prelude::*, users, user_file_facts};
+use crate::entities::{prelude::*, user_file_facts, users};
 use crate::utils::auth::Claims;
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
-use axum::{Extension, Json, extract::{State, Multipart, Query}, response::IntoResponse};
+use axum::{
+    Extension, Json,
+    extract::{Multipart, Query, State},
+    response::IntoResponse,
+};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncReadExt;
 use utoipa::ToSchema;
-use tokio::io::AsyncReadExt; 
 use validator::Validate;
+
+use chrono::Utc;
 
 #[derive(Serialize, ToSchema, Deserialize)]
 pub struct UserProfileResponse {
@@ -35,8 +41,6 @@ pub struct UpdateProfileRequest {
 pub struct AvatarResponse {
     pub url: String,
 }
-
-
 
 #[utoipa::path(
     get,
@@ -85,7 +89,9 @@ pub async fn update_profile(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<UpdateProfileRequest>,
 ) -> Result<Json<UserProfileResponse>, AppError> {
-    payload.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    payload
+        .validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let user = Users::find_by_id(&claims.sub)
         .one(&state.db)
@@ -177,7 +183,10 @@ pub async fn upload_avatar(
     let mut active: users::ActiveModel = user.into();
     let avatar_url = format!("/users/me/avatar?t={}", uuid::Uuid::new_v4()); // Cache busting URL
     active.avatar_url = Set(Some(avatar_url.clone()));
-    active.update(&state.db).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    active
+        .update(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(AvatarResponse { url: avatar_url }))
 }
@@ -199,17 +208,14 @@ pub async fn get_avatar(
     for ext in &["png", "jpg", "jpeg", "gif", "webp"] {
         let key = format!("avatars/{}.{}", claims.sub, ext);
         if let Ok(data) = state.storage.get_file(&key).await {
-             let mime = match *ext {
+            let mime = match *ext {
                 "png" => "image/png",
                 "jpg" | "jpeg" => "image/jpeg",
                 "gif" => "image/gif",
                 "webp" => "image/webp",
                 _ => "application/octet-stream",
             };
-            return Ok((
-                [(axum::http::header::CONTENT_TYPE, mime)],
-                data
-            ).into_response());
+            return Ok(([(axum::http::header::CONTENT_TYPE, mime)], data).into_response());
         }
     }
 
@@ -236,19 +242,24 @@ pub async fn get_user_facts(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    match facts {
-        Some(f) => Ok(Json(f)),
-        None => {
-            // If not found, trigger an update and return something
-            crate::services::facts_service::FactsService::update_user_facts(&state.db, &claims.sub).await?;
-            let facts = UserFileFacts::find_by_id(&claims.sub)
-                .one(&state.db)
-                .await
-                .map_err(|e| AppError::Internal(e.to_string()))?
-                .ok_or_else(|| AppError::Internal("Failed to generate facts".to_string()))?;
-            Ok(Json(facts))
+    let should_update = match &facts {
+        None => true,
+        Some(f) => {
+            let age = Utc::now() - f.updated_at;
+            age > chrono::Duration::seconds(10)
         }
+    };
+
+    if should_update {
+        crate::services::facts_service::FactsService::update_user_facts(&state.db, &claims.sub)
+            .await?;
+        let updated_facts = UserFileFacts::find_by_id(&claims.sub)
+            .one(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .ok_or_else(|| AppError::Internal("Failed to generate facts".to_string()))?;
+        Ok(Json(updated_facts))
+    } else {
+        Ok(Json(facts.unwrap()))
     }
 }
-
-

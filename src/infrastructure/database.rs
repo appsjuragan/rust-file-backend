@@ -1,6 +1,6 @@
 use crate::entities::{
-    audit_logs, file_metadata, file_tags, storage_files, tags, tokens, user_files, user_settings,
-    users, user_file_facts,
+    audit_logs, file_metadata, file_tags, storage_files, tags, tokens, user_file_facts, user_files,
+    user_settings, users,
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm::{ConnectionTrait, Schema};
@@ -147,6 +147,7 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT NULL",
         // Obfuscation: Rename encryption_key to file_signature
         "ALTER TABLE user_files RENAME COLUMN encryption_key TO file_signature",
+        "ALTER TABLE user_file_facts ADD COLUMN IF NOT EXISTS image_count BIGINT DEFAULT 0",
     ];
 
     let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;

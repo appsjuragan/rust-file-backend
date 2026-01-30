@@ -76,6 +76,7 @@ interface ProviderInterface {
     video_count: number;
     audio_count: number;
     document_count: number;
+    image_count: number;
     others_count: number;
     updated_at: string;
   };

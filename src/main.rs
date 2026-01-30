@@ -45,8 +45,6 @@ async fn main() -> anyhow::Result<()> {
         security_config.clone(),
     ));
 
-
-
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),

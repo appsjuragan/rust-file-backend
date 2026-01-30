@@ -80,7 +80,6 @@ export async function scanEntries(items: DataTransferItemList | null): Promise<{
     const entryPromises = entries.map(entry => traverseEntry(entry, ""));
     await Promise.all(entryPromises);
 
-    console.log("Scanned files for upload:", files.map(f => f.path));
     return files;
 }
 

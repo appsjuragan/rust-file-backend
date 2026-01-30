@@ -83,8 +83,6 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 pub struct ApiDoc;
 
-
-
 #[derive(Clone)]
 pub struct AppState {
     pub db: DatabaseConnection,
@@ -199,7 +197,6 @@ pub fn create_app(state: AppState) -> Router {
                     api::middleware::auth::auth_middleware,
                 )),
         )
-
         .route(
             "/users/me",
             get(api::handlers::users::get_profile)

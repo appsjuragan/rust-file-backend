@@ -1,8 +1,6 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
-use crate::services::{
-    audit::{AuditEventType, AuditService},
-};
+use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::Claims;
 use crate::utils::validation::sanitize_filename;
 use axum::{
@@ -89,7 +87,11 @@ pub struct ListFilesQuery {
 
 #[derive(Deserialize, ToSchema, Validate)]
 pub struct CreateFolderRequest {
-    #[validate(length(min = 1, max = 255, message = "Folder name must be between 1 and 255 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 255,
+        message = "Folder name must be between 1 and 255 characters"
+    ))]
     pub name: String,
     pub parent_id: Option<String>,
 }
@@ -154,7 +156,8 @@ pub async fn pre_check_dedup(
     Extension(_claims): Extension<Claims>,
     Json(req): Json<PreCheckRequest>,
 ) -> Result<Json<PreCheckResponse>, AppError> {
-    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    req.validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let existing = StorageFiles::find()
         .filter(storage_files::Column::Hash.eq(&req.full_hash))
@@ -543,7 +546,6 @@ pub async fn download_file(
     Ok(response)
 }
 
-
 #[utoipa::path(
     get,
     path = "/files",
@@ -864,7 +866,9 @@ pub async fn rename_item(
     if let Some(ref target_id) = target_parent_id {
         if item.is_folder {
             if target_id == &item.id {
-                return Err(AppError::BadRequest("Cannot move a folder into itself".to_string()));
+                return Err(AppError::BadRequest(
+                    "Cannot move a folder into itself".to_string(),
+                ));
             }
 
             let mut current_check_id = target_id.clone();
@@ -875,7 +879,9 @@ pub async fn rename_item(
                 .await?
             {
                 if parent.id == item.id {
-                    return Err(AppError::BadRequest("Cannot move a folder into its own subfolder".to_string()));
+                    return Err(AppError::BadRequest(
+                        "Cannot move a folder into its own subfolder".to_string(),
+                    ));
                 }
                 if let Some(next_id) = parent.parent_id {
                     current_check_id = next_id;
@@ -1006,7 +1012,7 @@ pub async fn get_zip_contents(
         .map_err(|e| AppError::Internal(format!("Failed to get S3 object: {}", e)))?;
 
     // let file_key = EncryptionService::derive_key_from_hash(&storage_file.hash);
-    
+
     // Read Body Directly
     let body_reader = s3_res.body.into_async_read();
     let pinned_stream = Box::pin(tokio_util::io::ReaderStream::new(body_reader));

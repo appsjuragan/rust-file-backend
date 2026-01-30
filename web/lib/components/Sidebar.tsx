@@ -100,6 +100,7 @@ const FolderTreeItem = ({ folder, level }: { folder: FileType; level: number }) 
 const Sidebar = () => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, userFacts } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = React.useState(false);
+    const [hoveredCategory, setHoveredCategory] = React.useState<string | null>(null);
 
     const handleDragOverRoot = (e: React.DragEvent) => {
         e.preventDefault();
@@ -174,26 +175,51 @@ const Sidebar = () => {
             </div>
 
             {userFacts && (() => {
-                const total = userFacts.image_count + userFacts.video_count + userFacts.audio_count + userFacts.document_count + userFacts.others_count;
+                const categories = [
+                    { id: 'image', label: 'Image', value: userFacts.image_count, color: '#eab308' },
+                    { id: 'video', label: 'Video', value: userFacts.video_count, color: '#ef4444' },
+                    { id: 'audio', label: 'Audio', value: userFacts.audio_count, color: '#3b82f6' },
+                    { id: 'document', label: 'Document', value: userFacts.document_count, color: '#22c55e' },
+                    { id: 'others', label: 'Others', value: userFacts.others_count, color: '#64748b' },
+                ];
 
-                let pieStyle = {};
-                if (total > 0) {
-                    const imgP = (userFacts.image_count / total) * 100;
-                    const vidP = (userFacts.video_count / total) * 100;
-                    const audP = (userFacts.audio_count / total) * 100;
-                    const docP = (userFacts.document_count / total) * 100;
+                const total = categories.reduce((sum, cat) => sum + cat.value, 0);
 
-                    const stops = [
-                        `#eab308 0% ${imgP}%`,
-                        `#ef4444 ${imgP}% ${imgP + vidP}%`,
-                        `#3b82f6 ${imgP + vidP}% ${imgP + vidP + audP}%`,
-                        `#22c55e ${imgP + vidP + audP}% ${imgP + vidP + audP + docP}%`,
-                        `#64748b ${imgP + vidP + audP + docP}% 100%`
-                    ];
-                    pieStyle = { background: `conic-gradient(${stops.join(', ')})` };
-                } else {
-                    pieStyle = { background: '#cbd5e1' };
-                }
+                const renderPie = () => {
+                    if (total === 0) return <div className="rfm-facts-pie-empty"></div>;
+
+                    let currentAngle = -90;
+                    return (
+                        <svg viewBox="0 0 100 100" className="rfm-facts-pie-svg">
+                            {categories.map(cat => {
+                                if (cat.value === 0) return null;
+                                const angle = (cat.value / total) * 360;
+                                const startAngle = currentAngle;
+                                const endAngle = currentAngle + angle;
+                                currentAngle += angle;
+
+                                const x1 = 50 + 50 * Math.cos((Math.PI * startAngle) / 180);
+                                const y1 = 50 + 50 * Math.sin((Math.PI * startAngle) / 180);
+                                const x2 = 50 + 50 * Math.cos((Math.PI * endAngle) / 180);
+                                const y2 = 50 + 50 * Math.sin((Math.PI * endAngle) / 180);
+
+                                const largeArcFlag = angle > 180 ? 1 : 0;
+                                const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+                                return (
+                                    <path
+                                        key={cat.id}
+                                        d={pathData}
+                                        fill={cat.color}
+                                        className={`rfm-pie-segment ${hoveredCategory === cat.id ? 'active' : ''}`}
+                                        onMouseEnter={() => setHoveredCategory(cat.id)}
+                                        onMouseLeave={() => setHoveredCategory(null)}
+                                    />
+                                );
+                            })}
+                        </svg>
+                    );
+                };
 
                 return (
                     <div className="rfm-sidebar-facts">
@@ -203,15 +229,21 @@ const Sidebar = () => {
                                 <div className="rfm-fact-item">Files: {userFacts.total_files}</div>
                                 <div className="rfm-fact-item">Size: {formatSize(userFacts.total_size)}</div>
                                 <div className="rfm-fact-category-list">
-                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#eab308' }}></span> Image: {userFacts.image_count}</div>
-                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#ef4444' }}></span> Video: {userFacts.video_count}</div>
-                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#3b82f6' }}></span> Audio: {userFacts.audio_count}</div>
-                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#22c55e' }}></span> Document: {userFacts.document_count}</div>
-                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#64748b' }}></span> Others: {userFacts.others_count}</div>
+                                    {categories.map(cat => (
+                                        <div
+                                            key={cat.id}
+                                            className={`rfm-fact-sub-item ${hoveredCategory === cat.id ? 'highlighted' : ''}`}
+                                            onMouseEnter={() => setHoveredCategory(cat.id)}
+                                            onMouseLeave={() => setHoveredCategory(null)}
+                                        >
+                                            <span className="dot" style={{ backgroundColor: cat.color }}></span>
+                                            {cat.label}: {cat.value}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                             <div className="rfm-facts-pie-container">
-                                <div className="rfm-facts-pie" style={pieStyle}></div>
+                                {renderPie()}
                             </div>
                         </div>
                     </div>

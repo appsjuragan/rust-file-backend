@@ -38,22 +38,27 @@ impl BackgroundWorker {
         }
     }
 
-    pub async fn run(mut self) {
+    pub async fn run(self) {
         tracing::info!("🚀 Background worker started");
+
+        let mut scan_interval = tokio::time::interval(Duration::from_secs(10));
+        let mut facts_interval = tokio::time::interval(Duration::from_secs(60));
+        let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
+        let mut shutdown_rx = self.shutdown.clone();
 
         loop {
             tokio::select! {
-                _ = self.shutdown.changed() => {
+                _ = shutdown_rx.changed() => {
                     tracing::info!("🛑 Background worker shutting down");
                     break;
                 }
-                _ = sleep(Duration::from_secs(10)) => {
+                _ = scan_interval.tick() => {
                     self.perform_virus_scans().await;
                 }
-                _ = sleep(Duration::from_secs(5)) => {
+                _ = facts_interval.tick() => {
                     self.perform_facts_update().await;
                 }
-                _ = sleep(Duration::from_secs(60)) => {
+                _ = cleanup_interval.tick() => {
                     self.perform_cleanup().await;
                 }
             }
@@ -86,12 +91,12 @@ impl BackgroundWorker {
 
                 // use crate::services::encryption::EncryptionService;
                 // let file_key = EncryptionService::derive_key_from_hash(&sf.hash);
-                
+
                 // Direct scan of S3 stream (Plaintext)
                 let body_reader = stream.body.into_async_read();
                 // let decrypted_stream = EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
                 // let reader = Box::pin(tokio_util::io::ReaderStream::new(body_reader));
-                
+
                 // VirusScanner usually takes AsyncRead.
                 let reader = Box::pin(body_reader);
 
@@ -178,14 +183,22 @@ impl BackgroundWorker {
                         Ok(metadata) => {
                             if let Some(last_modified) = metadata.last_modified {
                                 let age = Utc::now() - last_modified;
-                                if age > chrono::Duration::hours(self.config.staging_cleanup_age_hours as i64) {
+                                if age
+                                    > chrono::Duration::hours(
+                                        self.config.staging_cleanup_age_hours as i64,
+                                    )
+                                {
                                     tracing::info!(
                                         "🗑️ Deleting abandoned staging file: {} (Age: {}h)",
                                         key,
                                         age.num_hours()
                                     );
                                     if let Err(e) = self.storage.delete_file(&key).await {
-                                        tracing::error!("Failed to delete staged file {}: {}", key, e);
+                                        tracing::error!(
+                                            "Failed to delete staged file {}: {}",
+                                            key,
+                                            e
+                                        );
                                     }
                                 }
                             }

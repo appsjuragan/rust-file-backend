@@ -132,7 +132,7 @@ function App() {
 
     useEffect(() => {
         if (isAuthenticated) {
-            const interval = setInterval(fetchUserFacts, 5000);
+            const interval = setInterval(fetchUserFacts, 60000);
             return () => clearInterval(interval);
         }
     }, [isAuthenticated, fetchUserFacts]);
@@ -343,7 +343,6 @@ function App() {
     const calculateHash = async (file: File): Promise<string> => {
         // Limit client-side hashing to 100MB to prevent UI freezing
         if (file.size > 100 * 1024 * 1024) {
-            console.log("File too large for client-side hashing, skipping pre-check");
             return "";
         }
 
