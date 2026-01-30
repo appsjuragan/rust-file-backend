@@ -136,6 +136,8 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS private_key_path TEXT DEFAULT NULL",
+        // Obfuscation: Rename encryption_key to file_signature
+        "ALTER TABLE user_files RENAME COLUMN encryption_key TO file_signature",
     ];
 
     let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;

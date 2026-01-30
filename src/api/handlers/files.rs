@@ -368,7 +368,7 @@ pub async fn download_file(
     }
 
     // Prepare Encryption Key if present
-    let file_key = if let Some(enc_key_b64) = user_file.encryption_key.clone() {
+    let file_key = if let Some(enc_key_b64) = user_file.file_signature.clone() {
         // Fetch Private Key via Service (handles MinIO + Cache + Legacy DB)
         let priv_key_pem = state
             .key_service

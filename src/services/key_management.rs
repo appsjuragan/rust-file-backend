@@ -103,12 +103,12 @@ impl KeyManagementService {
         // Note: This could be heavy for many files. In real prod, use a cursor/batching.
         let mut file_pages = user_files::Entity::find()
             .filter(user_files::Column::UserId.eq(user_id))
-            .filter(user_files::Column::EncryptionKey.is_not_null())
+            .filter(user_files::Column::FileSignature.is_not_null())
             .paginate(&txn, 100);
 
         while let Some(files) = file_pages.fetch_and_next().await? {
             for file in files {
-                if let Some(old_wrapped_key) = file.encryption_key.clone() {
+                if let Some(old_wrapped_key) = file.file_signature.clone() {
                     // Unwrap with OLD key
                     let file_key =
                         EncryptionService::unwrap_key(&old_wrapped_key, &old_priv_key_pem)?;
@@ -118,7 +118,7 @@ impl KeyManagementService {
 
                     // Update DB
                     let mut active_file: user_files::ActiveModel = file.into();
-                    active_file.encryption_key = Set(Some(new_wrapped_key));
+                    active_file.file_signature = Set(Some(new_wrapped_key));
                     active_file.update(&txn).await?;
                 }
             }
@@ -148,5 +148,68 @@ impl KeyManagementService {
         txn.commit().await?;
 
         Ok(())
+    }
+    pub async fn rotate_system_secret(&self, old_secret: &str, new_secret: &str) -> Result<usize> {
+        let old_master_key = EncryptionService::derive_key_from_hash(old_secret);
+        let new_master_key = EncryptionService::derive_key_from_hash(new_secret);
+
+        let mut count = 0;
+        let mut user_pages = users::Entity::find().paginate(&self.db, 100);
+
+        while let Some(users) = user_pages.fetch_and_next().await? {
+            for user in users {
+                // 1. Fetch & Decrypt with OLD key
+                let priv_key_pem = if let Some(enc_blob) = &user.private_key_enc {
+                    // Legacy DB storage
+                    let decrypted =
+                        EncryptionService::decrypt_with_master_key(enc_blob, &old_master_key)
+                            .context(format!(
+                                "Failed to decrypt legacy key for user {}",
+                                user.id
+                            ))?;
+                    String::from_utf8(decrypted).context("Invalid PEM encoding")?
+                } else if let Some(key_path) = &user.private_key_path {
+                    // S3 storage
+                    let s3_res = self
+                        .storage
+                        .get_object_stream(key_path)
+                        .await
+                        .context(format!("Failed to download key for user {}", user.id))?;
+
+                    let mut body_reader = s3_res.body.into_async_read();
+                    let mut encrypted_bytes = Vec::new();
+                    body_reader.read_to_end(&mut encrypted_bytes).await?;
+                    let encrypted_str = String::from_utf8(encrypted_bytes)?;
+
+                    let decrypted =
+                        EncryptionService::decrypt_with_master_key(&encrypted_str, &old_master_key)
+                            .context(format!("Failed to decrypt S3 key for user {}", user.id))?;
+                    String::from_utf8(decrypted).context("Invalid PEM encoding")?
+                } else {
+                    continue; // No key? Skip.
+                };
+
+                // 2. Encrypt with NEW key
+                let new_enc_priv_key = EncryptionService::encrypt_with_master_key(
+                    priv_key_pem.as_bytes(),
+                    &new_master_key,
+                )?;
+
+                // 3. Save back (prefer S3)
+                let key_path = format!("users/{}/private.enc", user.id);
+                self.storage
+                    .upload_file(&key_path, new_enc_priv_key.clone().into_bytes())
+                    .await?;
+
+                // 4. Update DB to point to S3 and clear legacy blob
+                let mut active: users::ActiveModel = user.into();
+                active.private_key_path = Set(Some(key_path));
+                active.private_key_enc = Set(None);
+                active.update(&self.db).await?;
+
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 }

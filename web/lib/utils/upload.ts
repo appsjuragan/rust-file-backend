@@ -69,7 +69,7 @@ export async function scanEntries(items: DataTransferItemList | null): Promise<{
             // Try both standard and webkit prefixed
             const entry = typeof item.webkitGetAsEntry === 'function'
                 ? item.webkitGetAsEntry()
-                : (typeof item.getAsEntry === 'function' ? item.getAsEntry() : null);
+                : (typeof (item as any).getAsEntry === 'function' ? (item as any).getAsEntry() : null);
 
             if (entry) {
                 entries.push(entry);

@@ -369,6 +369,10 @@ function App() {
                         });
                         updateStatus(id, 100, 'completed');
                     }
+                    // Refresh the file list immediately after each success, silently
+                    if (targetFolderId === folderId) {
+                        fetchFiles(folderId, true).catch(console.error);
+                    }
                 } catch (err: any) {
                     console.error(`Failed to upload ${path}:`, err);
                     updateStatus(id, 0, 'error', err.message);

@@ -7,7 +7,7 @@ taskkill /F /IM bun.exe /T >nul 2>&1
 
 echo 🚀 Starting Rust File Backend...
 :: Set environment variables for MinGW64 and start cargo
-start "Backend" cmd /k "set \"CC=gcc\" && set \"CXX=g++\" && cargo run"
+start "Backend" cmd /k "set \"CC=gcc\" && set \"CXX=g++\" && cargo run --bin rust-file-backend"
 
 echo 🌐 Starting React Frontend...
 cd web

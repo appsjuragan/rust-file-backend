@@ -15,7 +15,7 @@ pub struct Model {
     pub created_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Text", nullable)]
-    pub encryption_key: Option<String>,
+    pub file_signature: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

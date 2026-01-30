@@ -314,7 +314,7 @@ impl FileService {
             let mut active: user_files::ActiveModel = existing.into();
             active.storage_file_id = Set(Some(storage_file_id.clone()));
             active.expires_at = Set(expires_at);
-            active.encryption_key = Set(Some(wrapped_key)); // Update Key
+            active.file_signature = Set(Some(wrapped_key)); // Update Key
             active.created_at = Set(Some(Utc::now())); // Update timestamp to "latest"
             active.update(&self.db).await.map_err(|e| {
                 tracing::error!("Failed to update existing user_file: {}", e);
@@ -346,7 +346,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
-                encryption_key: Set(Some(wrapped_key)), // Set Key
+                file_signature: Set(Some(wrapped_key)), // Set Key
                 ..Default::default()
             };
 
