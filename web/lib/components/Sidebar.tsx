@@ -173,20 +173,50 @@ const Sidebar = () => {
                 </div>
             </div>
 
-            {userFacts && (
-                <div className="rfm-sidebar-facts">
-                    <div className="rfm-facts-title">Storage Statistics</div>
-                    <div className="rfm-facts-content">
-                        <div className="rfm-fact-item">- Number of files: {userFacts.total_files}</div>
-                        <div className="rfm-fact-item">- Size: {formatSize(userFacts.total_size)}</div>
-                        <div className="rfm-fact-item">Common type:</div>
-                        <div className="rfm-fact-sub-item">- Video: {userFacts.video_count}</div>
-                        <div className="rfm-fact-sub-item">- Audio: {userFacts.audio_count}</div>
-                        <div className="rfm-fact-sub-item">- Document: {userFacts.document_count}</div>
-                        <div className="rfm-fact-sub-item">- Others: {userFacts.others_count}</div>
+            {userFacts && (() => {
+                const total = userFacts.image_count + userFacts.video_count + userFacts.audio_count + userFacts.document_count + userFacts.others_count;
+
+                let pieStyle = {};
+                if (total > 0) {
+                    const imgP = (userFacts.image_count / total) * 100;
+                    const vidP = (userFacts.video_count / total) * 100;
+                    const audP = (userFacts.audio_count / total) * 100;
+                    const docP = (userFacts.document_count / total) * 100;
+
+                    const stops = [
+                        `#eab308 0% ${imgP}%`,
+                        `#ef4444 ${imgP}% ${imgP + vidP}%`,
+                        `#3b82f6 ${imgP + vidP}% ${imgP + vidP + audP}%`,
+                        `#22c55e ${imgP + vidP + audP}% ${imgP + vidP + audP + docP}%`,
+                        `#64748b ${imgP + vidP + audP + docP}% 100%`
+                    ];
+                    pieStyle = { background: `conic-gradient(${stops.join(', ')})` };
+                } else {
+                    pieStyle = { background: '#cbd5e1' };
+                }
+
+                return (
+                    <div className="rfm-sidebar-facts">
+                        <div className="rfm-facts-title">Storage Statistics</div>
+                        <div className="rfm-facts-container">
+                            <div className="rfm-facts-content">
+                                <div className="rfm-fact-item">Files: {userFacts.total_files}</div>
+                                <div className="rfm-fact-item">Size: {formatSize(userFacts.total_size)}</div>
+                                <div className="rfm-fact-category-list">
+                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#eab308' }}></span> Image: {userFacts.image_count}</div>
+                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#ef4444' }}></span> Video: {userFacts.video_count}</div>
+                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#3b82f6' }}></span> Audio: {userFacts.audio_count}</div>
+                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#22c55e' }}></span> Document: {userFacts.document_count}</div>
+                                    <div className="rfm-fact-sub-item"><span className="dot" style={{ backgroundColor: '#64748b' }}></span> Others: {userFacts.others_count}</div>
+                                </div>
+                            </div>
+                            <div className="rfm-facts-pie-container">
+                                <div className="rfm-facts-pie" style={pieStyle}></div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </aside>
     );
 };
