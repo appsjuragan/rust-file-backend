@@ -12,6 +12,11 @@ pub struct UploadResult {
     pub s3_key: String,
 }
 
+pub struct FileMetadata {
+    pub last_modified: Option<chrono::DateTime<chrono::Utc>>,
+    pub size: i64,
+}
+
 #[async_trait]
 pub trait StorageService: Send + Sync {
     async fn upload_file(&self, key: &str, data: Vec<u8>) -> Result<()>;
@@ -35,6 +40,7 @@ pub trait StorageService: Send + Sync {
     ) -> Result<aws_sdk_s3::operation::get_object::GetObjectOutput>;
     async fn get_file(&self, key: &str) -> Result<Vec<u8>>;
     async fn list_objects(&self, prefix: &str) -> Result<Vec<String>>;
+    async fn get_object_metadata(&self, key: &str) -> Result<FileMetadata>;
 }
 
 pub struct S3StorageService {
@@ -270,5 +276,24 @@ impl StorageService for S3StorageService {
         }
 
         Ok(objects)
+    }
+
+    async fn get_object_metadata(&self, key: &str) -> Result<FileMetadata> {
+        let res = self
+            .client
+            .head_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await?;
+
+        let last_modified = res.last_modified.map(|d| {
+            chrono::DateTime::from_timestamp(d.secs(), d.subsec_nanos()).unwrap_or_default()
+        });
+
+        Ok(FileMetadata {
+            last_modified,
+            size: res.content_length.unwrap_or(0),
+        })
     }
 }

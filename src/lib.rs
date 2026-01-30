@@ -43,7 +43,6 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::user_settings::update_settings,
         api::handlers::user_settings::update_settings,
         api::handlers::health::health_check,
-        api::handlers::users::rotate_keys,
         api::handlers::users::get_profile,
         api::handlers::users::update_profile,
         api::handlers::users::upload_avatar,
@@ -68,7 +67,6 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
-            api::handlers::users::RotateKeyResponse,
             api::handlers::users::UserProfileResponse,
             api::handlers::users::UpdateProfileRequest,
             api::handlers::users::AvatarResponse,
@@ -81,7 +79,7 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 pub struct ApiDoc;
 
-use crate::services::key_management::KeyManagementService;
+
 
 #[derive(Clone)]
 pub struct AppState {
@@ -89,7 +87,6 @@ pub struct AppState {
     pub storage: Arc<dyn StorageService>,
     pub scanner: Arc<dyn VirusScanner>,
     pub file_service: Arc<FileService>,
-    pub key_service: Arc<KeyManagementService>,
     pub config: SecurityConfig,
 }
 
@@ -191,13 +188,7 @@ pub fn create_app(state: AppState) -> Router {
                     api::middleware::auth::auth_middleware,
                 )),
         )
-        .route(
-            "/users/keys/rotate",
-            post(api::handlers::users::rotate_keys).layer(from_fn_with_state(
-                state.clone(),
-                api::middleware::auth::auth_middleware,
-            )),
-        )
+
         .route(
             "/users/me",
             get(api::handlers::users::get_profile)

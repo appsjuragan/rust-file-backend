@@ -14,8 +14,7 @@ pub struct Model {
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub file_signature: Option<String>,
+
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

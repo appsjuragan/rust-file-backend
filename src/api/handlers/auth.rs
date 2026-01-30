@@ -55,19 +55,16 @@ pub async fn register(
 
     let id = Uuid::new_v4().to_string();
 
-    // Generate User Keys via Service
-    let (pub_key_pem, priv_key_path) = state
-        .key_service
-        .generate_and_store_key(&id)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
+    // Keys are disabled in Plaintext Mode
+    let pub_key_pem: Option<String> = None;
+    let priv_key_path: Option<String> = None;
 
     let user = users::ActiveModel {
         id: Set(id.clone()),
         username: Set(payload.username),
         password_hash: Set(Some(password_hash)),
-        public_key: Set(Some(pub_key_pem)),
-        private_key_path: Set(Some(priv_key_path)),
+        public_key: Set(None),
+        private_key_path: Set(None),
         private_key_enc: Set(None),
         ..Default::default()
     };
@@ -417,21 +414,15 @@ pub async fn callback_oidc(
             // Create new user
             let id = Uuid::new_v4().to_string();
 
-            // Generate User Keys via Service
-            let (pub_key_pem, priv_key_path) = state
-                .key_service
-                .generate_and_store_key(&id)
-                .await
-                .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
-
+            // Keys are disabled
             let user = users::ActiveModel {
                 id: Set(id.clone()),
                 username: Set(username),
                 oidc_sub: Set(Some(oidc_sub)),
                 email: Set(email),
                 password_hash: Set(None),
-                public_key: Set(Some(pub_key_pem)),
-                private_key_path: Set(Some(priv_key_path)),
+                public_key: Set(None),
+                private_key_path: Set(None),
                 private_key_enc: Set(None),
                 ..Default::default()
             };
@@ -458,37 +449,8 @@ pub async fn callback_oidc(
     };
 
     // Ensure existing users have keys (Migration/Backfill)
-    // Ensure existing users have keys (Migration/Backfill)
-    if user.public_key.is_none() {
-        let (pub_key_pem, priv_key_path) = state
-            .key_service
-            .generate_and_store_key(&user.id)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to generate keys: {}", e)))?;
+    // No Key Backfill needed
 
-        let mut active: users::ActiveModel = user.clone().into();
-        active.public_key = Set(Some(pub_key_pem));
-        active.private_key_path = Set(Some(priv_key_path));
-        active.private_key_enc = Set(None);
-
-        user = active
-            .update(&state.db)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to backfill user keys: {}", e)))?;
-
-        let audit = AuditService::new(state.db.clone());
-        audit
-            .log(
-                AuditEventType::KeyGeneration,
-                Some(user.id.clone()),
-                None,
-                "backfill_keys",
-                "success",
-                None,
-                None,
-            )
-            .await;
-    }
 
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
     let token_str = create_jwt(&user.id, &secret).map_err(|e| AppError::Internal(e.to_string()))?;

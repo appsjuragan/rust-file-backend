@@ -34,6 +34,9 @@ pub struct SecurityConfig {
     pub oidc_redirect_url: Option<String>,
     /// Skip OIDC Discovery (use derived endpoints)
     pub oidc_skip_discovery: bool,
+
+    /// Staging file cleanup age in hours (default: 24)
+    pub staging_cleanup_age_hours: u64,
 }
 
 impl Default for SecurityConfig {
@@ -51,6 +54,7 @@ impl Default for SecurityConfig {
             oidc_client_secret: None,
             oidc_redirect_url: None,
             oidc_skip_discovery: false,
+            staging_cleanup_age_hours: 24,
         }
     }
 }
@@ -97,6 +101,11 @@ impl SecurityConfig {
             oidc_skip_discovery: env::var("OIDC_SKIP_DISCOVERY")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),
+
+            staging_cleanup_age_hours: env::var("STAGING_CLEANUP_AGE_HOURS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(default.staging_cleanup_age_hours),
         }
     }
 
@@ -115,6 +124,7 @@ impl SecurityConfig {
             oidc_client_secret: None,
             oidc_redirect_url: None,
             oidc_skip_discovery: false,
+            staging_cleanup_age_hours: 24,
         }
     }
 
@@ -138,6 +148,10 @@ impl SecurityConfig {
             oidc_skip_discovery: env::var("OIDC_SKIP_DISCOVERY")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),
+            staging_cleanup_age_hours: env::var("STAGING_CLEANUP_AGE_HOURS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(24),
         }
     }
 }

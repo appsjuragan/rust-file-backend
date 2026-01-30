@@ -10,8 +10,12 @@ pub struct BackgroundWorker {
     db: DatabaseConnection,
     storage: Arc<dyn StorageService>,
     scanner: Arc<dyn VirusScanner>,
+
+    config: SecurityConfig,
     shutdown: watch::Receiver<bool>,
 }
+
+use crate::config::SecurityConfig;
 
 use crate::entities::{prelude::*, *};
 use crate::services::storage::StorageService;
@@ -22,12 +26,14 @@ impl BackgroundWorker {
         db: DatabaseConnection,
         storage: Arc<dyn StorageService>,
         scanner: Arc<dyn VirusScanner>,
+        config: SecurityConfig,
         shutdown: watch::Receiver<bool>,
     ) -> Self {
         Self {
             db,
             storage,
             scanner,
+            config,
             shutdown,
         }
     }
@@ -70,12 +76,16 @@ impl BackgroundWorker {
 
                 let stream = stream_res.unwrap();
 
-                use crate::services::encryption::EncryptionService;
-                let file_key = EncryptionService::derive_key_from_hash(&sf.hash);
+                // use crate::services::encryption::EncryptionService;
+                // let file_key = EncryptionService::derive_key_from_hash(&sf.hash);
+                
+                // Direct scan of S3 stream (Plaintext)
                 let body_reader = stream.body.into_async_read();
-                let decrypted_stream =
-                    EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
-                let reader = Box::pin(tokio_util::io::StreamReader::new(decrypted_stream));
+                // let decrypted_stream = EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
+                // let reader = Box::pin(tokio_util::io::ReaderStream::new(body_reader));
+                
+                // VirusScanner usually takes AsyncRead.
+                let reader = Box::pin(body_reader);
 
                 let mut active: storage_files::ActiveModel = sf.clone().into();
                 match self.scanner.scan(reader).await {
@@ -152,33 +162,34 @@ impl BackgroundWorker {
             .exec(&self.db)
             .await;
 
-        // 4. Clean up abandoned staging files (older than 24h)
-        if let Ok(staged_files) = self.storage.list_objects("staging/").await {
-            for key in staged_files {
-                // Check if file is old enough to delete
-                // Since we don't have metadata for staging files in DB, we rely on S3 LastModified
-                // But list_objects only returns keys. 
-                // We'll check creation time via head_object (file_exists logic, but we need metadata)
-                // For MVP, let's just use strict 24h TTL based on assumed creation if possible,
-                // or just list and delete unconditionally if we had a way to check age.
-                // Standard approach: Get object metadata.
-                
-                // Optimization: In real S3, list_v2 returns metadata. Our trait simplifies it.
-                // We'll have to do a HEAD request.
-                // TODO: Enhance Storage trait to return metadata in list.
-                // For now, let's skip complex age check and just rely on a separate bucket lifecycle policy if possible,
-                // OR implementation detail: assume all files in staging that aren't being written to are garbage?
-                // No, concurrent uploads.
-                
-                // Let's rely on config. For now, just logging what we WOULD delete until we add get_object_metadata trait.
-                // Wait, I can use get_object_range to get last_modified header? No, get_object_stream does.
-                 // Let's add a todo or try to get metadata.
-                 // Actually, looking at `S3StorageService::file_exists`, it does `head_object`.
-                 // I'll leave this for a future refinement to avoid N+1 HEAD requests.
-                 // Alternative: The user asked for it. I should implement it.
-                 // I'll add `get_object_metadata` to trait later.
-                 // For now, I'll just log "Found staged file: {}"
-                 tracing::debug!("Found staged file candidate: {}", key);
+        // 4. Clean up abandoned staging files
+        match self.storage.list_objects("staging/").await {
+            Ok(staged_files) => {
+                for key in staged_files {
+                    match self.storage.get_object_metadata(&key).await {
+                        Ok(metadata) => {
+                            if let Some(last_modified) = metadata.last_modified {
+                                let age = Utc::now() - last_modified;
+                                if age > chrono::Duration::hours(self.config.staging_cleanup_age_hours as i64) {
+                                    tracing::info!(
+                                        "🗑️ Deleting abandoned staging file: {} (Age: {}h)",
+                                        key,
+                                        age.num_hours()
+                                    );
+                                    if let Err(e) = self.storage.delete_file(&key).await {
+                                        tracing::error!("Failed to delete staged file {}: {}", key, e);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to get metadata for staged file {}: {}", key, e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to list staging files: {}", e);
             }
         }
 

@@ -13,7 +13,6 @@ use uuid::Uuid;
 use crate::services::scanner::VirusScanner;
 use crate::services::{
     audit::{AuditEventType, AuditService},
-    encryption::EncryptionService,
 };
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
@@ -74,7 +73,7 @@ impl FileService {
         // 3. Buffer to Temp File and Calculate Hash
         let temp_file = NamedTempFile::new().map_err(|e| AppError::Internal(e.to_string()))?;
         let temp_path = temp_file.path().to_owned();
-        let mut temp_file_async = tokio::fs::File::from_std(
+                let mut temp_file_async = tokio::fs::File::from_std(
             temp_file
                 .reopen()
                 .map_err(|e| AppError::Internal(e.to_string()))?,
@@ -146,21 +145,22 @@ impl FileService {
             });
         }
     
-        // 5. Derive Key and Upload Encrypted (No Dedup Hit)
-        let key = EncryptionService::derive_key_from_hash(&hash);
-
+        // 5. Upload Plaintext Directly (No Dedup Hit)
+        // No Key Derivation or Encryption
+        
         // Re-open temp file for reading
         let temp_reader = tokio::fs::File::open(&temp_path)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        let encrypted_stream = EncryptionService::encrypt_stream(Box::new(temp_reader), key);
-        let pinned_stream = Box::pin(encrypted_stream);
+        // let encrypted_stream = EncryptionService::encrypt_stream(Box::new(temp_reader), key);
+        // let pinned_stream = Box::pin(encrypted_stream);
+        let pinned_stream = Box::pin(tokio_util::io::ReaderStream::new(temp_reader));
         let stream_reader = tokio_util::io::StreamReader::new(pinned_stream);
 
         let staging_key = format!("staging/{}", Uuid::new_v4());
         tracing::info!(
-            "Starting Encrypted S3 upload for {} to {}",
+            "Starting Plaintext S3 upload for {} to {}",
             filename,
             staging_key
         );
@@ -377,13 +377,10 @@ impl FileService {
 
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
-        // Generate Wrapped Key for User
-        let user_pub_key = user
-            .public_key
-            .ok_or_else(|| AppError::Internal("User lacks public key".to_string()))?;
-        let file_key = EncryptionService::derive_key_from_hash(&staged.hash);
-        let wrapped_key = EncryptionService::wrap_key(&file_key, &user_pub_key)
-            .map_err(|e| AppError::Internal(format!("Failed to wrap key: {}", e)))?;
+        // No Key Generation
+        // let user_pub_key = user.public_key ... 
+        // let file_key = EncryptionService::derive_key_from_hash(&staged.hash);
+        // let wrapped_key = EncryptionService::wrap_key ...
 
         // Check for existing file with same name in the same folder for merging
         let existing_user_file = UserFiles::find()
@@ -403,7 +400,7 @@ impl FileService {
             let mut active: user_files::ActiveModel = existing.into();
             active.storage_file_id = Set(Some(storage_file_id.clone()));
             active.expires_at = Set(expires_at);
-            active.file_signature = Set(Some(wrapped_key)); // Update Key
+            // active.file_signature = Set(Some(wrapped_key)); // No Key
             active.created_at = Set(Some(Utc::now())); // Update timestamp to "latest"
             active.update(&self.db).await.map_err(|e| {
                 tracing::error!("Failed to update existing user_file: {}", e);
@@ -435,7 +432,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
-                file_signature: Set(Some(wrapped_key)), // Set Key
+                // file_signature: Set(Some(wrapped_key)), // No Key
                 ..Default::default()
             };
 
