@@ -169,7 +169,7 @@
   }
 
   .rfm-breadcrumb-item {
-    @apply cursor-pointer hover:text-sky-600 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400;
+    @apply flex items-center cursor-pointer hover:text-sky-600 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400;
   }
 
   .rfm-breadcrumb-item.active {
@@ -610,5 +610,38 @@
 
   .rfm-dialog-footer {
     @apply flex justify-end gap-3 mt-2;
+  }
+
+  /* Storage Statistics */
+  .rfm-sidebar-facts {
+    @apply mt-auto border-t border-slate-200 dark:border-slate-800 transition-all duration-300;
+  }
+
+  .rfm-facts-header {
+    @apply px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors h-11;
+  }
+
+  .rfm-facts-title {
+    @apply text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center;
+  }
+
+  .rfm-facts-toggle-btn {
+    @apply w-6 h-6 flex items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all shadow-sm;
+  }
+
+  .rfm-facts-container {
+    @apply p-4 pt-0 transition-all duration-300 overflow-hidden;
+  }
+
+  .rfm-facts-minimized-info {
+    @apply px-4 pb-3 text-[11px] font-semibold text-sky-600 dark:text-sky-400 cursor-pointer;
+  }
+
+  .rfm-sidebar-facts.minimized {
+    @apply mt-auto;
+  }
+
+  .rfm-facts-content {
+    @apply mb-4;
   }
 }

@@ -38,21 +38,30 @@ const FolderPath = () => {
     setCurrentFolder(id);
   };
 
+  const parentFolder = useMemo(() => {
+    return fs.find((f: FileType) => f.id === currentFolder)?.parentId || (currentFolder !== "0" ? "0" : null);
+  }, [fs, currentFolder]);
+
   return (
     <div className="rfm-workspace-header">
       <div className="rfm-folder-path-container">
-        <div className="rfm-folder-path-svg" onClick={goUp} title="Go up one folder">
+        <div
+          className={`rfm-folder-path-svg ${currentFolder === "0" ? "at-home" : ""}`}
+          onClick={currentFolder !== "0" ? goUp : undefined}
+          title={currentFolder !== "0" ? "Go up one folder" : "You are at home"}
+          style={{ cursor: currentFolder === "0" ? 'default' : 'pointer' }}
+        >
           <SvgIcon
-            svgType="arrow-up"
+            svgType={currentFolder === "0" ? "home" : "arrow-up"}
           />
         </div>
         <div className="rfm-breadcrumbs">
-          <span
+          <div
             className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""}`}
             onClick={() => handleCrumbClick("0")}
           >
-            Home
-          </span>
+            <span>Home</span>
+          </div>
           {breadcrumbs.map((crumb) => (
             <React.Fragment key={crumb.id}>
               <span className="rfm-breadcrumb-separator">/</span>

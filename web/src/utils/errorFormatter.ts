@@ -1,6 +1,12 @@
 export const formatFriendlyError = (errMessage: string): string => {
     if (!errMessage) return "An unexpected error occurred.";
 
+    // Handle "CODE: message" pattern commonly used in our backend ValidationError
+    if (/^[A-Z_]+: /.test(errMessage)) {
+        const parts = errMessage.split(': ');
+        if (parts.length > 1) return parts[1] || errMessage;
+    }
+
     // Handle common validation error patterns from the backend
     // Patterns like: "name: Validation error: length [{"max": Number(100), "value": String(""), "min": Number(1)}]"
 

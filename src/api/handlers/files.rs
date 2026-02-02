@@ -1,6 +1,5 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
-use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::Claims;
 use crate::utils::validation::sanitize_filename;
 use axum::{
@@ -14,7 +13,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, RelationTrait,
-    Set, TransactionTrait,
+    Set,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -237,71 +236,90 @@ pub async fn upload_file(
     let mut expiration_hours: Option<i64> = None;
     let mut parent_id: Option<String> = None;
     let mut total_size: Option<u64> = None;
-    let mut staged_file = None;
+    let mut staged_file: Option<crate::services::file_service::StagedFile> = None;
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        let err_msg = e.to_string();
-        if err_msg.contains("length limit exceeded") {
-            AppError::PayloadTooLarge("Request body exceeds the maximum allowed limit".to_string())
-        } else {
-            AppError::BadRequest(err_msg)
-        }
-    })? {
-        let name = field.name().unwrap_or_default().to_string();
-
-        if name == "file" {
-            let original_filename = field.file_name().unwrap_or("unnamed").to_string();
-            let content_type = field.content_type().map(|s| s.to_string());
-
-            // 1. Sanitize filename
-            filename = sanitize_filename(&original_filename)
-                .map_err(|e| AppError::BadRequest(e.to_string()))?;
-
-            // 2. Create reader
-            let body_with_io_error = field.map_err(std::io::Error::other);
-            let reader = StreamReader::new(body_with_io_error);
-
-            // 3. Upload to Staging
-            staged_file = Some(
-                state
-                    .file_service
-                    .upload_to_staging(&filename, content_type.as_deref(), reader)
-                    .await?,
-            );
-        } else if name == "expiration_hours" {
-            let text = field.text().await.unwrap_or_default();
-            expiration_hours = text.parse().ok();
-        } else if name == "parent_id" {
-            let text = field.text().await.unwrap_or_default();
-            if !text.is_empty() && text != "null" {
-                parent_id = Some(text);
+    // Use a result to capture errors so we can consume the multipart stream if needed
+    let result: Result<Json<UploadResponse>, AppError> = async {
+        while let Some(field) = multipart.next_field().await.map_err(|e| {
+            let err_msg = e.to_string();
+            if err_msg.contains("length limit exceeded") {
+                AppError::PayloadTooLarge(
+                    "Request body exceeds the maximum allowed limit".to_string(),
+                )
+            } else {
+                AppError::BadRequest(err_msg)
             }
-        } else if name == "total_size" {
-            let text = field.text().await.unwrap_or_default();
-            total_size = text.parse().ok();
+        })? {
+            let name = field.name().unwrap_or_default().to_string();
+
+            if name == "file" {
+                let original_filename = field.file_name().unwrap_or("unnamed").to_string();
+                let content_type = field.content_type().map(|s| s.to_string());
+
+                // 1. Sanitize filename
+                filename = sanitize_filename(&original_filename)
+                    .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+                // 2. Create reader
+                let body_with_io_error = field.map_err(std::io::Error::other);
+                let reader = StreamReader::new(body_with_io_error);
+
+                // 3. Upload to Staging
+                staged_file = Some(
+                    state
+                        .file_service
+                        .upload_to_staging(&filename, content_type.as_deref(), reader)
+                        .await?,
+                );
+            } else if name == "expiration_hours" {
+                let text = field.text().await.unwrap_or_default();
+                expiration_hours = text.parse().ok();
+            } else if name == "parent_id" {
+                let text = field.text().await.unwrap_or_default();
+                if !text.is_empty() && text != "null" {
+                    parent_id = Some(text);
+                }
+            } else if name == "total_size" {
+                let text = field.text().await.unwrap_or_default();
+                total_size = text.parse().ok();
+            }
+        }
+
+        let staged = staged_file.ok_or(AppError::BadRequest("No file provided".to_string()))?;
+
+        // 4. Process Upload
+        let (user_file_id, expires_at) = state
+            .file_service
+            .process_upload(
+                staged,
+                filename.clone(),
+                claims.sub,
+                parent_id,
+                expiration_hours,
+                total_size,
+            )
+            .await?;
+
+        Ok(Json(UploadResponse {
+            file_id: user_file_id,
+            filename,
+            expires_at,
+        }))
+    }
+    .await;
+
+    match result {
+        Ok(res) => Ok(res),
+        Err(e) => {
+            // CRITICAL: Consume the remaining multipart stream to avoid TCP reset ("Network error" in browser)
+            // This is especially important for restricted files or large files rejected early
+            tracing::warn!("Upload failed early: {}. Consuming remaining stream...", e);
+            while let Ok(Some(mut field)) = multipart.next_field().await {
+                while let Ok(Some(_)) = field.chunk().await {}
+            }
+            Err(e)
         }
     }
-
-    let staged = staged_file.ok_or(AppError::BadRequest("No file provided".to_string()))?;
-
-    // 4. Process Upload
-    let (user_file_id, expires_at) = state
-        .file_service
-        .process_upload(
-            staged,
-            filename.clone(),
-            claims.sub,
-            parent_id,
-            expiration_hours,
-            total_size,
-        )
-        .await?;
-
-    Ok(Json(UploadResponse {
-        file_id: user_file_id,
-        filename,
-        expires_at,
-    }))
 }
 
 #[utoipa::path(
@@ -387,9 +405,6 @@ pub async fn download_file(
         };
     }
 
-    // Prepare Encryption Key if present
-    // No key retrieval
-    let file_key: Option<[u8; 32]> = None;
 
     // 4. Prepare headers shared by both full and partial responses
     let ascii_filename = user_file

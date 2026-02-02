@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ISvgIconProps extends React.AllHTMLAttributes<HTMLDivElement> {
-  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check";
+  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home";
 }
 
 const SvgIcon: React.FC<ISvgIconProps> = ({
@@ -10,6 +10,13 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
 }: ISvgIconProps) => {
   const svgContent = () => {
     switch (svgType) {
+      case "home": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
+          </svg>
+        );
+      }
       case "file": {
         return (
           <svg

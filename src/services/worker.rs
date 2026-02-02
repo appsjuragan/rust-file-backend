@@ -4,7 +4,7 @@ use sea_orm::{
 };
 use std::sync::Arc;
 use tokio::sync::watch;
-use tokio::time::{Duration, sleep};
+use tokio::time::Duration;
 
 pub struct BackgroundWorker {
     db: DatabaseConnection,

@@ -6,7 +6,7 @@ use crate::services::storage::StorageService;
 use crate::utils::validation::validate_upload;
 use chrono::{Duration, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
 };
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -197,12 +197,6 @@ impl FileService {
         expiration_hours: Option<i64>,
         _total_size: Option<u64>,
     ) -> Result<(String, Option<chrono::DateTime<Utc>>), AppError> {
-        // Get User for Keys
-        let user = Users::find_by_id(&user_id)
-            .one(&self.db)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?
-            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         // Check for deduplication (Required to handle the staged file correctly)
         let existing_storage_file = StorageFiles::find()
@@ -318,22 +312,20 @@ impl FileService {
                         tokio::spawn(async move {
                             tracing::info!("🚀 Starting async scan for file: {}", file_id);
 
-                            let scan_res = if let Some(ref path) = temp_path_opt {
-                                // Scan local file
-                                if let Ok(file) = tokio::fs::File::open(&path).await {
+                            let scan_res = if let Some(ref path) = temp_path_opt 
+                                && let Ok(file) = tokio::fs::File::open(&path).await {
                                     scanner.scan(Box::pin(file)).await
-                                } else {
+                                } else if temp_path_opt.is_some() {
                                     // Failed to open temp file
                                     Ok(crate::services::scanner::ScanResult::Error {
                                         reason: "Temp file lost".to_string(),
                                     })
-                                }
-                            } else {
-                                // Fallback to S3 (Not implemented here properly to avoid complexity, assume temp file)
-                                Ok(crate::services::scanner::ScanResult::Error {
-                                    reason: "No temp file for scan".to_string(),
-                                })
-                            };
+                                } else {
+                                    // Fallback to S3
+                                    Ok(crate::services::scanner::ScanResult::Error {
+                                        reason: "No temp file for scan".to_string(),
+                                    })
+                                };
 
                             use crate::entities::storage_files;
                             let (status, result) = match scan_res {
@@ -374,10 +366,9 @@ impl FileService {
                             }
 
                             // Cleanup Temp File
-                            if let Some(path) = temp_path_opt {
-                                if let Err(e) = tokio::fs::remove_file(&path).await {
+                            if let Some(path) = temp_path_opt 
+                                && let Err(e) = tokio::fs::remove_file(&path).await {
                                     tracing::warn!("Failed to delete temp file {}: {}", path, e);
-                                }
                             }
                         });
                     }
@@ -802,10 +793,9 @@ impl FileService {
                 .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
 
             // Basic circularity check (simplified for bulk)
-            if let Some(ref target_id) = new_parent_id {
-                if item.is_folder && target_id == &item.id {
+            if let Some(ref target_id) = new_parent_id 
+                && item.is_folder && target_id == &item.id {
                     continue; // Skip invalid moves in bulk
-                }
             }
 
             let mut active: user_files::ActiveModel = item.into();

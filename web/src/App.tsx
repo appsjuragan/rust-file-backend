@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { ReactFileManager, CommonModal } from "../lib";
 import { api, getAuthToken, setAuthToken, clearAuthToken } from "./api";
 import { formatFriendlyError } from "./utils/errorFormatter";
+import { isRestrictedFile } from "./utils/validation";
 import type { FileSystemType, FileType, UploadStatus } from "../lib/types";
 import "./App.css";
 import "../lib/tailwind.css";
@@ -509,6 +510,13 @@ function App() {
                 const relativeFolderPath = pathParts.join('/');
 
                 try {
+                    // 0. Client-side validation
+                    const restriction = isRestrictedFile(fileName);
+                    if (restriction.restricted) {
+                        updateStatus(id, 0, 'error', restriction.reason);
+                        continue;
+                    }
+
                     // targetFolderId should now be in the cache from the pre-pass
                     const targetFolderId = await ensureFolderExists(relativeFolderPath, folderId, folderCache);
 

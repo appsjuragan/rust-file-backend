@@ -67,8 +67,6 @@ pub async fn register(
     let id = Uuid::new_v4().to_string();
 
     // Keys are disabled in Plaintext Mode
-    let pub_key_pem: Option<String> = None;
-    let priv_key_path: Option<String> = None;
 
     let user = users::ActiveModel {
         id: Set(id.clone()),
@@ -419,7 +417,7 @@ pub async fn callback_oidc(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let mut user = match user {
+    let user = match user {
         Some(u) => u,
         None => {
             // Create new user
