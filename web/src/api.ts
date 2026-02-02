@@ -192,5 +192,6 @@ export const api = {
         const separator = effectivePath.includes('?') ? '&' : '?';
         return `${BASE_URL}${effectivePath}${separator}token=${getAuthToken()}`;
     },
+    getValidationRules: () => request('/system/validation-rules'),
 };
 

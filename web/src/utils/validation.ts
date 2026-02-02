@@ -1,20 +1,48 @@
-export const BLOCKED_EXTENSIONS = [
-    "exe", "dll", "so", "dylib", "bin", "com", "bat", "cmd", "ps1", "sh", "bash",
-    "js", "ts", "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx", "jsp", "jspx",
-    "cfm", "go", "rs", "java", "class", "jar", "war", "c", "cpp", "h", "hpp", "cs", "vb", "vbs",
-    "lua", "r", "swift", "kt", "scala", "groovy", "html", "htm", "xhtml", "shtml", "svg", "xml", "xsl", "xslt",
-    "htaccess", "htpasswd", "json", "yaml", "yml", "toml", "ini", "conf", "config",
-    "iso", "img", "vmdk", "vhd", "ova", "ovf",
-    "docm", "xlsm", "pptm", "dotm", "xltm", "potm",
-];
+export interface ValidationRules {
+    allowed_mimes: string[];
+    blocked_extensions: string[];
+    max_file_size: number;
+}
 
-export const isRestrictedFile = (filename: string): { restricted: boolean; reason?: string } => {
+export const isRestrictedFile = (
+    file: File,
+    rules?: ValidationRules | null
+): { restricted: boolean; reason?: string } => {
+    const filename = file.name;
     const ext = filename.split('.').pop()?.toLowerCase();
-    if (ext && BLOCKED_EXTENSIONS.includes(ext)) {
+    const mime = file.type.toLowerCase();
+
+    // 1. Size check
+    if (rules?.max_file_size && file.size > rules.max_file_size) {
         return {
             restricted: true,
-            reason: `File extension '.${ext}' is restricted for security reasons.`
+            reason: `File size (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed limit (${(rules.max_file_size / 1024 / 1024).toFixed(2)} MB).`
         };
     }
+
+    // 2. Extension check
+    if (ext) {
+        if (rules?.blocked_extensions && rules.blocked_extensions.includes(ext)) {
+            return {
+                restricted: true,
+                reason: `File extension '.${ext}' is restricted for security reasons.`
+            };
+        }
+    }
+
+    // 3. MIME type check
+    // If we have rules, use them. Otherwise, default to some basic sanity or skip.
+    if (rules?.allowed_mimes && rules.allowed_mimes.length > 0) {
+        // Strip parameters from mime (e.g. "text/plain; charset=utf-8")
+        const normalizedMime = mime.split(';')[0]?.trim() || "";
+
+        if (!rules.allowed_mimes.includes(normalizedMime)) {
+            return {
+                restricted: true,
+                reason: `MIME type '${normalizedMime}' is not allowed. Only documents, media, and archives are permitted.`
+            };
+        }
+    }
+
     return { restricted: false };
 };

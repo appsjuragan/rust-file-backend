@@ -43,6 +43,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::download_file_with_ticket,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
+        api::handlers::health::get_validation_rules,
         api::handlers::health::health_check,
         api::handlers::users::get_profile,
         api::handlers::users::update_profile,
@@ -69,6 +70,7 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
+            crate::utils::validation::ValidationRules,
             api::handlers::users::UserProfileResponse,
             api::handlers::users::UpdateProfileRequest,
             api::handlers::users::AvatarResponse,
@@ -98,6 +100,7 @@ pub fn create_app(state: AppState) -> Router {
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/health", get(api::handlers::health::health_check))
+        .route("/system/validation-rules", get(api::handlers::health::get_validation_rules))
         .layer(from_fn(api::middleware::metrics::metrics_middleware))
         .layer(from_fn(api::middleware::request_id::request_id_middleware))
         .route("/register", post(api::handlers::auth::register))

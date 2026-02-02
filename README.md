@@ -150,6 +150,7 @@ Open your browser to:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | System health check |
+| GET | `/system/validation-rules` | Get allowed MIME types and rules |
 
 ---
 

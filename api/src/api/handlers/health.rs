@@ -40,3 +40,18 @@ pub async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
         version: env!("CARGO_PKG_VERSION").to_string(),
     })
 }
+#[utoipa::path(
+    get,
+    path = "/system/validation-rules",
+    responses(
+        (status = 200, description = "System validation rules", body = ValidationRules)
+    ),
+    tag = "system"
+)]
+pub async fn get_validation_rules(State(state): State<AppState>) -> Result<Json<crate::utils::validation::ValidationRules>, crate::api::error::AppError> {
+    let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+        .await
+        .map_err(|e| crate::api::error::AppError::Internal(e.to_string()))?;
+    
+    Ok(Json(rules))
+}

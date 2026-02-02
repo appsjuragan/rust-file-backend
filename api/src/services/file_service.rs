@@ -61,7 +61,7 @@ impl FileService {
         let header = &header_buffer[..n];
 
         // 2. Load Validation Rules from DB
-        let rules = crate::utils::validation::ValidationRules::load(&self.db)
+        let rules = crate::utils::validation::ValidationRules::load(&self.db, self.config.max_file_size)
             .await
             .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 

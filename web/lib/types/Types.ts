@@ -2,7 +2,7 @@ export type UploadStatus = {
   id: string;
   name: string;
   progress: number;
-  status: 'hashing' | 'uploading' | 'processing' | 'completed' | 'error';
+  status: 'queued' | 'hashing' | 'uploading' | 'processing' | 'completed' | 'error';
   error?: string;
   size?: number;
 };

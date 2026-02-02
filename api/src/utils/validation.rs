@@ -1,19 +1,23 @@
 use anyhow::{Result, anyhow};
 use sea_orm::EntityTrait;
 use std::path::Path;
+use serde::Serialize;
+use utoipa::ToSchema;
 
 /// Maximum file size: 256 MB
 pub const MAX_FILE_SIZE: usize = 256 * 1024 * 1024; // 256 MB
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, ToSchema)]
 pub struct ValidationRules {
     pub allowed_mimes: Vec<String>,
     pub blocked_extensions: Vec<String>,
+    #[serde(skip)]
     pub magic_signatures: Vec<(Vec<u8>, String)>,
+    pub max_file_size: usize,
 }
 
 impl ValidationRules {
-    pub async fn load(db: &sea_orm::DatabaseConnection) -> Result<Self, sea_orm::DbErr> {
+    pub async fn load(db: &sea_orm::DatabaseConnection, max_file_size: usize) -> Result<Self, sea_orm::DbErr> {
         use crate::entities::prelude::*;
 
         let mimes = AllowedMimes::find().all(db).await?;
@@ -27,6 +31,7 @@ impl ValidationRules {
                 .into_iter()
                 .map(|s| (s.signature, s.mime_type))
                 .collect(),
+            max_file_size,
         })
     }
 }
@@ -322,6 +327,7 @@ mod tests {
                 (vec![0x25, 0x50, 0x44, 0x46], "application/pdf".to_string()),
                 (vec![0x50, 0x4B, 0x03, 0x04], "application/zip".to_string()),
             ],
+            max_file_size: MAX_FILE_SIZE,
         }
     }
 

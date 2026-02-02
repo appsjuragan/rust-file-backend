@@ -33,6 +33,12 @@ function App() {
     const [searchMode, setSearchMode] = useState<'standard' | 'regex' | 'wildcard'>('standard');
     const [searchDateRange, setSearchDateRange] = useState<{ start?: string, end?: string }>({});
     const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+    const [validationRules, setValidationRules] = useState<any>(null);
+    const validationRulesRef = React.useRef<any>(null);
+
+    useEffect(() => {
+        validationRulesRef.current = validationRules;
+    }, [validationRules]);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -83,6 +89,17 @@ function App() {
             setUserFacts(data);
         } catch (err) {
             console.error("Failed to fetch user facts:", err);
+        }
+    }, []);
+
+    const fetchValidationRules = useCallback(async () => {
+        try {
+            const data = await api.getValidationRules();
+            setValidationRules(data);
+            return data;
+        } catch (err) {
+            console.error("Failed to fetch validation rules:", err);
+            return null;
         }
     }, []);
 
@@ -160,9 +177,10 @@ function App() {
             // Fetch profile and facts
             fetchProfile();
             fetchUserFacts();
+            fetchValidationRules();
             fetchFiles(currentFolder);
         }
-    }, [currentFolder, username, isAuthenticated, fetchProfile, fetchUserFacts, fetchFiles]);
+    }, [currentFolder, username, isAuthenticated, fetchProfile, fetchUserFacts, fetchFiles, fetchValidationRules]);
 
     useEffect(() => {
         if (!searchQuery.trim()) {
@@ -593,12 +611,18 @@ function App() {
             id: Math.random().toString(36).substring(7),
             name: f.path,
             progress: 0,
-            status: 'uploading' as const,
+            status: 'queued' as const,
             size: f.file.size
         }));
         setActiveUploads(prev => [...prev, ...statusItems]);
 
-        const updateStatus = (id: string, progress: number, status: 'hashing' | 'uploading' | 'processing' | 'completed' | 'error', error?: string) => {
+        // Ensure we have validation rules before starting
+        let currentRules = validationRulesRef.current;
+        if (!currentRules) {
+            currentRules = await fetchValidationRules();
+        }
+
+        const updateStatus = (id: string, progress: number, status: 'queued' | 'hashing' | 'uploading' | 'processing' | 'completed' | 'error', error?: string) => {
             setActiveUploads(prev => prev.map(u =>
                 u.id === id ? { ...u, progress, status, error } : u
             ));
@@ -636,7 +660,7 @@ function App() {
 
                 try {
                     // 0. Client-side validation
-                    const restriction = isRestrictedFile(fileName);
+                    const restriction = isRestrictedFile(file, currentRules);
                     if (restriction.restricted) {
                         updateStatus(id, 0, 'error', restriction.reason);
                         continue;
@@ -645,10 +669,6 @@ function App() {
                     // targetFolderId should now be in the cache from the pre-pass
                     const targetFolderId = await ensureFolderExists(relativeFolderPath, folderId, folderCache);
 
-                    if (file.size > MAX_FILE_SIZE) {
-                        updateStatus(id, 0, 'error', 'File too large');
-                        continue;
-                    }
 
                     updateStatus(id, 0, 'hashing');
                     const hash = await calculateHash(file, (p) => {
