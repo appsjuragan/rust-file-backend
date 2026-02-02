@@ -758,6 +758,22 @@
 							]
 						}
 					}
+				},
+				{
+					"name": "Get Validation Rules",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/system/validation-rules",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"system",
+								"validation-rules"
+							]
+						}
+					}
 				}
 			]
 		}
