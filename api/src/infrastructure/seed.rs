@@ -1,5 +1,5 @@
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, ColumnTrait};
-use crate::entities::{prelude::*, allowed_mimes, magic_signatures, blocked_extensions};
+use crate::entities::{allowed_mimes, blocked_extensions, magic_signatures, prelude::*};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use tracing::info;
 
 pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()> {
@@ -9,11 +9,20 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
     let mimes = vec![
         ("application/pdf", "Documents"),
         ("application/msword", "Documents"),
-        ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Documents"),
+        (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Documents",
+        ),
         ("application/vnd.ms-excel", "Documents"),
-        ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Documents"),
+        (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Documents",
+        ),
         ("application/vnd.ms-powerpoint", "Documents"),
-        ("application/vnd.openxmlformats-officedocument.presentationml.presentation", "Documents"),
+        (
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "Documents",
+        ),
         ("application/rtf", "Documents"),
         ("text/plain", "Documents"),
         ("text/csv", "Documents"),
@@ -64,7 +73,7 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
             .filter(allowed_mimes::Column::MimeType.eq(mime))
             .one(db)
             .await?;
-        
+
         if exists.is_none() {
             let model = allowed_mimes::ActiveModel {
                 mime_type: Set(mime.to_string()),
@@ -90,11 +99,32 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
         (vec![0xFF, 0xFA], "audio/mpeg"),
         (vec![0x4F, 0x67, 0x67, 0x53], "audio/ogg"),
         (vec![0x66, 0x4C, 0x61, 0x43], "audio/flac"),
-        (vec![0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41], "audio/mp4"),
-        (vec![0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41], "audio/mp4"),
-        (vec![0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41], "audio/mp4"),
-        (vec![0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70], "video/mp4"),
-        (vec![0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70], "video/mp4"),
+        (
+            vec![
+                0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
+            ],
+            "audio/mp4",
+        ),
+        (
+            vec![
+                0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
+            ],
+            "audio/mp4",
+        ),
+        (
+            vec![
+                0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
+            ],
+            "audio/mp4",
+        ),
+        (
+            vec![0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70],
+            "video/mp4",
+        ),
+        (
+            vec![0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
+            "video/mp4",
+        ),
         (vec![0x47], "video/mp2t"),
         (vec![0x1F, 0x8B], "application/gzip"),
         (vec![0x52, 0x61, 0x72, 0x21], "application/vnd.rar"),
@@ -107,7 +137,7 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
             .filter(magic_signatures::Column::Signature.eq(sig.clone()))
             .one(db)
             .await?;
-        
+
         if exists.is_none() {
             let model = magic_signatures::ActiveModel {
                 signature: Set(sig),
@@ -120,13 +150,13 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
 
     // 3. Blocked Extensions
     let blocked = vec![
-        "exe", "dll", "so", "dylib", "bin", "com", "bat", "cmd", "ps1", "sh", "bash",
-        "js", "ts", "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx", "jsp", "jspx",
-        "cfm", "go", "rs", "java", "class", "jar", "war", "c", "cpp", "h", "hpp", "cs", "vb", "vbs",
-        "lua", "r", "swift", "kt", "scala", "groovy", "html", "htm", "xhtml", "shtml", "svg", "xml", "xsl", "xslt",
-        "htaccess", "htpasswd", "json", "yaml", "yml", "toml", "ini", "conf", "config",
-        "iso", "img", "vmdk", "vhd", "ova", "ovf",
-        "docm", "xlsm", "pptm", "dotm", "xltm", "potm",
+        "exe", "dll", "so", "dylib", "bin", "com", "bat", "cmd", "ps1", "sh", "bash", "js", "ts",
+        "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx", "jsp", "jspx", "cfm",
+        "go", "rs", "java", "class", "jar", "war", "c", "cpp", "h", "hpp", "cs", "vb", "vbs",
+        "lua", "r", "swift", "kt", "scala", "groovy", "html", "htm", "xhtml", "shtml", "svg",
+        "xml", "xsl", "xslt", "htaccess", "htpasswd", "json", "yaml", "yml", "toml", "ini", "conf",
+        "config", "iso", "img", "vmdk", "vhd", "ova", "ovf", "docm", "xlsm", "pptm", "dotm",
+        "xltm", "potm",
     ];
 
     for ext in blocked {
@@ -134,7 +164,7 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
             .filter(blocked_extensions::Column::Extension.eq(ext))
             .one(db)
             .await?;
-        
+
         if exists.is_none() {
             let model = blocked_extensions::ActiveModel {
                 extension: Set(ext.to_string()),

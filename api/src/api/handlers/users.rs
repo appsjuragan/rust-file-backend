@@ -106,16 +106,15 @@ pub async fn update_profile(
     if let Some(name) = payload.name {
         active.name = Set(Some(name));
     }
-    if let Some(password) = payload.password {
-        if !password.is_empty() {
-            let salt = SaltString::generate(&mut OsRng);
-            let argon2 = Argon2::default();
-            let password_hash = argon2
-                .hash_password(password.as_bytes(), &salt)
-                .map_err(|e| AppError::Internal(e.to_string()))?
-                .to_string();
-            active.password_hash = Set(Some(password_hash));
-        }
+    if let Some(password) = payload.password
+        && !password.is_empty() {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .to_string();
+        active.password_hash = Set(Some(password_hash));
     }
 
     let updated = active
@@ -163,7 +162,7 @@ pub async fn upload_avatar(
         .to_vec();
 
     // Store in MinIO under avatars/ folder
-    let extension = filename.split('.').last().unwrap_or("png");
+    let extension = filename.split('.').next_back().unwrap_or("png");
     let storage_key = format!("avatars/{}.{}", claims.sub, extension);
 
     state

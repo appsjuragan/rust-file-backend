@@ -35,6 +35,7 @@ impl AuditService {
         Self { db }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn log(
         &self,
         event_type: AuditEventType,

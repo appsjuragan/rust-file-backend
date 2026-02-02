@@ -27,16 +27,13 @@ async fn test_clamav_connection_and_scan() {
     let part3 = "RD-ANTIVIRUS-TEST-FILE!$H+H*";
     let eicar_str = format!("{}{}{}", part1, part2, part3);
     let eicar = eicar_str.as_bytes();
-    
+
     let reader = Box::pin(std::io::Cursor::new(eicar.to_vec()));
     let result = scanner.scan(reader).await.expect("Scan failed");
     match result {
         ScanResult::Infected { threat_name: msg } => {
             println!("Detected virus: {}", msg);
-            assert!(
-                msg.to_lowercase().contains("eicar"),
-                "Should detect Eicar"
-            );
+            assert!(msg.to_lowercase().contains("eicar"), "Should detect Eicar");
         }
         _ => panic!("Expected infected result for EICAR"),
     }

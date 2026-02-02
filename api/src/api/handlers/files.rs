@@ -903,9 +903,9 @@ pub async fn rename_item(
     };
 
     // Circularity check: prevent moving a folder into itself or its descendants
-    if let Some(ref target_id) = target_parent_id {
-        if item.is_folder {
-            if target_id == &item.id {
+    if let Some(ref target_id) = target_parent_id
+        && item.is_folder {
+        if target_id == &item.id {
                 return Err(AppError::BadRequest(
                     "Cannot move a folder into itself".to_string(),
                 ));
@@ -930,7 +930,6 @@ pub async fn rename_item(
                 }
             }
         }
-    }
 
     // Check if target already exists (only for files)
     if !item.is_folder {

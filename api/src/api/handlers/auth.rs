@@ -236,7 +236,10 @@ pub async fn login_oidc(
         // Fetch JWKS (or use empty fallback for tests)
         let jwks_url = format!("{}/.well-known/openid-configuration/jwks", issuer_url);
         let jwks: CoreJsonWebKeySet = match reqwest::get(&jwks_url).await {
-            Ok(resp) => resp.json().await.unwrap_or_else(|_| serde_json::from_str("{\"keys\":[]}").unwrap()),
+            Ok(resp) => resp
+                .json()
+                .await
+                .unwrap_or_else(|_| serde_json::from_str("{\"keys\":[]}").unwrap()),
             Err(_) => serde_json::from_str("{\"keys\":[]}").unwrap(),
         };
 
