@@ -1,6 +1,7 @@
 use crate::services::scanner::{ScanResult, VirusScanner};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set,
+    TransactionTrait,
 };
 use std::sync::Arc;
 use tokio::sync::watch;
@@ -71,56 +72,86 @@ impl BackgroundWorker {
     }
 
     async fn perform_virus_scans(&self) {
-        let pending_files = StorageFiles::find()
-            .filter(storage_files::Column::ScanStatus.eq("pending"))
-            .limit(10)
-            .all(&self.db)
-            .await;
+        // Safe for scaling: Mark files as 'scanning' before processing to avoid duplicate work
+        let mut results = Vec::new();
 
-        if let Ok(files) = pending_files {
-            for sf in files {
-                tracing::info!("🔍 Scanning file: {} (hash: {})", sf.id, sf.hash);
+        // Use a transaction or a specific update-and-fetch logic to claim tasks
+        let db_tx = self.db.begin().await.ok();
 
-                let stream_res = self.storage.get_object_stream(&sf.s3_key).await;
-                if let Err(e) = stream_res {
-                    tracing::error!("Failed to get stream for scan {}: {}", sf.id, e);
-                    continue;
+        if let Some(tx) = db_tx {
+            let pending_ids = StorageFiles::find()
+                .filter(storage_files::Column::ScanStatus.eq("pending"))
+                .select_only()
+                .column(storage_files::Column::Id)
+                .limit(5) // Smaller batches for scaling
+                .into_tuple::<String>()
+                .all(&tx)
+                .await
+                .unwrap_or_default();
+
+            if !pending_ids.is_empty() {
+                // Mark them as scanning immediately
+                let _ = storage_files::Entity::update_many()
+                    .col_expr(
+                        storage_files::Column::ScanStatus,
+                        sea_orm::sea_query::Expr::value("scanning"),
+                    )
+                    .filter(storage_files::Column::Id.is_in(pending_ids.clone()))
+                    .exec(&tx)
+                    .await;
+
+                let _ = tx.commit().await;
+
+                // Now fetch the full models for the IDs we claimed
+                results = StorageFiles::find()
+                    .filter(storage_files::Column::Id.is_in(pending_ids))
+                    .all(&self.db)
+                    .await
+                    .unwrap_or_default();
+            } else {
+                let _ = tx.rollback().await;
+            }
+        }
+
+        for sf in results {
+            tracing::info!("🔍 Scanning file: {} (hash: {})", sf.id, sf.hash);
+
+            let stream_res = self.storage.get_object_stream(&sf.s3_key).await;
+            if let Err(e) = stream_res {
+                tracing::error!("Failed to get stream for scan {}: {}", sf.id, e);
+                // Reset status to pending so another worker can try (or mark as failed)
+                let mut active: storage_files::ActiveModel = sf.into();
+                active.scan_status = Set(Some("pending".to_string()));
+                let _ = active.update(&self.db).await;
+                continue;
+            }
+
+            let stream = stream_res.unwrap();
+            let body_reader = stream.body.into_async_read();
+            let reader = Box::pin(body_reader);
+
+            let mut active: storage_files::ActiveModel = sf.clone().into();
+            match self.scanner.scan(reader).await {
+                Ok(ScanResult::Clean) => {
+                    tracing::info!("✅ File clean: {}", sf.id);
+                    active.scan_status = Set(Some("clean".to_string()));
+                    active.scanned_at = Set(Some(Utc::now()));
+                    let _ = active.update(&self.db).await;
                 }
-
-                let stream = stream_res.unwrap();
-
-                // use crate::services::encryption::EncryptionService;
-                // let file_key = EncryptionService::derive_key_from_hash(&sf.hash);
-
-                // Direct scan of S3 stream (Plaintext)
-                let body_reader = stream.body.into_async_read();
-                // let decrypted_stream = EncryptionService::decrypt_stream(Box::new(body_reader), file_key);
-                // let reader = Box::pin(tokio_util::io::ReaderStream::new(body_reader));
-
-                // VirusScanner usually takes AsyncRead.
-                let reader = Box::pin(body_reader);
-
-                let mut active: storage_files::ActiveModel = sf.clone().into();
-                match self.scanner.scan(reader).await {
-                    Ok(ScanResult::Clean) => {
-                        tracing::info!("✅ File clean: {}", sf.id);
-                        active.scan_status = Set(Some("clean".to_string()));
-                        active.scanned_at = Set(Some(Utc::now()));
-                        let _ = active.update(&self.db).await;
-                    }
-                    Ok(ScanResult::Infected { threat_name }) => {
-                        tracing::warn!("🚨 Virus detected in {}: {}", sf.id, threat_name);
-                        active.scan_status = Set(Some("infected".to_string()));
-                        active.scan_result = Set(Some(threat_name));
-                        active.scanned_at = Set(Some(Utc::now()));
-                        let _ = active.update(&self.db).await;
-                    }
-                    Err(e) => {
-                        tracing::error!("❌ Scan error for {}: {}", sf.id, e);
-                        // We might want to retry later or mark as error
-                    }
-                    _ => {}
+                Ok(ScanResult::Infected { threat_name }) => {
+                    tracing::warn!("🚨 Virus detected in {}: {}", sf.id, threat_name);
+                    active.scan_status = Set(Some("infected".to_string()));
+                    active.scan_result = Set(Some(threat_name));
+                    active.scanned_at = Set(Some(Utc::now()));
+                    let _ = active.update(&self.db).await;
                 }
+                Err(e) => {
+                    tracing::error!("❌ Scan error for {}: {}", sf.id, e);
+                    // Reset to pending so it can be retried
+                    active.scan_status = Set(Some("pending".to_string()));
+                    let _ = active.update(&self.db).await;
+                }
+                _ => {}
             }
         }
     }

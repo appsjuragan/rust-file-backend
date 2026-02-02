@@ -1,3 +1,4 @@
+use clap::Parser;
 use dotenvy::dotenv;
 use rust_file_backend::infrastructure::{database, scanner, storage};
 use rust_file_backend::services::file_service::FileService;
@@ -9,9 +10,22 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Service type to run (api, worker, all)
+    #[arg(short, long, default_value = "all")]
+    mode: String,
+
+    /// Port for the API server
+    #[arg(short, long, default_value_t = 3000)]
+    port: u16,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
+    let args = Args::parse();
 
     // Initialize tracing with EnvFilter
     tracing_subscriber::registry()
@@ -22,9 +36,9 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("🚀 Starting Rust File Backend...");
+    info!("🚀 Starting Rust File Backend in mode: {}...", args.mode);
 
-    // Setup Infrastructure
+    // Setup Common Infrastructure
     let db = database::setup_database().await?;
     let storage_service = storage::setup_storage().await;
 
@@ -38,82 +52,121 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let scanner_service = scanner::setup_scanner(&security_config).await;
-    let file_service = Arc::new(FileService::new(
-        db.clone(),
-        storage_service.clone(),
-        scanner_service.clone(),
-        security_config.clone(),
-    ));
-
-    let state = AppState {
-        db: db.clone(),
-        storage: storage_service.clone(),
-        scanner: scanner_service.clone(),
-        file_service,
-
-        config: security_config.clone(),
-    };
 
     // Setup Shutdown Channel
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
-    // Start Background Worker
-    let worker = rust_file_backend::services::worker::BackgroundWorker::new(
-        db.clone(),
-        storage_service.clone(),
-        scanner_service.clone(),
-        security_config.clone(),
-        shutdown_rx,
-    );
-    tokio::spawn(async move {
-        worker.run().await;
-    });
+    let mut handles = Vec::new();
 
-    let app = create_app(state).layer(
-        TraceLayer::new_for_http()
-            .make_span_with(|request: &axum::http::Request<_>| {
-                let request_id = request
-                    .headers()
-                    .get("x-request-id")
-                    .and_then(|v| v.to_str().ok())
-                    .unwrap_or("unknown");
-                tracing::info_span!(
-                    "http_request",
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    request_id = %request_id,
-                )
-            })
-            .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
-                info!("📥 {} {}", request.method(), request.uri());
-            })
-            .on_response(
-                |response: &axum::http::Response<_>,
-                 latency: std::time::Duration,
-                 _span: &tracing::Span| {
-                    info!(
-                        "📤 Finished in {:?} with status {}",
-                        latency,
-                        response.status()
-                    );
-                },
-            ),
-    );
+    // Start Worker if requested
+    if args.mode == "worker" || args.mode == "all" {
+        let worker_db = db.clone();
+        let worker_storage = storage_service.clone();
+        let worker_scanner = scanner_service.clone();
+        let worker_config = security_config.clone();
+        let worker_shutdown = shutdown_rx.clone();
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("✅ Server ready at http://localhost:3000");
-    info!("📖 Swagger UI: http://localhost:3000/swagger-ui");
+        let worker_handle = tokio::spawn(async move {
+            let worker = rust_file_backend::services::worker::BackgroundWorker::new(
+                worker_db,
+                worker_storage,
+                worker_scanner,
+                worker_config,
+                worker_shutdown,
+            );
+            worker.run().await;
+        });
+        handles.push(worker_handle);
+        info!("👷 Worker service initialized.");
+    }
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Start API if requested
+    if args.mode == "api" || args.mode == "all" {
+        let file_service = Arc::new(FileService::new(
+            db.clone(),
+            storage_service.clone(),
+            scanner_service.clone(),
+            security_config.clone(),
+        ));
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async move {
-            shutdown_signal().await;
-            let _ = shutdown_tx.send(true);
-        })
-        .await?;
+        let state = AppState {
+            db: db.clone(),
+            storage: storage_service.clone(),
+            scanner: scanner_service.clone(),
+            file_service,
+            config: security_config.clone(),
+        };
 
-    info!("🛑 Server shut down gracefully.");
+        let app = create_app(state).layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::http::Request<_>| {
+                    let request_id = request
+                        .headers()
+                        .get("x-request-id")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("unknown");
+                    tracing::info_span!(
+                        "http_request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        request_id = %request_id,
+                    )
+                })
+                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                    info!("📥 {} {}", request.method(), request.uri());
+                })
+                .on_response(
+                    |response: &axum::http::Response<_>,
+                     latency: std::time::Duration,
+                     _span: &tracing::Span| {
+                        info!(
+                            "📤 Finished in {:?} with status {}",
+                            latency,
+                            response.status()
+                        );
+                    },
+                ),
+        );
+
+        let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
+        info!("✅ API Server ready at http://localhost:{}", args.port);
+        if args.mode == "all" || args.mode == "api" {
+            info!("📖 Swagger UI: http://localhost:{}/swagger-ui", args.port);
+        }
+
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+
+        let server_handle = tokio::spawn(async move {
+            if let Err(e) = axum::serve(listener, app)
+                .with_graceful_shutdown(async move {
+                    shutdown_signal().await;
+                })
+                .await
+            {
+                tracing::error!("Server error: {}", e);
+            }
+        });
+        handles.push(server_handle);
+    }
+
+    // Wait for shutdown or for all services to finish
+    if args.mode == "worker" {
+        // If only worker, we need a special shutdown signal wait because it's not wrapped in Axum's graceful shutdown
+        tokio::select! {
+            _ = shutdown_signal() => {
+                info!("🛑 Shutdown signal received.");
+                let _ = shutdown_tx.send(true);
+            }
+        }
+    } else {
+        // If API is running, Axum handles the signal internally, but we should still notify the worker
+        // Wait for handles or just join them
+        // For simplicity, let's keep it simple:
+        shutdown_signal().await;
+        let _ = shutdown_tx.send(true);
+    }
+
+    info!("👋 Shutting down...");
     Ok(())
 }
 
