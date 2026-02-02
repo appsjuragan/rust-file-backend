@@ -5,9 +5,7 @@ use crate::services::metadata::MetadataService;
 use crate::services::storage::StorageService;
 use crate::utils::validation::validate_upload;
 use chrono::{Duration, Utc};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
@@ -64,9 +62,21 @@ impl FileService {
             .map_err(|e| AppError::Internal(format!("Read error: {}", e)))?;
         let header = &header_buffer[..n];
 
-        // 2. Early Validation
-        validate_upload(filename, content_type, 0, header, self.config.max_file_size)
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        // 2. Load Validation Rules from DB
+        let rules = crate::utils::validation::ValidationRules::load(&self.db)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+
+        // 3. Early Validation
+        validate_upload(
+            filename,
+            content_type,
+            0,
+            header,
+            self.config.max_file_size,
+            &rules,
+        )
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         // Reconstruct stream
         let header_cursor = std::io::Cursor::new(header.to_vec());
@@ -197,7 +207,6 @@ impl FileService {
         expiration_hours: Option<i64>,
         _total_size: Option<u64>,
     ) -> Result<(String, Option<chrono::DateTime<Utc>>), AppError> {
-
         // Check for deduplication (Required to handle the staged file correctly)
         let existing_storage_file = StorageFiles::find()
             .filter(storage_files::Column::Hash.eq(&staged.hash))
@@ -312,20 +321,21 @@ impl FileService {
                         tokio::spawn(async move {
                             tracing::info!("🚀 Starting async scan for file: {}", file_id);
 
-                            let scan_res = if let Some(ref path) = temp_path_opt 
-                                && let Ok(file) = tokio::fs::File::open(&path).await {
-                                    scanner.scan(Box::pin(file)).await
-                                } else if temp_path_opt.is_some() {
-                                    // Failed to open temp file
-                                    Ok(crate::services::scanner::ScanResult::Error {
-                                        reason: "Temp file lost".to_string(),
-                                    })
-                                } else {
-                                    // Fallback to S3
-                                    Ok(crate::services::scanner::ScanResult::Error {
-                                        reason: "No temp file for scan".to_string(),
-                                    })
-                                };
+                            let scan_res = if let Some(ref path) = temp_path_opt
+                                && let Ok(file) = tokio::fs::File::open(&path).await
+                            {
+                                scanner.scan(Box::pin(file)).await
+                            } else if temp_path_opt.is_some() {
+                                // Failed to open temp file
+                                Ok(crate::services::scanner::ScanResult::Error {
+                                    reason: "Temp file lost".to_string(),
+                                })
+                            } else {
+                                // Fallback to S3
+                                Ok(crate::services::scanner::ScanResult::Error {
+                                    reason: "No temp file for scan".to_string(),
+                                })
+                            };
 
                             use crate::entities::storage_files;
                             let (status, result) = match scan_res {
@@ -366,9 +376,10 @@ impl FileService {
                             }
 
                             // Cleanup Temp File
-                            if let Some(path) = temp_path_opt 
-                                && let Err(e) = tokio::fs::remove_file(&path).await {
-                                    tracing::warn!("Failed to delete temp file {}: {}", path, e);
+                            if let Some(path) = temp_path_opt
+                                && let Err(e) = tokio::fs::remove_file(&path).await
+                            {
+                                tracing::warn!("Failed to delete temp file {}: {}", path, e);
                             }
                         });
                     }
@@ -793,9 +804,11 @@ impl FileService {
                 .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
 
             // Basic circularity check (simplified for bulk)
-            if let Some(ref target_id) = new_parent_id 
-                && item.is_folder && target_id == &item.id {
-                    continue; // Skip invalid moves in bulk
+            if let Some(ref target_id) = new_parent_id
+                && item.is_folder
+                && target_id == &item.id
+            {
+                continue; // Skip invalid moves in bulk
             }
 
             let mut active: user_files::ActiveModel = item.into();

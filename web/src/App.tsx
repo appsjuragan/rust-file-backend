@@ -89,6 +89,7 @@ function App() {
                 scanStatus: item.scan_status,
                 size: item.size,
                 mimeType: item.mime_type,
+                hash: item.hash,
                 extraMetadata: item.extra_metadata,
             }));
 
@@ -169,6 +170,7 @@ function App() {
                         scanStatus: item.scan_status,
                         size: item.size,
                         mimeType: item.mime_type,
+                        hash: item.hash,
                     }));
 
                     setFs(prevFs => {
@@ -339,11 +341,11 @@ function App() {
 
     const [pendingUpload, setPendingUpload] = useState<{ file: File, folderId: string, onProgress?: (p: number) => void } | null>(null);
 
-    const MAX_FILE_SIZE = 256 * 1024 * 1024; // 256MB
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
     const calculateHash = async (file: File): Promise<string> => {
-        // Limit client-side hashing to 100MB to prevent UI freezing
-        if (file.size > 100 * 1024 * 1024) {
+        // Limit client-side hashing to 1GB to prevent excessive performance hit
+        if (file.size > 1024 * 1024 * 1024) {
             return "";
         }
 
@@ -526,7 +528,38 @@ function App() {
                     }
 
                     const hash = await calculateHash(file);
-                    const preCheck = await api.preCheck(hash, file.size);
+
+                    // Check if file with same name exists in the target folder
+                    const existingInFolder = fsRef.current.find(f =>
+                        f.name === fileName &&
+                        !f.isDir &&
+                        (f.parentId === (targetFolderId === "0" ? "0" : targetFolderId))
+                    );
+
+                    if (existingInFolder) {
+                        if (existingInFolder.hash === hash) {
+                            // Same name + same hash -> skip
+                            updateStatus(id, 100, 'completed', 'File already exists');
+                            continue;
+                        } else {
+                            // Same name + different hash -> prompt
+                            const overwrite = window.confirm(`File "${fileName}" already exists with different content. Overwrite?`);
+                            if (!overwrite) {
+                                updateStatus(id, 0, 'error', 'Upload cancelled (duplicate name)');
+                                continue;
+                            }
+                        }
+                    }
+
+                    let preCheck = { exists: false, file_id: null };
+
+                    if (hash) {
+                        try {
+                            preCheck = await api.preCheck(hash, file.size);
+                        } catch (e) {
+                            console.warn("Pre-check failed", e);
+                        }
+                    }
 
                     if (preCheck.exists && preCheck.file_id) {
                         await api.linkFile(preCheck.file_id as string, fileName, targetFolderId as any);

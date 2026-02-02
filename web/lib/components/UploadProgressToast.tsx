@@ -62,8 +62,8 @@ const UploadProgressToast = () => {
                                                 <span className="text-[10px] font-bold text-indigo-500 shrink-0">{Math.round(u.progress)}%</span>
                                             )}
                                         </div>
-                                        {u.status === 'error' && u.error && (
-                                            <span className="text-[10px] text-rose-500 font-medium mt-0.5 leading-tight">
+                                        {(u.status === 'error' || (u.status === 'completed' && u.error)) && u.error && (
+                                            <span className={`text-[10px] font-medium mt-0.5 leading-tight ${u.status === 'error' ? 'text-rose-500' : 'text-emerald-600'}`}>
                                                 {u.error}
                                             </span>
                                         )}

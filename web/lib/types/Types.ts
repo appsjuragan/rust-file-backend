@@ -18,6 +18,7 @@ export type FileType = {
   scanStatus?: "pending" | "clean" | "infected" | "unchecked";
   size?: number;
   mimeType?: string;
+  hash?: string;
   extraMetadata?: any;
 };
 

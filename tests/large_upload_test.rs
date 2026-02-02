@@ -17,32 +17,9 @@ use tower::ServiceExt;
 
 async fn setup_test_db() -> sea_orm::DatabaseConnection {
     let db = Database::connect("sqlite::memory:").await.unwrap();
-
-    let backend = db.get_database_backend();
-    let schema = sea_orm::Schema::new(backend);
-
-    db.execute(backend.build(&schema.create_table_from_entity(Users)))
+    rust_file_backend::infrastructure::database::run_migrations(&db)
         .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(Tokens)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(StorageFiles)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(FileMetadata)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(Tags)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(FileTags)))
-        .await
-        .ok();
-
+        .unwrap();
     db
 }
 

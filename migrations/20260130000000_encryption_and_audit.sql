@@ -1,11 +1,11 @@
 -- Add Encryption Keys to Users
-ALTER TABLE users ADD COLUMN public_key TEXT;
-ALTER TABLE users ADD COLUMN private_key_enc TEXT;
-ALTER TABLE users ADD COLUMN oidc_sub TEXT UNIQUE;
-ALTER TABLE users ADD COLUMN email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS private_key_enc TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_sub TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Add Encrypted File Key to UserFiles
-ALTER TABLE user_files ADD COLUMN encryption_key TEXT;
+ALTER TABLE user_files ADD COLUMN IF NOT EXISTS encryption_key TEXT;
 
 -- Create Audit Logs Table
 CREATE TABLE IF NOT EXISTS audit_logs (

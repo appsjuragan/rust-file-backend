@@ -1,6 +1,6 @@
 use crate::entities::{
-    audit_logs, file_metadata, file_tags, storage_files, tags, tokens, user_file_facts, user_files,
-    user_settings, users,
+    allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
+    storage_files, tags, tokens, user_file_facts, user_files, user_settings, users,
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm::{ConnectionTrait, Schema};
@@ -33,6 +33,17 @@ pub async fn setup_database() -> anyhow::Result<DatabaseConnection> {
 }
 
 pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
+    if let Ok(db_url) = env::var("DATABASE_URL") {
+        info!("🔄 Running SQLx migrations...");
+        if db_url.starts_with("postgres://") {
+            let pool = sqlx::PgPool::connect(&db_url).await?;
+            sqlx::migrate!("./migrations").run(&pool).await?;
+        } else if db_url.starts_with("sqlite://") && !db_url.contains(":memory:") {
+            let pool = sqlx::SqlitePool::connect(&db_url).await?;
+            sqlx::migrate!("./migrations").run(&pool).await?;
+        }
+    }
+
     let builder = db.get_database_backend();
     let schema = Schema::new(builder);
 
@@ -107,6 +118,27 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             "user_file_facts",
             schema
                 .create_table_from_entity(user_file_facts::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
+        (
+            "allowed_mimes",
+            schema
+                .create_table_from_entity(allowed_mimes::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
+        (
+            "magic_signatures",
+            schema
+                .create_table_from_entity(magic_signatures::Entity)
+                .if_not_exists()
+                .to_owned(),
+        ),
+        (
+            "blocked_extensions",
+            schema
+                .create_table_from_entity(blocked_extensions::Entity)
                 .if_not_exists()
                 .to_owned(),
         ),
@@ -187,6 +219,8 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             }
         }
     }
+
+    crate::infrastructure::seed::seed_validation_data(db).await?;
 
     Ok(())
 }

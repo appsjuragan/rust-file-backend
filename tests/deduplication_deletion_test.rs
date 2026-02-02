@@ -18,47 +18,9 @@ use tower::ServiceExt;
 
 async fn setup_test_db() -> sea_orm::DatabaseConnection {
     let db = Database::connect("sqlite::memory:").await.unwrap();
-
-    // Run migrations using raw SQL since we're in test mode
-    let backend = db.get_database_backend();
-    let schema = sea_orm::Schema::new(backend);
-
-    // Create tables
-    db.execute(backend.build(&schema.create_table_from_entity(Users)))
+    rust_file_backend::infrastructure::database::run_migrations(&db)
         .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(Tokens)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(StorageFiles)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(UserFiles)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(FileMetadata)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(Tags)))
-        .await
-        .ok();
-    db.execute(backend.build(&schema.create_table_from_entity(FileTags)))
-        .await
-        .ok();
-
-    // Apply schema updates for new features
-    let schema_updates = vec![
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS is_folder BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP DEFAULT NULL",
-    ];
-
-    for query in schema_updates {
-        db.execute(sea_orm::Statement::from_string(backend, query.to_owned()))
-            .await
-            .ok();
-    }
-
+        .unwrap();
     db
 }
 

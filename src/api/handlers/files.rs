@@ -45,6 +45,7 @@ pub struct FileMetadataResponse {
     pub extra_metadata: Option<serde_json::Value>,
     pub scan_status: Option<String>,
     pub scan_result: Option<String>,
+    pub hash: Option<String>,
 }
 
 use validator::Validate;
@@ -197,11 +198,18 @@ pub async fn link_file(
     Extension(claims): Extension<Claims>,
     Json(req): Json<LinkFileRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
+    let rules = crate::utils::validation::ValidationRules::load(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+
+    let sanitized_filename = crate::utils::validation::sanitize_filename(&req.filename, &rules)
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
     let (user_file_id, expires_at) = state
         .file_service
         .link_existing_file(
             req.storage_file_id,
-            req.filename.clone(),
+            sanitized_filename.clone(),
             claims.sub,
             req.parent_id,
             req.expiration_hours,
@@ -256,8 +264,15 @@ pub async fn upload_file(
                 let original_filename = field.file_name().unwrap_or("unnamed").to_string();
                 let content_type = field.content_type().map(|s| s.to_string());
 
+                // 0. Load Validation Rules
+                let rules = crate::utils::validation::ValidationRules::load(&state.db)
+                    .await
+                    .map_err(|e| {
+                        AppError::Internal(format!("Failed to load validation rules: {}", e))
+                    })?;
+
                 // 1. Sanitize filename
-                filename = sanitize_filename(&original_filename)
+                filename = sanitize_filename(&original_filename, &rules)
                     .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
                 // 2. Create reader
@@ -404,7 +419,6 @@ pub async fn download_file(
             _ => content_type,
         };
     }
-
 
     // 4. Prepare headers shared by both full and partial responses
     let ascii_filename = user_file
@@ -687,6 +701,7 @@ pub async fn list_files(
             extra_metadata: metadata.map(|m| m.metadata),
             scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
             scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
+            hash: storage_file.as_ref().map(|s| s.hash.clone()),
         });
     }
 
@@ -712,8 +727,12 @@ pub async fn create_folder(
 ) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
 
+    let rules = crate::utils::validation::ValidationRules::load(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+
     let sanitized_name =
-        sanitize_filename(&req.name).map_err(|e| AppError::BadRequest(e.to_string()))?;
+        sanitize_filename(&req.name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let new_folder = user_files::ActiveModel {
         id: Set(id.clone()),
@@ -742,6 +761,7 @@ pub async fn create_folder(
         extra_metadata: None,
         scan_status: None,
         scan_result: None,
+        hash: None,
     }))
 }
 
@@ -800,6 +820,7 @@ pub async fn get_folder_path(
                 extra_metadata: None,
                 scan_status: None,
                 scan_result: None,
+                hash: None,
             },
         );
 
@@ -865,8 +886,12 @@ pub async fn rename_item(
             "Item not found or already deleted".to_string(),
         ))?;
 
+    let rules = crate::utils::validation::ValidationRules::load(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+
     let target_filename = if let Some(name) = req.name.clone() {
-        sanitize_filename(&name).map_err(|e| AppError::BadRequest(e.to_string()))?
+        sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?
     } else {
         item.filename.clone()
     };
@@ -953,8 +978,12 @@ pub async fn rename_item(
 
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
+        let rules = crate::utils::validation::ValidationRules::load(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+
         let sanitized_name =
-            sanitize_filename(&name).map_err(|e| AppError::BadRequest(e.to_string()))?;
+            sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;
         active.filename = Set(sanitized_name);
     }
     if let Some(parent_id) = req.parent_id {
@@ -1234,6 +1263,7 @@ async fn return_file_metadata(
         extra_metadata: metadata.map(|m| m.metadata),
         scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
+        hash: storage_file.as_ref().map(|s| s.hash.clone()),
     }))
 }
 

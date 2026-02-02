@@ -121,6 +121,35 @@ impl StorageService for MockStorageService {
     ) -> anyhow::Result<aws_sdk_s3::operation::get_object::GetObjectOutput> {
         self.get_object_stream(key).await
     }
+    async fn get_file(&self, key: &str) -> anyhow::Result<Vec<u8>> {
+        self.files
+            .lock()
+            .unwrap()
+            .get(key)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Key not found"))
+    }
+    async fn list_objects(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        let files = self.files.lock().unwrap();
+        Ok(files
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect())
+    }
+    async fn get_object_metadata(
+        &self,
+        key: &str,
+    ) -> anyhow::Result<rust_file_backend::services::storage::FileMetadata> {
+        let files = self.files.lock().unwrap();
+        let data = files
+            .get(key)
+            .ok_or_else(|| anyhow::anyhow!("Key not found"))?;
+        Ok(rust_file_backend::services::storage::FileMetadata {
+            last_modified: Some(chrono::Utc::now()),
+            size: data.len() as i64,
+        })
+    }
 }
 
 async fn setup_s3() -> Arc<dyn StorageService> {

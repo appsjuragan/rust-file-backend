@@ -1,6 +1,9 @@
+pub use super::allowed_mimes::Entity as AllowedMimes;
 pub use super::audit_logs::Entity as AuditLogs;
+pub use super::blocked_extensions::Entity as BlockedExtensions;
 pub use super::file_metadata::Entity as FileMetadata;
 pub use super::file_tags::Entity as FileTags;
+pub use super::magic_signatures::Entity as MagicSignatures;
 pub use super::storage_files::Entity as StorageFiles;
 pub use super::tags::Entity as Tags;
 pub use super::tokens::Entity as Tokens;
