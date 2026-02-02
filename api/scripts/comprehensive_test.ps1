@@ -21,8 +21,8 @@ New-Item "backend.db" -ItemType File | Out-Null
 # Start Server
 Write-Host "Starting server..."
 $serverProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -PassThru -NoNewWindow
-Write-Host "Server started with PID $($serverProcess.Id). Waiting 20s..."
-Start-Sleep -Seconds 20
+Write-Host "Server started with PID $($serverProcess.Id). Waiting 40s..."
+Start-Sleep -Seconds 40
 
 # Create Test Files
 Write-Host "Creating test payloads..."

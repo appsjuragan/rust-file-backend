@@ -60,17 +60,37 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 
 ---
 
+## 📁 Project Structure
+
+This project is organized as a monorepo:
+- **`api/`**: The Rust backend service.
+- **`web/`**: The React frontend application.
+
+---
+
 ## 🚦 Quick Start in 3 Steps
 
 ### 1. Prepare Your Environment
-Copy the example configuration:
+Copy the example configuration for the backend:
 ```bash
+cd api
 cp .env.example .env
 ```
 
 ### 2. Launch the Engine
+You can use the root `run.bat` to start both backend and frontend, or run them manually:
+
+**Backend:**
 ```bash
+cd api
 cargo run --release
+```
+
+**Frontend:**
+```bash
+cd web
+bun install
+bun run dev
 ```
 
 ### 3. Explore the API
