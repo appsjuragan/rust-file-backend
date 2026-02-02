@@ -1,5 +1,5 @@
 # test_swagger_endpoints.ps1
-$baseUrl = "http://127.0.0.1:3000"
+$baseUrl = "http://localhost:3000"
 $testUsername = "testuser_$(Get-Random)"
 $testPassword = "TestPassword123!"
 $token = ""
@@ -33,6 +33,16 @@ $regBody = @{ username = $testUsername; password = $testPassword } | ConvertTo-J
 $reg = Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $regBody -ContentType "application/json" -UseBasicParsing
 Assert-Status $reg 201 "User registration"
 
+# 2b. Auth: Register (Duplicate - Negative)
+Write-Step "Testing /register (Duplicate)..."
+try {
+    Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $regBody -ContentType "application/json" -ErrorAction Stop -UseBasicParsing
+    Write-Host " [FAIL] Duplicate registration should have failed" -ForegroundColor Red
+}
+catch {
+    Assert-Status $_.Exception.Response 400 "Duplicate registration caught"
+}
+
 # 3. Auth: Login
 Write-Step "Testing /login..."
 $login = Invoke-RestMethod -Uri "$baseUrl/login" -Method Post -Body $regBody -ContentType "application/json"
@@ -45,13 +55,34 @@ else {
     exit 1
 }
 
+# 3b. Auth: Login (Invalid Password - Negative)
+Write-Step "Testing /login (Invalid Password)..."
+try {
+    $badLoginBody = @{ username = $testUsername; password = "WrongPassword" } | ConvertTo-Json
+    Invoke-WebRequest -Uri "$baseUrl/login" -Method Post -Body $badLoginBody -ContentType "application/json" -ErrorAction Stop -UseBasicParsing
+    Write-Host " [FAIL] Invalid login should have failed" -ForegroundColor Red
+}
+catch {
+    Assert-Status $_.Exception.Response 401 "Invalid login caught"
+}
+
 $headers = @{ Authorization = "Bearer $token" }
+
+# 3c. Unauthorized Access (Negative)
+Write-Step "Testing /settings (No Token)..."
+try {
+    Invoke-WebRequest -Uri "$baseUrl/settings" -Method Get -ErrorAction Stop -UseBasicParsing
+    Write-Host " [FAIL] Access without token should have failed" -ForegroundColor Red
+}
+catch {
+    Assert-Status $_.Exception.Response 401 "Unauthorized access caught"
+}
 
 # 4. User Profile
 Write-Step "Testing /users/me (GET/PUT)..."
-$profile = Invoke-RestMethod -Uri "$baseUrl/users/me" -Method Get -Headers $headers
-Write-Host " Current profile: $($profile.username)"
-$updateProfileBody = @{ full_name = "Test User Full Name" } | ConvertTo-Json
+$userProfile = Invoke-RestMethod -Uri "$baseUrl/users/me" -Method Get -Headers $headers
+Write-Host " Current profile: $($userProfile.username)"
+$updateProfileBody = @{ name = "Test User Full Name" } | ConvertTo-Json
 $updateProfile = Invoke-WebRequest -Uri "$baseUrl/users/me" -Method Put -Headers $headers -Body $updateProfileBody -ContentType "application/json" -UseBasicParsing
 Assert-Status $updateProfile 200 "Update profile"
 
@@ -112,7 +143,6 @@ if ($zipId) {
 
 # 11. Pre-check Dedup & Link
 Write-Step "Testing /pre-check and /files/link (POST)..."
-# Set-Content -Encoding Ascii is important to match what curl sends usually
 $fileHash = (Get-FileHash "test_file.txt" -Algorithm SHA256).Hash.ToLower()
 $fileSize = (Get-Item "test_file.txt").Length
 Write-Host " File Info: Hash=$fileHash, Size=$fileSize"
@@ -121,7 +151,7 @@ $preCheck = Invoke-RestMethod -Uri "$baseUrl/pre-check" -Method Post -Headers $h
 $linkId = $null
 if ($preCheck.exists) {
     Write-Host " [PASS] Pre-check (File exists)" -ForegroundColor Green
-    $linkBody = @{ full_hash = $fileHash; filename = "linked_file.txt"; parent_id = $null; size = $fileSize } | ConvertTo-Json
+    $linkBody = @{ storage_file_id = $preCheck.file_id; filename = "linked_file.txt"; parent_id = $null } | ConvertTo-Json
     $link = Invoke-RestMethod -Uri "$baseUrl/files/link" -Method Post -Headers $headers -Body $linkBody -ContentType "application/json"
     $linkId = $link.file_id
     if ($linkId) { Write-Host " [PASS] Link file" -ForegroundColor Green }
@@ -167,7 +197,6 @@ Assert-Status $delete 200 "Bulk delete items"
 # 16. Final checks
 Write-Step "Testing /files/:id (GET) download deleted file..."
 try {
-    # File was in target folder which was bulk deleted
     Invoke-WebRequest -Uri "$baseUrl/files/$fileId" -Method Get -Headers $headers -ErrorAction Stop -UseBasicParsing
     Write-Host " [FAIL] Download deleted file should have failed" -ForegroundColor Red
 }

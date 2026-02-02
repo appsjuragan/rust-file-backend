@@ -101,8 +101,8 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("✅ Server ready at http://{}", addr);
-    info!("📖 Swagger UI: http://{}/swagger-ui", addr);
+    info!("✅ Server ready at http://localhost:3000");
+    info!("📖 Swagger UI: http://localhost:3000/swagger-ui");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
