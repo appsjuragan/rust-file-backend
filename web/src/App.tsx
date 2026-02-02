@@ -17,11 +17,22 @@ function App() {
     const [fs, setFs] = useState<FileSystemType>([]);
     const [loading, setLoading] = useState(false);
     const [authLoading, setAuthLoading] = useState(false);
+    const [highlightedId, setHighlightedId] = useState<string | null>(null);
     const [currentFolder, setCurrentFolder] = useState<string>(() => {
         return localStorage.getItem("currentFolder") || "0";
     });
     const [profile, setProfile] = useState<{ id: string, name?: string, email?: string, avatarUrl?: string }>({ id: "", name: "", email: "", avatarUrl: "" });
     const [userFacts, setUserFacts] = useState<any>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchSuggestions, setSearchSuggestions] = useState<FileType[]>([]);
+    const [searchingMore, setSearchingMore] = useState(false);
+    const [hasMoreSuggestions, setHasMoreSuggestions] = useState(true);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [hasMoreFiles, setHasMoreFiles] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [searchMode, setSearchMode] = useState<'standard' | 'regex' | 'wildcard'>('standard');
+    const [searchDateRange, setSearchDateRange] = useState<{ start?: string, end?: string }>({});
+    const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -75,11 +86,14 @@ function App() {
         }
     }, []);
 
-    const fetchFiles = useCallback(async (parentId?: string, silent = false) => {
-        if (!silent) setLoading(true);
+    const fetchFiles = useCallback(async (parentId?: string, silent = false, offset = 0) => {
+        if (!silent && offset === 0) setLoading(true);
+        if (offset > 0) setLoadingMore(true);
         const effectiveParentId = parentId || "0";
         try {
-            const data = await api.listFiles(parentId === "0" ? undefined : parentId);
+            const limit = 150;
+            const data = await api.listFiles(parentId === "0" ? undefined : parentId, limit, offset);
+
             const mappedFs: FileSystemType = data.map((item: any) => ({
                 id: item.id,
                 name: item.filename,
@@ -93,12 +107,21 @@ function App() {
                 extraMetadata: item.extra_metadata,
             }));
 
-            setFs(prevFs => {
-                // Remove existing items that belong to this parent to handle deletions
-                let newFs = prevFs.filter(f => (f.parentId || "0") !== effectiveParentId && f.id !== "0");
+            setHasMoreFiles(data.length === limit);
 
-                // Add the new items
-                newFs = [...newFs, ...mappedFs];
+            setFs(prevFs => {
+                let newFs;
+                if (offset === 0) {
+                    // Remove existing items that belong to this parent to handle deletions
+                    newFs = prevFs.filter(f => (f.parentId || "0") !== effectiveParentId && f.id !== "0");
+                } else {
+                    newFs = [...prevFs];
+                }
+
+                // Add the new items (avoid duplicates just in case)
+                const existingIds = new Set(newFs.map(f => f.id));
+                const uniqueNewItems = mappedFs.filter(f => !existingIds.has(f.id));
+                newFs = [...newFs, ...uniqueNewItems];
 
                 // Ensure root is present
                 if (!newFs.some(f => f.id === "0")) {
@@ -110,8 +133,17 @@ function App() {
             console.error("Failed to fetch files:", err);
         } finally {
             if (!silent) setLoading(false);
+            setLoadingMore(false);
         }
     }, [setFs]);
+
+    const loadMoreFiles = useCallback(async () => {
+        if (!hasMoreFiles || loadingMore) return;
+
+        // Count how many files we already have in the current folder
+        const currentFolderItemsCount = fs.filter(f => (f.parentId || "0") === currentFolder).length;
+        await fetchFiles(currentFolder, true, currentFolderItemsCount);
+    }, [fetchFiles, currentFolder, hasMoreFiles, loadingMore, fs]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -131,6 +163,94 @@ function App() {
             fetchFiles(currentFolder);
         }
     }, [currentFolder, username, isAuthenticated, fetchProfile, fetchUserFacts, fetchFiles]);
+
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchSuggestions([]);
+            setHasMoreSuggestions(false);
+            return;
+        }
+
+        const handler = setTimeout(async () => {
+            try {
+                const results = await api.searchFiles({
+                    q: searchQuery,
+                    regex: searchMode === 'regex',
+                    wildcard: searchMode === 'wildcard',
+                    similarity: true,
+                    start_date: searchDateRange.start,
+                    end_date: searchDateRange.end,
+                    limit: 12,
+                    offset: 0
+                });
+
+                setHasMoreSuggestions(results.length === 12);
+
+                const mappedSuggestions: FileType[] = results.map((item: any) => ({
+                    id: item.id,
+                    name: item.filename,
+                    isDir: item.is_folder,
+                    parentId: item.parent_id || "0",
+                    lastModified: new Date(item.created_at).getTime() / 1000,
+                    scanStatus: item.scan_status,
+                    size: item.size,
+                    mimeType: item.mime_type,
+                    hash: item.hash,
+                }));
+
+                setSearchSuggestions(mappedSuggestions);
+                setShowSuggestions(true);
+            } catch (err) {
+                console.error("Search failed:", err);
+            }
+        }, 300);
+
+        return () => clearTimeout(handler);
+    }, [searchQuery, searchMode, searchDateRange]);
+
+    const loadMoreSuggestions = async () => {
+        if (searchingMore || !hasMoreSuggestions || !searchQuery.trim() || searchSuggestions.length >= 256) {
+            if (searchSuggestions.length >= 256) setHasMoreSuggestions(false);
+            return;
+        }
+
+        setSearchingMore(true);
+        try {
+            const results = await api.searchFiles({
+                q: searchQuery,
+                regex: searchMode === 'regex',
+                wildcard: searchMode === 'wildcard',
+                similarity: true,
+                start_date: searchDateRange.start,
+                end_date: searchDateRange.end,
+                limit: 24,
+                offset: searchSuggestions.length
+            });
+
+            if (results.length > 0) {
+                const mappedMore: FileType[] = results.map((item: any) => ({
+                    id: item.id,
+                    name: item.filename,
+                    isDir: item.is_folder,
+                    parentId: item.parent_id || "0",
+                    lastModified: new Date(item.created_at).getTime() / 1000,
+                    scanStatus: item.scan_status,
+                    size: item.size,
+                    mimeType: item.mime_type,
+                    hash: item.hash,
+                }));
+                const newSuggestions = [...searchSuggestions, ...mappedMore].slice(0, 256);
+                setSearchSuggestions(newSuggestions);
+                setHasMoreSuggestions(results.length === 24 && newSuggestions.length < 256);
+            } else {
+                setHasMoreSuggestions(false);
+            }
+        } catch (err) {
+            console.error("Failed to load more suggestions:", err);
+        } finally {
+            setSearchingMore(false);
+        }
+    };
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -343,7 +463,7 @@ function App() {
 
     const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
-    const calculateHash = async (file: File): Promise<string> => {
+    const calculateHash = async (file: File, onProgress?: (p: number) => void): Promise<string> => {
         // Limit client-side hashing to 1GB to prevent excessive performance hit
         if (file.size > 1024 * 1024 * 1024) {
             return "";
@@ -364,6 +484,9 @@ function App() {
                 const buffer = await chunk.arrayBuffer();
                 hasher.update(new Uint8Array(buffer));
                 offset += chunkSize;
+                if (onProgress) {
+                    onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+                }
             }
 
             return hasher.digest();
@@ -475,7 +598,7 @@ function App() {
         }));
         setActiveUploads(prev => [...prev, ...statusItems]);
 
-        const updateStatus = (id: string, progress: number, status: 'uploading' | 'completed' | 'error', error?: string) => {
+        const updateStatus = (id: string, progress: number, status: 'hashing' | 'uploading' | 'processing' | 'completed' | 'error', error?: string) => {
             setActiveUploads(prev => prev.map(u =>
                 u.id === id ? { ...u, progress, status, error } : u
             ));
@@ -527,7 +650,10 @@ function App() {
                         continue;
                     }
 
-                    const hash = await calculateHash(file);
+                    updateStatus(id, 0, 'hashing');
+                    const hash = await calculateHash(file, (p) => {
+                        updateStatus(id, p, 'hashing');
+                    });
 
                     // Check if file with same name exists in the target folder
                     const existingInFolder = fsRef.current.find(f =>
@@ -562,11 +688,17 @@ function App() {
                     }
 
                     if (preCheck.exists && preCheck.file_id) {
+                        updateStatus(id, 100, 'processing');
                         await api.linkFile(preCheck.file_id as string, fileName, targetFolderId as any);
                         updateStatus(id, 100, 'completed');
                     } else {
+                        updateStatus(id, 0, 'uploading');
                         await api.uploadFile(file, targetFolderId as any, (p) => {
-                            updateStatus(id, p, 'uploading');
+                            if (p === 100) {
+                                updateStatus(id, 100, 'processing');
+                            } else {
+                                updateStatus(id, p, 'uploading');
+                            }
                         });
                         updateStatus(id, 100, 'completed');
                     }
@@ -724,6 +856,110 @@ function App() {
         <div className="app-container">
             <header className="app-header">
                 <div className="logo">🚀 File Manager</div>
+
+                <div className="global-search-container">
+                    <div className="search-input-wrapper">
+                        <span className="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Global file search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onFocus={() => searchQuery && setShowSuggestions(true)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setIsAdvancedSearchOpen(false);
+                                    setShowSuggestions(false);
+                                }
+                            }}
+                            className="global-search-input"
+                        />
+                        <button
+                            className={`advanced-search-toggle ${isAdvancedSearchOpen ? 'active' : ''}`}
+                            onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
+                            title="Advanced Search"
+                        >
+                            ⚙️
+                        </button>
+                    </div>
+
+                    {showSuggestions && searchSuggestions.length > 0 && (
+                        <div
+                            className="search-suggestions-box"
+                            onScroll={(e) => {
+                                const target = e.currentTarget;
+                                const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
+                                if (isAtBottom && hasMoreSuggestions && !searchingMore) {
+                                    loadMoreSuggestions();
+                                }
+                            }}
+                        >
+                            <div className="suggestions-header sticky top-0 bg-inherit z-10">TOP RESULTS ({searchSuggestions.length})</div>
+                            {searchSuggestions.map((file) => (
+                                <div
+                                    key={file.id}
+                                    className="suggestion-item"
+                                    onClick={() => {
+                                        setCurrentFolder(file.parentId || "0");
+                                        setSearchQuery("");
+                                        setShowSuggestions(false);
+                                        setIsAdvancedSearchOpen(false);
+                                        setHighlightedId(file.id);
+                                    }}
+                                >
+                                    <span className="suggestion-icon">{file.isDir ? "📁" : "📄"}</span>
+                                    <div className="suggestion-info">
+                                        <div className="suggestion-name">{file.name}</div>
+                                        <div className="suggestion-path">in {fs.find(f => f.id === file.parentId)?.name || "Root"}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            {searchingMore && <div className="suggestion-loading">Loading more...</div>}
+                        </div>
+                    )}
+
+                    {isAdvancedSearchOpen && (
+                        <div className="advanced-search-popover">
+                            <div className="advanced-filter-group">
+                                <label>Search Mode</label>
+                                <div className="mode-options">
+                                    <button
+                                        className={searchMode === 'standard' ? 'active' : ''}
+                                        onClick={() => { setSearchMode('standard'); setIsAdvancedSearchOpen(false); }}
+                                    >Standard</button>
+                                    <button
+                                        className={searchMode === 'wildcard' ? 'active' : ''}
+                                        onClick={() => { setSearchMode('wildcard'); setIsAdvancedSearchOpen(false); }}
+                                    >Wildcard</button>
+                                    <button
+                                        className={searchMode === 'regex' ? 'active' : ''}
+                                        onClick={() => { setSearchMode('regex'); setIsAdvancedSearchOpen(false); }}
+                                    >Regex</button>
+                                </div>
+                            </div>
+                            <div className="advanced-filter-group">
+                                <label>Upload Date Range</label>
+                                <div className="date-inputs">
+                                    <input
+                                        type="date"
+                                        onChange={(e) => setSearchDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                    />
+                                    <span>to</span>
+                                    <input
+                                        type="date"
+                                        onChange={(e) => setSearchDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                            <button className="reset-search" onClick={() => {
+                                setSearchMode('standard');
+                                setSearchDateRange({});
+                                setIsAdvancedSearchOpen(false);
+                            }}>Reset Filters</button>
+                        </div>
+                    )}
+                </div>
+
                 <div className="user-info">
                     <div className="user-dropdown-container" onClick={() => setDropdownVisible(!dropdownVisible)}>
                         <div className="user-avatar">
@@ -775,6 +1011,11 @@ function App() {
                     activeUploads={activeUploads}
                     setActiveUploads={setActiveUploads}
                     userFacts={userFacts}
+                    highlightedId={highlightedId}
+                    setHighlightedId={setHighlightedId}
+                    onLoadMore={loadMoreFiles}
+                    hasMore={hasMoreFiles}
+                    isLoadingMore={loadingMore}
                 />
 
                 <CommonModal

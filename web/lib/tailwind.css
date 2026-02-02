@@ -599,6 +599,32 @@
     }
   }
 
+  .rfm-loading-more {
+    @apply flex items-center justify-center gap-3 py-4 text-slate-500 font-medium text-sm;
+  }
+
+  .rfm-highlighted {
+    @apply ring-4 ring-yellow-400 dark:ring-yellow-500 !important;
+    animation: rfm-highlight-pulse 2s infinite;
+  }
+
+  @keyframes rfm-highlight-pulse {
+    0% {
+      box-shadow: 0 0 0 4px #facc15;
+      transform: scale(1);
+    }
+
+    50% {
+      box-shadow: 0 0 0 6px #ca8a04;
+      transform: scale(1.02);
+    }
+
+    100% {
+      box-shadow: 0 0 0 4px #facc15;
+      transform: scale(1);
+    }
+  }
+
   /* Dialog Modal */
   .rfm-dialog-content {
     @apply flex flex-col gap-4;

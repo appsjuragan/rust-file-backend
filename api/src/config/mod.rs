@@ -37,12 +37,15 @@ pub struct SecurityConfig {
 
     /// Staging file cleanup age in hours (default: 24)
     pub staging_cleanup_age_hours: u64,
+
+    /// JWT Secret Key (Required)
+    pub jwt_secret: String,
 }
 
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            max_file_size: 256 * 1024 * 1024, // 256 MB
+            max_file_size: 1024 * 1024 * 1024, // 1 GB
             uploads_per_hour: 250,
             enable_virus_scan: true,
             virus_scanner_type: "clamav".to_string(),
@@ -55,6 +58,7 @@ impl Default for SecurityConfig {
             oidc_redirect_url: None,
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
+            jwt_secret: "secret".to_string(),
         }
     }
 }
@@ -106,13 +110,15 @@ impl SecurityConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(default.staging_cleanup_age_hours),
+
+            jwt_secret: env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string()), // Fallback for dev convenience, strictly enforced in production method
         }
     }
 
     /// Create config for development (no virus scanning, relaxed limits)
     pub fn development() -> Self {
         Self {
-            max_file_size: 256 * 1024 * 1024,
+            max_file_size: 1024 * 1024 * 1024,
             uploads_per_hour: 1000,
             enable_virus_scan: false,
             virus_scanner_type: "noop".to_string(),
@@ -125,13 +131,14 @@ impl SecurityConfig {
             oidc_redirect_url: None,
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
+            jwt_secret: "secret".to_string(),
         }
     }
 
     /// Create config for production (strict security)
     pub fn production() -> Self {
         Self {
-            max_file_size: 256 * 1024 * 1024,
+            max_file_size: 1024 * 1024 * 1024,
             uploads_per_hour: 250,
             enable_virus_scan: true,
             virus_scanner_type: "clamav".to_string(),
@@ -152,6 +159,7 @@ impl SecurityConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(24),
+            jwt_secret: env::var("JWT_SECRET").expect("CRITICAL: JWT_SECRET must be set"),
         }
     }
 }
@@ -163,7 +171,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = SecurityConfig::default();
-        assert_eq!(config.max_file_size, 256 * 1024 * 1024);
+        assert_eq!(config.max_file_size, 1024 * 1024 * 1024);
         assert_eq!(config.uploads_per_hour, 250);
         assert!(config.enable_virus_scan);
         assert_eq!(config.virus_scanner_type, "clamav");
@@ -178,7 +186,9 @@ mod tests {
 
     #[test]
     fn test_production_config() {
+        unsafe { env::set_var("JWT_SECRET", "test_secret") };
         let config = SecurityConfig::production();
+        unsafe { env::remove_var("JWT_SECRET") };
         assert!(config.enable_virus_scan);
         assert_eq!(config.virus_scanner_type, "clamav");
         assert_eq!(config.uploads_per_hour, 250);

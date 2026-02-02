@@ -180,6 +180,9 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         // Obfuscation: Rename encryption_key to file_signature
         "ALTER TABLE user_files RENAME COLUMN encryption_key TO file_signature",
         "ALTER TABLE user_file_facts ADD COLUMN IF NOT EXISTS image_count BIGINT DEFAULT 0",
+        // Advanced Search: PostgreSQL Trigram support
+        "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+        "CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops)",
     ];
 
     let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;

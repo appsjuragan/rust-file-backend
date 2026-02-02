@@ -12,15 +12,13 @@ use uuid::Uuid;
 
 use crate::services::audit::{AuditEventType, AuditService};
 use crate::services::scanner::VirusScanner;
-use tempfile::NamedTempFile;
-use tokio::io::AsyncWriteExt;
 
 pub struct FileService {
     db: DatabaseConnection,
     storage: Arc<dyn StorageService>,
     scanner: Arc<dyn VirusScanner>,
     config: SecurityConfig,
-    bulk_lock: tokio::sync::Mutex<()>,
+    bulk_lock: crate::utils::keyed_mutex::KeyedMutex,
 }
 
 pub struct StagedFile {
@@ -44,7 +42,7 @@ impl FileService {
             storage,
             scanner,
             config,
-            bulk_lock: tokio::sync::Mutex::new(()),
+            bulk_lock: crate::utils::keyed_mutex::KeyedMutex::new(),
         }
     }
 
@@ -80,121 +78,40 @@ impl FileService {
 
         // Reconstruct stream
         let header_cursor = std::io::Cursor::new(header.to_vec());
-        let mut chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
+        let chained_reader = tokio::io::AsyncReadExt::chain(header_cursor, reader);
 
-        // 3. Buffer to Temp File and Calculate Hash
-        let temp_file = NamedTempFile::new().map_err(|e| AppError::Internal(e.to_string()))?;
-        let temp_path = temp_file.path().to_owned();
-        let mut temp_file_async = tokio::fs::File::from_std(
-            temp_file
-                .reopen()
-                .map_err(|e| AppError::Internal(e.to_string()))?,
-        );
-
-        let mut hasher = blake3::Hasher::new();
-        let mut buffer = [0u8; 8192];
-        let mut total_size = 0;
-
-        loop {
-            let n = chained_reader
-                .read(&mut buffer)
-                .await
-                .map_err(|e| AppError::Internal(e.to_string()))?;
-            if n == 0 {
-                break;
-            }
-            hasher.update(&buffer[..n]);
-            temp_file_async
-                .write_all(&buffer[..n])
-                .await
-                .map_err(|e| AppError::Internal(e.to_string()))?;
-            total_size += n as i64;
-
-            if total_size > self.config.max_file_size as i64 {
-                // Return PayloadTooLarge immediately
-                return Err(AppError::PayloadTooLarge(
-                    "File size limits exceeded".to_string(),
-                ));
-            }
-        }
-        temp_file_async
-            .flush()
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        // 4. Check for Deduplication EARLY (Before Encryption/Upload)
-        // We do this AFTER calculating hash but BEFORE encrypting/uploading to S3.
-        let hash = hasher.finalize().to_hex().to_string();
-
-        let existing_storage_file = StorageFiles::find()
-            .filter(storage_files::Column::Hash.eq(&hash))
-            .one(&self.db)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        if existing_storage_file.is_some() {
-            // Deduplication Hit -> Skip Encryption & S3 Upload!
-            tracing::info!("♻️ Early Deduplication hit for hash: {}", hash);
-
-            // We keep the temp file as it might be needed for verify/scan/other,
-            // but for a pure dedup we might not even need it.
-            // However, process_upload might need it if we decide to re-scan?
-            // Actually if it's a dedup, we just link it.
-
-            // Close the file explicitly or let it drop (NamedTempFile will allow read via path)
-            // We return the path for process_upload to clean up or use
-
-            // To be strict, StagedFile expects s3_key. We can put a dummy or empty one,
-            // but process_upload must not try to delete it if it wasn't uploaded.
-            // Let's use a specialized prefix "skipped/" to indicate no upload happened.
-
-            return Ok(StagedFile {
-                key: format!("skipped/{}", Uuid::new_v4()),
-                hash,
-                size: total_size,
-                s3_key: "skipped".to_string(), // Flag to skip S3 delete
-                temp_path: Some(temp_path.to_string_lossy().to_string()),
-            });
-        }
-
-        // 5. Upload Plaintext Directly (No Dedup Hit)
-        // No Key Derivation or Encryption
-
-        // Re-open temp file for reading
-        let temp_reader = tokio::fs::File::open(&temp_path)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        // let encrypted_stream = EncryptionService::encrypt_stream(Box::new(temp_reader), key);
-        // let pinned_stream = Box::pin(encrypted_stream);
-        let pinned_stream = Box::pin(tokio_util::io::ReaderStream::new(temp_reader));
-        let stream_reader = tokio_util::io::StreamReader::new(pinned_stream);
-
+        // 4. Stream Directly to S3 (No Local Temp File)
         let staging_key = format!("staging/{}", Uuid::new_v4());
         tracing::info!(
-            "Starting Plaintext S3 upload for {} to {}",
+            "Starting streaming S3 upload for {} to {}",
             filename,
             staging_key
         );
 
-        let _res = self
+        // Wrap current reader in a Stream Reader needed by upload_stream_with_hash implementation
+        // Actually upload_stream_with_hash takes Box<dyn AsyncRead> so chained_reader works if boxed.
+        let upload_res = self
             .storage
-            .upload_stream_with_hash(&staging_key, Box::new(stream_reader))
+            .upload_stream_with_hash(&staging_key, Box::new(chained_reader))
             .await
             .map_err(|e| AppError::Internal(format!("Upload failed: {}", e)))?;
 
-        // Persist temp file so it survives for async scanning
-        let (_, path) = temp_file
-            .keep()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        let temp_path_str = path.to_string_lossy().to_string();
+        // 5. Check size limit AFTER upload (since we stream)
+        // Ideally we should check during upload, but storage service needs modification for that.
+        // For now, if sizes > max, we delete and error.
+        if upload_res.size > self.config.max_file_size as i64 {
+            let _ = self.storage.delete_file(&staging_key).await;
+            return Err(AppError::PayloadTooLarge(
+                "File size limits exceeded".to_string(),
+            ));
+        }
 
         Ok(StagedFile {
             key: staging_key.clone(),
-            hash,             // Plaintext Hash
-            size: total_size, // Plaintext Size
+            hash: upload_res.hash,
+            size: upload_res.size,
             s3_key: staging_key,
-            temp_path: Some(temp_path_str),
+            temp_path: None, // No local copy
         })
     }
 
@@ -227,10 +144,9 @@ impl FileService {
         } else {
             // New unique file!
 
-            // 1. Optimize: Use local temp file if available instead of downloading
+            // 1. Get bytes for Metadata Analysis (Header only)
+            // Since we don't have a local temp file, we fetch the first 16KB from S3 staging
             let bytes = if let Some(local_path) = &staged.temp_path {
-                // If we have local path, read it for metadata (head only for optimization?)
-                // For now, let's read first 16KB for metadata
                 let mut file = tokio::fs::File::open(local_path)
                     .await
                     .map_err(|e| AppError::Internal(e.to_string()))?;
@@ -242,28 +158,24 @@ impl FileService {
                 buffer.truncate(n);
                 buffer
             } else {
-                // Fallback: Download from S3 (should be rare if flow works)
-                // This path decrypts from S3.
-                // If we had a logic error or server restart, we might lose temp file context but have S3 key.
-                // Simple approach: Read header from S3 stream
-                let _stream = self
+                // S3 Stream Logic
+                let output = self
                     .storage
-                    .get_object_stream(&staged.s3_key)
+                    .get_object_range(&staged.s3_key, "bytes=0-16383")
                     .await
                     .map_err(|e| {
-                        AppError::Internal(format!("Failed to open for processing: {}", e))
+                        AppError::Internal(format!("Failed to fetch metadata bytes from S3: {}", e))
                     })?;
 
-                // This is complex because files are encrypted.
-                // We need to decrypt first chunk.
-                // Let's defer to "just work" for now, assume temp_path is usually there.
-                // If not, we might fail or do full download. Let's error for now to keep it simple or implement full download.
-                return Err(AppError::Internal(
-                    "Missing local temp file for processing".to_string(),
-                ));
+                let mut body = output.body.into_async_read();
+                let mut buffer = Vec::new();
+                body.read_to_end(&mut buffer).await.map_err(|e| {
+                    AppError::Internal(format!("Failed to read metadata bytes: {}", e))
+                })?;
+                buffer
             };
 
-            // 2. Metadata Analysis (on partial bytes)
+            // 2. Metadata Analysis
             let analysis = MetadataService::analyze(&bytes, &filename);
             let mime_type = analysis.metadata["mime_type"]
                 .as_str()
@@ -274,13 +186,8 @@ impl FileService {
             let id = Uuid::new_v4().to_string();
             let permanent_key = format!("{}/{}", staged.hash, filename);
 
-            if staged.s3_key == "skipped" {
-                // Should not happen here because 'existing_storage_file' was None, so it must be a new file?
-                // Wait, race condition: 'upload_to_staging' found no file, but 'process_upload' (here) found no file either.
-                // But wait, if 'upload_to_staging' found no file, it UPLOADED to S3. So s3_key != "skipped".
-                // So we are good.
-            } else {
-                // Move S3 Object
+            if staged.s3_key != "skipped" {
+                // Move S3 Object to permanent location
                 self.storage
                     .copy_object(&staged.s3_key, &permanent_key)
                     .await
@@ -317,6 +224,8 @@ impl FileService {
                         let db = self.db.clone();
                         let file_id = id.clone();
                         let temp_path_opt = staged.temp_path.clone();
+                        let storage = self.storage.clone();
+                        let s3_key = permanent_key.clone();
 
                         tokio::spawn(async move {
                             tracing::info!("🚀 Starting async scan for file: {}", file_id);
@@ -331,13 +240,18 @@ impl FileService {
                                     reason: "Temp file lost".to_string(),
                                 })
                             } else {
-                                // Fallback to S3
-                                Ok(crate::services::scanner::ScanResult::Error {
-                                    reason: "No temp file for scan".to_string(),
-                                })
+                                // S3 Stream Scanning
+                                match storage.get_object_stream(&s3_key).await {
+                                    Ok(output) => {
+                                        let stream = output.body.into_async_read();
+                                        scanner.scan(Box::pin(stream)).await
+                                    }
+                                    Err(e) => Ok(crate::services::scanner::ScanResult::Error {
+                                        reason: format!("Failed to open S3 stream for scan: {}", e),
+                                    }),
+                                }
                             };
 
-                            use crate::entities::storage_files;
                             let (status, result) = match scan_res {
                                 Ok(crate::services::scanner::ScanResult::Clean) => {
                                     tracing::info!("✅ Scan clean: {}", file_id);
@@ -363,7 +277,7 @@ impl FileService {
                                 }
                             };
 
-                            // Update DB
+                            use crate::entities::storage_files;
                             let update = storage_files::ActiveModel {
                                 id: Set(file_id),
                                 scan_status: Set(Some(status.to_string())),
@@ -375,7 +289,7 @@ impl FileService {
                                 tracing::error!("Failed to update scan status: {}", e);
                             }
 
-                            // Cleanup Temp File
+                            // Cleanup Temp File (if any)
                             if let Some(path) = temp_path_opt
                                 && let Err(e) = tokio::fs::remove_file(&path).await
                             {
@@ -712,6 +626,7 @@ impl FileService {
     }
     pub async fn delete_item(&self, user_id: &str, id: &str) -> Result<(), AppError> {
         use crate::services::storage_lifecycle::StorageLifecycleService;
+        use sea_orm::TransactionTrait;
 
         let item = UserFiles::find_by_id(id)
             .filter(user_files::Column::UserId.eq(user_id))
@@ -721,28 +636,33 @@ impl FileService {
             .map_err(|e| AppError::Internal(e.to_string()))?
             .ok_or_else(|| AppError::NotFound("Item not found".to_string()))?;
 
-        // If it's a folder, it's a bulk operation, so we lock.
+        // Lock user scope
         let _lock = if item.is_folder {
-            let lock = self.bulk_lock.lock().await;
-            tracing::info!("🔒 Bulk lock acquired for folder delete: {}", item.filename);
+            let lock = self.bulk_lock.lock(user_id).await;
+            tracing::info!(
+                "🔒 Scoped lock acquired for folder delete: {} (User: {})",
+                item.filename,
+                user_id
+            );
             Some(lock)
         } else {
             None
         };
 
+        // Start Transaction
+        let txn = self.db.begin().await.map_err(AppError::Database)?;
+
         if item.is_folder {
-            StorageLifecycleService::delete_folder_recursive(
-                &self.db,
-                self.storage.as_ref(),
-                &item.id,
-            )
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+            StorageLifecycleService::delete_folder_recursive(&txn, self.storage.as_ref(), &item.id)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
         }
 
-        StorageLifecycleService::soft_delete_user_file(&self.db, self.storage.as_ref(), &item)
+        StorageLifecycleService::soft_delete_user_file(&txn, self.storage.as_ref(), &item)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        txn.commit().await.map_err(AppError::Database)?;
 
         // Background update facts
         let db = self.db.clone();
@@ -760,10 +680,15 @@ impl FileService {
         user_id: &str,
         item_ids: Vec<String>,
     ) -> Result<usize, AppError> {
-        let _lock = self.bulk_lock.lock().await;
-        tracing::info!("🔒 Bulk lock acquired for delete by user {}", user_id);
+        // Lock user scope
+        let _lock = self.bulk_lock.lock(user_id).await;
+        tracing::info!(
+            "🔒 Scoped lock acquired for bulk delete by user {}",
+            user_id
+        );
 
         use crate::services::storage_lifecycle::StorageLifecycleService;
+        // bulk_delete handles its own transaction
         let count = StorageLifecycleService::bulk_delete(
             &self.db,
             self.storage.as_ref(),
@@ -790,15 +715,20 @@ impl FileService {
         item_ids: Vec<String>,
         new_parent_id: Option<String>,
     ) -> Result<usize, AppError> {
-        let _lock = self.bulk_lock.lock().await;
-        tracing::info!("🔒 Bulk lock acquired for move by user {}", user_id);
+        use sea_orm::TransactionTrait;
 
+        // Lock user scope
+        let _lock = self.bulk_lock.lock(user_id).await;
+        tracing::info!("🔒 Scoped lock acquired for bulk move by user {}", user_id);
+
+        let txn = self.db.begin().await.map_err(AppError::Database)?;
         let mut moved_count = 0;
+
         for id in item_ids {
             // Reusing the logic from rename_item but in a bulk context
             let item = UserFiles::find_by_id(&id)
                 .filter(user_files::Column::UserId.eq(user_id))
-                .one(&self.db)
+                .one(&txn)
                 .await
                 .map_err(|e| AppError::Internal(e.to_string()))?
                 .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
@@ -814,11 +744,13 @@ impl FileService {
             let mut active: user_files::ActiveModel = item.into();
             active.parent_id = Set(new_parent_id.clone());
             active
-                .update(&self.db)
+                .update(&txn)
                 .await
                 .map_err(|e| AppError::Internal(e.to_string()))?;
             moved_count += 1;
         }
+
+        txn.commit().await.map_err(AppError::Database)?;
 
         // Background update facts
         let db = self.db.clone();

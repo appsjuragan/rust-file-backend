@@ -34,6 +34,11 @@ export interface IFileManagerProps {
   activeUploads?: UploadStatus[];
   setActiveUploads?: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
   userFacts?: any;
+  highlightedId?: string | null;
+  setHighlightedId?: (id: string | null) => void;
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export const ReactFileManager = ({
@@ -54,6 +59,11 @@ export const ReactFileManager = ({
   activeUploads: propActiveUploads,
   setActiveUploads: propSetActiveUploads,
   userFacts,
+  highlightedId,
+  setHighlightedId,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -184,6 +194,11 @@ export const ReactFileManager = ({
         showAlert,
         showConfirm,
         userFacts,
+        highlightedId,
+        setHighlightedId,
+        onLoadMore,
+        hasMore,
+        isLoadingMore,
       }}
     >
 
@@ -204,7 +219,7 @@ export const ReactFileManager = ({
                 isVisible={previewVisible}
                 onClose={() => setPreviewVisible(false)}
                 fileName={previewFile.name}
-                fileUrl={api.getFileUrl(previewFile.id)}
+                fileId={previewFile.id}
                 mimeType={previewFile.mimeType}
                 size={previewFile.size}
                 clickPosition={modalPosition}

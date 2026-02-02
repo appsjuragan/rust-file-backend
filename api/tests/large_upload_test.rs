@@ -68,6 +68,7 @@ async fn test_large_file_uploads_and_dedup() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: sec_config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state).layer(axum::extract::DefaultBodyLimit::max(

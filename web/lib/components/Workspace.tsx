@@ -145,6 +145,11 @@ const Workspace = () => {
     isMoving,
     setIsMoving,
     setDialogState,
+    highlightedId,
+    setHighlightedId,
+    onLoadMore,
+    hasMore,
+    isLoadingMore,
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -154,6 +159,25 @@ const Workspace = () => {
   useEffect(() => {
     setLastSelectedId(null);
   }, [currentFolder]);
+
+  useEffect(() => {
+    if (highlightedId) {
+      // Find the element and scroll to it
+      setTimeout(() => {
+        const element = document.querySelector(`[data-id="${highlightedId}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Optionally select it too
+          setSelectedIds([highlightedId]);
+        }
+
+        // Clear highlight after a few seconds
+        setTimeout(() => {
+          if (setHighlightedId) setHighlightedId(null);
+        }, 3000);
+      }, 100);
+    }
+  }, [highlightedId, currentFolder, setHighlightedId, setSelectedIds]);
 
   const handleDragStart = (e: React.DragEvent, file: FileType) => {
     if (file.scanStatus === 'pending') {
@@ -612,7 +636,17 @@ const Workspace = () => {
 
 
       {/* File listing */}
-      <div className="rfm-workspace-file-listing">
+      <div
+        className="rfm-workspace-file-listing"
+        onScroll={(e) => {
+          const target = e.currentTarget;
+          if (target.scrollHeight - target.scrollTop <= target.clientHeight + 100) {
+            if (onLoadMore && hasMore && !isLoadingMore) {
+              onLoadMore();
+            }
+          }
+        }}
+      >
 
         {/* Icons File View */}
         {viewStyle === ViewStyle.Icons && (
@@ -636,7 +670,7 @@ const Workspace = () => {
                     e.stopPropagation();
                     handleContextMenu(e, f);
                   }}
-                  className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isSelected ? "rfm-selected" : ""} ${dragOverId === f.id ? "rfm-drag-over" : ""}`}
+                  className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isSelected ? "rfm-selected" : ""} ${dragOverId === f.id ? "rfm-drag-over" : ""} ${highlightedId === f.id ? "rfm-highlighted" : ""}`}
                   disabled={isPending}
                 >
                   <FileIcon id={f.id} name={f.name} isDir={f.isDir} />
@@ -686,7 +720,7 @@ const Workspace = () => {
                       onDragOver={(e) => handleDragOver(e, row.original)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDropOnFolder(e, row.original)}
-                      className={`rfm-file-item rfm-workspace-list-icon-row ${row.original.scanStatus === 'pending' ? 'rfm-pending' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""}`}
+                      className={`rfm-file-item rfm-workspace-list-icon-row ${row.original.scanStatus === 'pending' ? 'rfm-pending' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""} ${highlightedId === row.original.id ? "rfm-highlighted" : ""}`}
                       onContextMenu={(e) => {
                         e.stopPropagation();
                         handleContextMenu(e, row.original);
@@ -719,9 +753,12 @@ const Workspace = () => {
             </table>
           </>
         )}
-
-
-
+        {isLoadingMore && (
+          <div className="rfm-loading-more">
+            <div className="rfm-spinner-small"></div>
+            <span>Loading more...</span>
+          </div>
+        )}
       </div>
     </section>
   );

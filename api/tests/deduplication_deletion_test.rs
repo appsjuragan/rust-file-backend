@@ -67,6 +67,7 @@ async fn test_single_file_deletion() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);
@@ -207,6 +208,7 @@ async fn test_deduplicated_file_partial_deletion() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);
@@ -371,6 +373,7 @@ async fn test_deduplicated_file_final_deletion() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);
@@ -645,6 +648,7 @@ async fn test_bulk_delete() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);

@@ -8,7 +8,6 @@ use axum::{
 };
 use sea_orm::EntityTrait;
 use serde::Deserialize;
-use std::env;
 
 #[derive(Deserialize)]
 struct AuthQuery {
@@ -38,9 +37,9 @@ pub async fn auth_middleware(
     };
 
     if let Some(token) = token {
-        let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+        let secret = &state.config.jwt_secret;
 
-        if let Ok(claims) = validate_jwt(&token, &secret) {
+        if let Ok(claims) = validate_jwt(&token, secret) {
             // Check if user still exists in DB
             let user_exists = Users::find_by_id(claims.sub.clone())
                 .one(&state.db)

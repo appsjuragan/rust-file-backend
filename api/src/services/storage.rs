@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
-use sha2::{Digest, Sha256};
+use blake3::Hasher;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 pub struct UploadResult {
@@ -85,7 +85,7 @@ impl StorageService for S3StorageService {
             .ok_or_else(|| anyhow::anyhow!("No upload ID"))?;
         let mut chunk_index = 1;
         let mut completed_parts = Vec::new();
-        let mut hasher = Sha256::new();
+        let mut hasher = Hasher::new();
         let mut total_size = 0;
 
         let chunk_size = 10 * 1024 * 1024;
@@ -142,7 +142,7 @@ impl StorageService for S3StorageService {
             .send()
             .await?;
 
-        let hash = hex::encode(hasher.finalize());
+        let hash = hasher.finalize().to_hex().to_string();
 
         Ok(UploadResult {
             hash,

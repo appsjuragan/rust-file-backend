@@ -50,16 +50,23 @@ const UploadProgressToast = () => {
                             <div key={u.id} className="rfm-upload-item" style={{ border: 'none', background: 'transparent', padding: '10px 8px', alignItems: 'flex-start' }}>
                                 <div className="rfm-upload-item-icon mt-0.5">
                                     <SvgIcon
-                                        svgType={u.status === 'completed' ? 'check' : (u.status === 'error' ? 'close' : 'file')}
-                                        className={`w-5 h-5 ${u.status === 'completed' ? 'text-emerald-500' : (u.status === 'error' ? 'text-amber-500' : 'text-slate-400')}`}
+                                        svgType={u.status === 'completed' ? 'check' : (u.status === 'error' ? 'close' : (u.status === 'hashing' ? 'loading' : 'file'))}
+                                        className={`w-5 h-5 ${u.status === 'completed' ? 'text-emerald-500' : (u.status === 'error' ? 'text-amber-500' : (u.status === 'hashing' ? 'text-indigo-400 animate-spin' : 'text-slate-400'))}`}
                                     />
                                 </div>
                                 <div className="rfm-upload-item-info">
                                     <div className="flex flex-col">
                                         <div className="flex justify-between items-center gap-2">
                                             <span className="rfm-upload-item-name text-sm" style={{ fontWeight: 500 }} title={u.name}>{u.name}</span>
-                                            {u.status === 'uploading' && (
-                                                <span className="text-[10px] font-bold text-indigo-500 shrink-0">{Math.round(u.progress)}%</span>
+                                            {(u.status === 'uploading' || u.status === 'hashing') && (
+                                                <span className="text-[10px] font-bold text-indigo-500 shrink-0">
+                                                    {u.status === 'hashing' ? 'Hashing ' : ''}{Math.round(u.progress)}%
+                                                </span>
+                                            )}
+                                            {u.status === 'processing' && (
+                                                <span className="text-[10px] font-bold text-amber-500 shrink-0 animate-pulse">
+                                                    Processing...
+                                                </span>
                                             )}
                                         </div>
                                         {(u.status === 'error' || (u.status === 'completed' && u.error)) && u.error && (
@@ -68,11 +75,11 @@ const UploadProgressToast = () => {
                                             </span>
                                         )}
                                     </div>
-                                    {u.status === 'uploading' && (
+                                    {(u.status === 'uploading' || u.status === 'hashing') && (
                                         <div className="rfm-upload-item-progress-container">
                                             <div
                                                 className="rfm-upload-item-progress-bar"
-                                                style={{ width: `${u.progress}%` }}
+                                                style={{ width: `${u.progress}%`, backgroundColor: u.status === 'hashing' ? '#818cf8' : undefined }}
                                             ></div>
                                         </div>
                                     )}

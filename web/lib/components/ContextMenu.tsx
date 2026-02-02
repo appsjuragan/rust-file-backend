@@ -62,15 +62,21 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         onClose();
     };
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (file && !file.isDir) {
-            const url = api.getFileUrl(file.id);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = file.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                const res = await api.getDownloadTicket(file.id);
+                const url = api.getDownloadUrl(res.ticket);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (err) {
+                console.error("Failed to initiate download:", err);
+                alert("Failed to prepare download. Please try again.");
+            }
         }
         onClose();
     };

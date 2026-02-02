@@ -107,7 +107,8 @@ pub async fn update_profile(
         active.name = Set(Some(name));
     }
     if let Some(password) = payload.password
-        && !password.is_empty() {
+        && !password.is_empty()
+    {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2

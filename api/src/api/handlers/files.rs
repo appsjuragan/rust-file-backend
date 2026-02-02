@@ -12,8 +12,8 @@ use axum::{
 use chrono::Utc;
 use futures::TryStreamExt;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, RelationTrait,
-    Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter,
+    QueryOrder, QuerySelect, RelationTrait, Set, sea_query::Expr,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -83,6 +83,11 @@ pub struct ListFilesQuery {
     pub end_date: Option<chrono::DateTime<Utc>>,
     pub min_size: Option<i64>,
     pub max_size: Option<i64>,
+    pub regex: Option<bool>,
+    pub wildcard: Option<bool>,
+    pub similarity: Option<bool>,
+    pub limit: Option<u64>,
+    pub offset: Option<u64>,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
@@ -375,6 +380,7 @@ pub async fn download_file(
 
     let storage_file_id = user_file
         .storage_file_id
+        .clone()
         .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
 
     // 2. Check expiration
@@ -391,188 +397,20 @@ pub async fn download_file(
         .await?
         .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
-    let mut content_type = storage_file
-        .mime_type
-        .clone()
-        .unwrap_or_else(|| "application/octet-stream".to_string());
-
-    // Fallback for existing generic types
-    if content_type == "application/octet-stream" || content_type == "application/stream" {
-        let extension = user_file
-            .filename
-            .split('.')
-            .next_back()
-            .unwrap_or("")
-            .to_lowercase();
-        content_type = match extension.as_str() {
-            "mp4" => "video/mp4".to_string(),
-            "webm" => "video/webm".to_string(),
-            "ogg" => "video/ogg".to_string(),
-            "mp3" => "audio/mpeg".to_string(),
-            "wav" => "audio/wav".to_string(),
-            "jpg" | "jpeg" => "image/jpeg".to_string(),
-            "png" => "image/png".to_string(),
-            "gif" => "image/gif".to_string(),
-            "webp" => "image/webp".to_string(),
-            "svg" => "image/svg+xml".to_string(),
-            "pdf" => "application/pdf".to_string(),
-            _ => content_type,
-        };
+    // 3. Security: Check Virus Scan Status
+    if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
+        tracing::warn!("Blocked access to infected file: {}", file_id);
+        return Err(AppError::Forbidden(format!(
+            "File is infected with malware: {}",
+            storage_file
+                .scan_result
+                .as_deref()
+                .unwrap_or("unknown threat")
+        )));
     }
 
-    // 4. Prepare headers shared by both full and partial responses
-    let ascii_filename = user_file
-        .filename
-        .chars()
-        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
-        .take(64) // Truncate ASCII fallback to 64 chars for safety
-        .collect::<String>();
-    let fallback_filename = if ascii_filename.is_empty() {
-        "file"
-    } else {
-        &ascii_filename
-    };
-
-    // RFC 5987 percent-encoding for UTF-8 filename
-    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
-
-    let disposition_type = if content_type.starts_with("video/")
-        || content_type.starts_with("audio/")
-        || content_type.starts_with("image/")
-        || content_type == "application/pdf"
-        || content_type.starts_with("text/")
-    {
-        "inline"
-    } else {
-        "attachment"
-    };
-
-    let content_disposition = format!(
-        "{}; filename=\"{}\"; filename*=UTF-8''{}",
-        disposition_type, fallback_filename, encoded_filename
-    );
-
-    // 5. Check for Range header
     let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-
-    // Native S3 Range Handling due to Plaintext Storage
-
-    if let Some(range) = range_header {
-        // 6. Get partial stream from S3
-        let s3_res = state
-            .storage
-            .get_object_range(&storage_file.s3_key, range)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get S3 object range: {}", e);
-                AppError::Internal("Failed to retrieve file range".to_string())
-            })?;
-
-        let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-        let mut response = (
-            [
-                (header::CONTENT_TYPE, content_type.clone()),
-                (header::ACCEPT_RANGES, "bytes".to_string()),
-                (header::CONTENT_DISPOSITION, content_disposition.clone()),
-            ],
-            body,
-        )
-            .into_response();
-
-        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
-
-        if let Some(h_val) = s3_res.content_range.and_then(|c| c.parse().ok()) {
-            response.headers_mut().insert(header::CONTENT_RANGE, h_val);
-        }
-
-        if let Some(content_length) = s3_res.content_length {
-            response.headers_mut().insert(
-                header::CONTENT_LENGTH,
-                content_length
-                    .to_string()
-                    .parse()
-                    .unwrap_or(header::HeaderValue::from_static("0")),
-            );
-        }
-
-        if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-            response.headers_mut().insert(header::ETAG, h_val);
-        }
-
-        if let Some(last_modified) = s3_res.last_modified {
-            let dt = chrono::DateTime::from_timestamp(
-                last_modified.secs(),
-                last_modified.subsec_nanos(),
-            )
-            .unwrap_or_default();
-            let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-            if let Ok(h_val) = rfc1123.parse() {
-                response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-            }
-        }
-
-        response.headers_mut().insert(
-            header::CACHE_CONTROL,
-            header::HeaderValue::from_static("public, max-age=31536000"),
-        );
-
-        return Ok(response);
-    }
-
-    // 7. Get full stream from S3
-    let s3_res = state
-        .storage
-        .get_object_stream(&storage_file.s3_key)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get S3 object stream: {}", e);
-            AppError::Internal("Failed to retrieve file".to_string())
-        })?;
-
-    // 8. Return stream response
-    let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-    let mut response = (
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::ACCEPT_RANGES, "bytes".to_string()),
-            (header::CONTENT_DISPOSITION, content_disposition),
-        ],
-        body,
-    )
-        .into_response();
-
-    if let Some(content_length) = s3_res.content_length {
-        response.headers_mut().insert(
-            header::CONTENT_LENGTH,
-            content_length
-                .to_string()
-                .parse()
-                .unwrap_or(header::HeaderValue::from_static("0")),
-        );
-    }
-
-    if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-        response.headers_mut().insert(header::ETAG, h_val);
-    }
-
-    if let Some(last_modified) = s3_res.last_modified {
-        let dt =
-            chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos())
-                .unwrap_or_default();
-        let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-        if let Ok(h_val) = rfc1123.parse() {
-            response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-        }
-    }
-
-    response.headers_mut().insert(
-        header::CACHE_CONTROL,
-        header::HeaderValue::from_static("public, max-age=31536000"),
-    );
-
-    Ok(response)
+    serve_file_stream(&state, user_file, storage_file, range_header).await
 }
 
 #[utoipa::path(
@@ -610,8 +448,25 @@ pub async fn list_files(
         cond = cond.add(user_files::Column::ParentId.is_null());
     }
 
-    if let Some(search) = query.search {
-        cond = cond.add(user_files::Column::Filename.contains(&search));
+    if let Some(ref search) = query.search {
+        if query.regex.unwrap_or(false) {
+            // Postgres: ~ , SQLite: REGEXP
+            let op = if state.db.get_database_backend() == sea_orm::DatabaseBackend::Postgres {
+                "~*" // Case-insensitive regex
+            } else {
+                "REGEXP"
+            };
+            cond = cond.add(
+                Expr::col(user_files::Column::Filename)
+                    .binary(sea_orm::sea_query::BinOper::Custom(op), Expr::val(search)),
+            );
+        } else if query.wildcard.unwrap_or(false) {
+            // Use LIKE with the search string as is (user provides % or *)
+            let pattern = search.replace('*', "%").replace('?', "_");
+            cond = cond.add(user_files::Column::Filename.like(pattern));
+        } else {
+            cond = cond.add(user_files::Column::Filename.contains(search.clone()));
+        }
     }
 
     if let Some(start) = query.start_date {
@@ -659,6 +514,31 @@ pub async fn list_files(
                     file_tags::Relation::Tags.def(),
                 )
                 .filter(tags::Column::Name.eq(tag_name));
+        }
+    }
+
+    if query.similarity.unwrap_or(false) {
+        if let Some(q) = query.search.as_ref() {
+            if state.db.get_database_backend() == sea_orm::DatabaseBackend::Postgres {
+                select = select.order_by_desc(Expr::cust_with_values(
+                    "similarity(filename, $1)",
+                    [sea_orm::Value::from(q)],
+                ));
+            }
+            select = select.limit(query.limit.unwrap_or(15));
+            if let Some(offset) = query.offset {
+                select = select.offset(offset);
+            }
+        } else {
+            select = select.order_by_desc(user_files::Column::CreatedAt);
+        }
+    } else {
+        select = select.order_by_desc(user_files::Column::CreatedAt);
+        if let Some(limit) = query.limit {
+            select = select.limit(limit);
+        }
+        if let Some(offset) = query.offset {
+            select = select.offset(offset);
         }
     }
 
@@ -904,32 +784,33 @@ pub async fn rename_item(
 
     // Circularity check: prevent moving a folder into itself or its descendants
     if let Some(ref target_id) = target_parent_id
-        && item.is_folder {
+        && item.is_folder
+    {
         if target_id == &item.id {
+            return Err(AppError::BadRequest(
+                "Cannot move a folder into itself".to_string(),
+            ));
+        }
+
+        let mut current_check_id = target_id.clone();
+        // Traverse up from target parent to root
+        while let Some(parent) = UserFiles::find_by_id(current_check_id)
+            .filter(user_files::Column::UserId.eq(&claims.sub))
+            .one(&state.db)
+            .await?
+        {
+            if parent.id == item.id {
                 return Err(AppError::BadRequest(
-                    "Cannot move a folder into itself".to_string(),
+                    "Cannot move a folder into its own subfolder".to_string(),
                 ));
             }
-
-            let mut current_check_id = target_id.clone();
-            // Traverse up from target parent to root
-            while let Some(parent) = UserFiles::find_by_id(current_check_id)
-                .filter(user_files::Column::UserId.eq(&claims.sub))
-                .one(&state.db)
-                .await?
-            {
-                if parent.id == item.id {
-                    return Err(AppError::BadRequest(
-                        "Cannot move a folder into its own subfolder".to_string(),
-                    ));
-                }
-                if let Some(next_id) = parent.parent_id {
-                    current_check_id = next_id;
-                } else {
-                    break;
-                }
+            if let Some(next_id) = parent.parent_id {
+                current_check_id = next_id;
+            } else {
+                break;
             }
         }
+    }
 
     // Check if target already exists (only for files)
     if !item.is_folder {
@@ -1324,4 +1205,284 @@ pub async fn bulk_move(
         .await?;
 
     Ok(Json(BulkMoveResponse { moved_count }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/{id}/ticket",
+    params(
+        ("id" = String, Path, description = "File ID")
+    ),
+    responses(
+        (status = 200, description = "Ticket generated"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "File not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn generate_download_ticket(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(file_id): Path<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let _user_file = UserFiles::find_by_id(file_id.clone())
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("File not found".to_string()))?;
+
+    let ticket = Uuid::new_v4().to_string();
+    let expiry = Utc::now() + chrono::Duration::minutes(5);
+
+    state
+        .download_tickets
+        .insert(ticket.clone(), (file_id, expiry));
+
+    Ok(Json(serde_json::json!({
+        "ticket": ticket,
+        "expires_at": expiry
+    })))
+}
+
+#[utoipa::path(
+    get,
+    path = "/download/{ticket}",
+    params(
+        ("ticket" = String, Path, description = "Download Ticket")
+    ),
+    responses(
+        (status = 200, description = "File stream"),
+        (status = 403, description = "Invalid/Expired ticket")
+    )
+)]
+pub async fn download_file_with_ticket(
+    State(state): State<crate::AppState>,
+    headers: header::HeaderMap,
+    Path(ticket): Path<String>,
+) -> Result<Response, AppError> {
+    let (file_id, _) = {
+        if let Some(entry) = state.download_tickets.get(&ticket) {
+            let (fid, exp) = entry.value();
+            if *exp < Utc::now() {
+                return Err(AppError::Forbidden("Ticket expired".to_string()));
+            }
+            (fid.clone(), *exp)
+        } else {
+            return Err(AppError::Forbidden("Invalid ticket".to_string()));
+        }
+    };
+
+    let user_file = UserFiles::find_by_id(file_id.clone())
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("File not found or deleted".to_string()))?;
+
+    if user_file.is_folder {
+        return Err(AppError::BadRequest("Cannot download a folder".to_string()));
+    }
+
+    let storage_file_id = user_file
+        .storage_file_id
+        .clone()
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
+
+    if user_file
+        .expires_at
+        .is_some_and(|expires| Utc::now() > expires)
+    {
+        return Err(AppError::Gone("File has expired".to_string()));
+    }
+
+    let storage_file = StorageFiles::find_by_id(storage_file_id)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
+        return Err(AppError::Forbidden(format!(
+            "File is infected with malware: {}",
+            storage_file
+                .scan_result
+                .as_deref()
+                .unwrap_or("unknown threat")
+        )));
+    }
+
+    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
+    serve_file_stream(&state, user_file, storage_file, range_header).await
+}
+
+async fn serve_file_stream(
+    state: &crate::AppState,
+    user_file: crate::entities::user_files::Model,
+    storage_file: crate::entities::storage_files::Model,
+    range_header: Option<&str>,
+) -> Result<Response, AppError> {
+    let mut content_type = storage_file
+        .mime_type
+        .clone()
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    if content_type == "application/octet-stream" || content_type == "application/stream" {
+        let extension = user_file
+            .filename
+            .split('.')
+            .next_back()
+            .unwrap_or("")
+            .to_lowercase();
+        content_type = match extension.as_str() {
+            "mp4" => "video/mp4".to_string(),
+            "webm" => "video/webm".to_string(),
+            "ogg" => "video/ogg".to_string(),
+            "mp3" => "audio/mpeg".to_string(),
+            "wav" => "audio/wav".to_string(),
+            "jpg" | "jpeg" => "image/jpeg".to_string(),
+            "png" => "image/png".to_string(),
+            "gif" => "image/gif".to_string(),
+            "webp" => "image/webp".to_string(),
+            "svg" => "image/svg+xml".to_string(),
+            "pdf" => "application/pdf".to_string(),
+            _ => content_type,
+        };
+    }
+
+    let ascii_filename = user_file
+        .filename
+        .chars()
+        .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
+        .take(64)
+        .collect::<String>();
+    let fallback_filename = if ascii_filename.is_empty() {
+        "file"
+    } else {
+        &ascii_filename
+    };
+
+    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
+
+    let disposition_type = if content_type.starts_with("video/")
+        || content_type.starts_with("audio/")
+        || content_type.starts_with("image/")
+        || content_type == "application/pdf"
+        || content_type.starts_with("text/")
+    {
+        "inline"
+    } else {
+        "attachment"
+    };
+
+    let content_disposition = format!(
+        "{}; filename=\"{}\"; filename*=UTF-8''{}",
+        disposition_type, fallback_filename, encoded_filename
+    );
+
+    if let Some(range) = range_header {
+        let s3_res = state
+            .storage
+            .get_object_range(&storage_file.s3_key, range)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get S3 object range: {}", e);
+                AppError::Internal("Failed to retrieve file range".to_string())
+            })?;
+
+        let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
+
+        let mut response = (
+            [
+                (header::CONTENT_TYPE, content_type.clone()),
+                (header::ACCEPT_RANGES, "bytes".to_string()),
+                (header::CONTENT_DISPOSITION, content_disposition.clone()),
+            ],
+            body,
+        )
+            .into_response();
+
+        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
+
+        if let Some(h_val) = s3_res.content_range.and_then(|c| c.parse().ok()) {
+            response.headers_mut().insert(header::CONTENT_RANGE, h_val);
+        }
+        if let Some(content_length) = s3_res.content_length {
+            response.headers_mut().insert(
+                header::CONTENT_LENGTH,
+                content_length
+                    .to_string()
+                    .parse()
+                    .unwrap_or(header::HeaderValue::from_static("0")),
+            );
+        }
+        if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
+            response.headers_mut().insert(header::ETAG, h_val);
+        }
+        if let Some(last_modified) = s3_res.last_modified {
+            let dt = chrono::DateTime::from_timestamp(
+                last_modified.secs(),
+                last_modified.subsec_nanos(),
+            )
+            .unwrap_or_default();
+            let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+            if let Ok(h_val) = rfc1123.parse() {
+                response.headers_mut().insert(header::LAST_MODIFIED, h_val);
+            }
+        }
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("public, max-age=31536000"),
+        );
+        return Ok(response);
+    }
+
+    let s3_res = state
+        .storage
+        .get_object_stream(&storage_file.s3_key)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to get S3 object stream: {}", e);
+            AppError::Internal("Failed to retrieve file".to_string())
+        })?;
+
+    let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
+
+    let mut response = (
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::ACCEPT_RANGES, "bytes".to_string()),
+            (header::CONTENT_DISPOSITION, content_disposition),
+        ],
+        body,
+    )
+        .into_response();
+
+    if let Some(content_length) = s3_res.content_length {
+        response.headers_mut().insert(
+            header::CONTENT_LENGTH,
+            content_length
+                .to_string()
+                .parse()
+                .unwrap_or(header::HeaderValue::from_static("0")),
+        );
+    }
+    if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
+        response.headers_mut().insert(header::ETAG, h_val);
+    }
+    if let Some(last_modified) = s3_res.last_modified {
+        let dt =
+            chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos())
+                .unwrap_or_default();
+        let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+        if let Ok(h_val) = rfc1123.parse() {
+            response.headers_mut().insert(header::LAST_MODIFIED, h_val);
+        }
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("public, max-age=31536000"),
+    );
+
+    Ok(response)
 }

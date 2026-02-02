@@ -176,6 +176,7 @@ async fn test_full_api_flow() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: config.clone(),
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);

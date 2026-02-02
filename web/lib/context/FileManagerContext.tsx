@@ -80,6 +80,11 @@ interface ProviderInterface {
     others_count: number;
     updated_at: string;
   };
+  highlightedId?: string | null;
+  setHighlightedId?: Dispatch<string | null>;
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

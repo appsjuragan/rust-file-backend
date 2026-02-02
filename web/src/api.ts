@@ -48,9 +48,36 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     }),
-    listFiles: (parentId?: string) => {
-        const query = parentId ? `?parent_id=${parentId}` : '';
+    listFiles: (parentId?: string, limit?: number, offset?: number) => {
+        const queryParams = new URLSearchParams();
+        if (parentId) queryParams.set('parent_id', parentId);
+        if (limit !== undefined) queryParams.set('limit', limit.toString());
+        if (offset !== undefined) queryParams.set('offset', offset.toString());
+
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return request(`/files${query}`);
+    },
+    searchFiles: (params: {
+        q: string,
+        regex?: boolean,
+        wildcard?: boolean,
+        similarity?: boolean,
+        start_date?: string,
+        end_date?: string,
+        limit?: number,
+        offset?: number
+    }) => {
+        const queryParams = new URLSearchParams();
+        queryParams.set('search', params.q);
+        if (params.regex) queryParams.set('regex', 'true');
+        if (params.wildcard) queryParams.set('wildcard', 'true');
+        if (params.similarity) queryParams.set('similarity', 'true');
+        if (params.start_date) queryParams.set('start_date', params.start_date);
+        if (params.end_date) queryParams.set('end_date', params.end_date);
+        if (params.limit !== undefined) queryParams.set('limit', params.limit.toString());
+        if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
+
+        return request(`/files?${queryParams.toString()}`);
     },
     uploadFile: (file: File, parentId?: string, onProgress?: (percent: number) => void, totalSize?: number) => {
         return new Promise((resolve, reject) => {
@@ -127,6 +154,8 @@ export const api = {
     }),
     getFolderPath: (id: string) => request(`/files/${id}/path`),
     getZipContents: (id: string) => request(`/files/${id}/zip-contents`),
+    getDownloadTicket: (id: string) => request(`/files/${id}/ticket`, { method: 'POST' }),
+    getDownloadUrl: (ticket: string) => `${BASE_URL}/download/${ticket}`,
     getSettings: () => request('/settings'),
     updateSettings: (settings: { theme?: string, view_style?: string }) => request('/settings', {
         method: 'PUT',

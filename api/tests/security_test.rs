@@ -69,6 +69,7 @@ async fn test_security_upload_restrictions() {
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
         config: sec_config,
+        download_tickets: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);

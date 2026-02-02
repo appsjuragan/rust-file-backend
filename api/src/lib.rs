@@ -90,6 +90,7 @@ pub struct AppState {
     pub scanner: Arc<dyn VirusScanner>,
     pub file_service: Arc<FileService>,
     pub config: SecurityConfig,
+    pub download_tickets: Arc<dashmap::DashMap<String, (String, chrono::DateTime<chrono::Utc>)>>,
 }
 
 pub fn create_app(state: AppState) -> Router {
@@ -138,6 +139,17 @@ pub fn create_app(state: AppState) -> Router {
                     state.clone(),
                     api::middleware::auth::auth_middleware,
                 )),
+        )
+        .route(
+            "/files/:id/ticket",
+            post(api::handlers::files::generate_download_ticket).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
+        )
+        .route(
+            "/download/:ticket",
+            get(api::handlers::files::download_file_with_ticket),
         )
         .route(
             "/files/:id/rename",

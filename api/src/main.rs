@@ -95,6 +95,7 @@ async fn main() -> anyhow::Result<()> {
             scanner: scanner_service.clone(),
             file_service,
             config: security_config.clone(),
+            download_tickets: Arc::new(dashmap::DashMap::new()),
         };
 
         let app = create_app(state).layer(
