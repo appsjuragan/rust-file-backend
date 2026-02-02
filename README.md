@@ -47,16 +47,24 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 
 ## 🛠️ Features at a Glance
 
-- 🔑 **JWT Authentication**: Secure, industry-standard user management.
+### Core Features
+- 🔑 **JWT Authentication**: Secure, industry-standard user management with OIDC support.
 - 👤 **Profile Management**: Update your name, email, and password with ease.
 - 🖼️ **Avatars & MinIO**: Integrated profile picture support, stored securely in S3-compatible buckets.
 - ☁️ **S3-Compatible**: Works perfectly with AWS S3, MinIO, DigitalOcean Spaces, and more.
 - 📂 **Folder Support**: Full recursive folder management and bulk operations.
-- 🔐 **End-to-End Encryption Readiness**: Automatic key generation for per-user file encryption (AES-256).
 - 📊 **File Facts & Statistics**: Real-time per-user storage statistics including total size and file type classification.
 - ⏳ **Auto-Expiration**: Set files to self-destruct after a certain number of hours.
 - 📖 **Swagger UI**: Beautiful, interactive API documentation out of the box.
 - 🏥 **Health Monitoring**: Real-time status of your database and storage connectivity.
+
+### Advanced Features (v0.1.0-beta.6)
+- 🔍 **Similarity Search**: Fuzzy filename search powered by PostgreSQL trigram extension.
+- 📄 **Lazy Loading**: Efficient offset-based pagination for file lists and search suggestions.
+- 🎨 **User Settings**: Persistent theme and view style preferences.
+- 🎫 **Download Tickets**: Secure, time-limited download links for file sharing.
+- 📦 **Bulk Operations**: Move and delete multiple files/folders in a single request.
+- 🗜️ **Archive Preview**: Inspect contents of ZIP, 7z, TAR, and RAR archives without downloading.
 
 ---
 
@@ -64,7 +72,7 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 
 This project is organized as a monorepo:
 - **`api/`**: The Rust backend service.
-- **`web/`**: The React frontend application.
+- **`web/`**: The React frontend application (Vite + TailwindCSS).
 
 ---
 
@@ -99,13 +107,61 @@ Open your browser to:
 
 ---
 
+## 📡 API Endpoints Summary
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register a new user |
+| POST | `/login` | Login with username/password |
+| GET | `/auth/oidc/login` | Initiate OIDC login flow |
+| GET | `/auth/oidc/callback` | OIDC callback handler |
+
+### Files & Folders
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/upload` | Upload a file (multipart) |
+| POST | `/files/pre-check` | Check if file exists (deduplication) |
+| POST | `/files/link` | Link to existing storage file |
+| GET | `/files` | List files with pagination & search |
+| GET | `/files/{id}` | Download a file |
+| DELETE | `/files/{id}` | Delete a file or folder |
+| PUT | `/files/{id}/rename` | Rename a file or folder |
+| GET | `/files/{id}/zip-contents` | Get archive contents |
+| POST | `/files/{id}/ticket` | Generate download ticket |
+| GET | `/tickets/{ticket}` | Download via ticket |
+| POST | `/folders` | Create a new folder |
+| GET | `/folders/{id}/path` | Get folder breadcrumb path |
+| POST | `/files/bulk-delete` | Bulk delete files/folders |
+| POST | `/files/bulk-move` | Bulk move files/folders |
+
+### Users & Settings
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/users/me` | Get current user profile |
+| PUT | `/users/me` | Update user profile |
+| POST | `/users/me/avatar` | Upload avatar image |
+| GET | `/users/me/avatar` | Get avatar image |
+| GET | `/users/me/facts` | Get storage statistics |
+| GET | `/settings` | Get user settings |
+| PUT | `/settings` | Update user settings |
+
+### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | System health check |
+
+---
+
 ## 📊 Tech Stack of the Future
 
-*   **Language:** Rust (Memory safe, zero-cost abstractions)
-*   **Web Framework:** Axum (High performance, ergonomic)
-*   **Database ORM:** SeaORM (Type-safe, async)
+*   **Language:** Rust 1.93+ (Memory safe, zero-cost abstractions)
+*   **Web Framework:** Axum 0.7 (High performance, ergonomic)
+*   **Database ORM:** SeaORM 1.1 (Type-safe, async)
+*   **Database:** PostgreSQL or SQLite
 *   **Storage Client:** AWS SDK for Rust (Enterprise grade)
 *   **Security:** Argon2 (Password hashing), JWT (Tokens), ClamAV (Virus scanning)
+*   **Frontend:** React 18 + Vite 5 + TailwindCSS 3
 
 ---
 

@@ -1,5 +1,45 @@
 # Release Notes
 
+## Version 0.1.0-beta.6 (2026-02-03)
+
+### 🛡️ Security Updates
+
+#### **Dependency Vulnerability Fixes**
+- **Backend (Rust)**:
+  - Upgraded `sqlx` from 0.7 to 0.8.6 (fixes high-severity binary protocol misinterpretation vulnerability)
+  - Upgraded `sea-orm` from 0.12 to 1.1.19 for compatibility with new sqlx
+  - Updated `jsonwebtoken` to 9.3.1, `openidconnect` to 4.0.1, `reqwest` to 0.12.28
+  - Removed unused direct `rsa` dependency
+- **Frontend (React)**:
+  - Applied security overrides for transitive dependencies:
+    - `cross-spawn` ^7.0.5 (ReDoS fix)
+    - `glob` ^10.5.0 (Command injection fix)
+    - `braces` ^3.0.3 (Uncontrolled resource consumption)
+    - `micromatch` ^4.0.8 (ReDoS fix)
+    - `esbuild` ^0.25.0 (Dev server security fix)
+  - `bun audit` now reports 0 vulnerabilities
+
+### 🧹 Codebase Cleanup
+
+#### **Production-Ready Polishing**
+- **Removed Temporary Files**:
+  - Deleted redundant `BETA4_RELEASE_CHECKLIST.md`, `BETA5_RELEASE_CHECKLIST.md`, `CLEANUP_INSTRUCTIONS.md`
+  - Removed 5 redundant end-to-end test scripts, consolidated into `comprehensive_test.ps1`
+  - Removed unused Storybook files from frontend
+  - Cleaned up `package-lock.json` (now using `bun.lock` exclusively)
+- **Code Quality**:
+  - All Clippy warnings resolved
+  - Codebase formatted with `cargo fmt`
+  - All 16+ backend tests passing
+
+### 📚 Documentation Updates
+- **README.md**: Added complete API endpoint reference table
+- **ARCHITECTURE.md**: Comprehensive rewrite with all services, handlers, and data models
+- **Postman Collection**: Updated with all 25+ endpoints for v0.1.0-beta.6
+- **OpenAPI Spec**: Added missing `generate_download_ticket` and `download_file_with_ticket` endpoints
+
+---
+
 ## Version 0.1.0-beta.5 (2026-02-02)
 
 ### 🎯 Major Architectural Changes

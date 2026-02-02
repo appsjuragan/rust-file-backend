@@ -30,7 +30,6 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::upload_file,
         api::handlers::files::pre_check_dedup,
         api::handlers::files::link_file,
-
         api::handlers::files::download_file,
         api::handlers::files::list_files,
         api::handlers::files::create_folder,
@@ -40,8 +39,9 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::get_zip_contents,
         api::handlers::files::bulk_delete,
         api::handlers::files::bulk_move,
+        api::handlers::files::generate_download_ticket,
+        api::handlers::files::download_file_with_ticket,
         api::handlers::user_settings::get_settings,
-        api::handlers::user_settings::update_settings,
         api::handlers::user_settings::update_settings,
         api::handlers::health::health_check,
         api::handlers::users::get_profile,
@@ -56,7 +56,6 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::auth::AuthResponse,
             api::handlers::files::UploadResponse,
             api::handlers::files::PreCheckRequest,
-
             api::handlers::files::PreCheckResponse,
             api::handlers::files::FileMetadataResponse,
             api::handlers::files::CreateFolderRequest,
@@ -69,7 +68,6 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::BulkMoveResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
-            api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
             api::handlers::users::UserProfileResponse,
             api::handlers::users::UpdateProfileRequest,
@@ -78,7 +76,10 @@ use utoipa_swagger_ui::SwaggerUi;
     ),
     tags(
         (name = "auth", description = "Authentication endpoints"),
-        (name = "files", description = "File management endpoints")
+        (name = "files", description = "File management endpoints"),
+        (name = "users", description = "User profile endpoints"),
+        (name = "settings", description = "User preferences endpoints"),
+        (name = "system", description = "System health and status")
     )
 )]
 pub struct ApiDoc;
