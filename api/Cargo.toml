@@ -5,11 +5,11 @@ edition = "2024"
 default-run = "rust-file-backend"
 
 [dependencies]
-axum = { version = "0.7", features = ["multipart"] }
+axum = { version = "0.7.9", features = ["multipart"] }
 tokio = { version = "1.0", features = ["full"] }
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "postgres", "chrono", "uuid"] }
-sea-orm = { version = "0.12", features = [ "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-native-tls", "macros", "with-chrono", "with-uuid", "with-json" ] }
-jsonwebtoken = "9.0"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "postgres", "chrono", "uuid"] }
+sea-orm = { version = "1.1", features = [ "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json" ] }
+jsonwebtoken = "9.3"
 aws-sdk-s3 = { version = "1.0", default-features = false, features = ["rt-tokio", "rustls"] }
 aws-config = { version = "1.0", features = ["behavior-version-latest"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
@@ -52,7 +52,6 @@ openidconnect = { version = "4.0.1", features = ["reqwest", "rustls-tls"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 blake3 = "1.8.3"
 chacha20poly1305 = "0.10.1"
-rsa = "0.9.10"
 rand = "0.8.5"
 base64 = "0.22.1"
 async-stream = "0.3.6"
