@@ -1,7 +1,7 @@
 {
   "name": "rust-file-backend-web",
   "description": "Enterprise File Manager Frontend",
-  "version": "1.0.0",
+  "version": "0.1.0-beta.5",
   "license": "MIT",
   "type": "module",
   "scripts": {

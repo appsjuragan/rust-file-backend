@@ -1,6 +1,31 @@
 # Release Notes
 
+## Version 0.1.0-beta.5 (2026-02-02)
+
+### 🎯 Major Architectural Changes
+
+#### **Project Reorganization (Monorepo Structure)**
+- **Infrastructure Separation**: Completely separated backend and frontend codebases into dedicated `api/` and `web/` directories.
+- **Monorepo Management**: Updated root-level scripts and configuration to handle the new directory structure.
+- **Clean Workspace**: Improved `.gitignore` and build artifact management for the nested structure.
+
+#### **Comprehensive Testing Suite**
+- **Full Swagger Endpoint Verification**: Added `api/scripts/test_swagger_endpoints.ps1`, a robust testing script that validates every REST endpoint.
+- **Negative Scenario Coverage**: Integrated tests for unauthorized access, duplicate registrations, and invalid payloads.
+- **Automated Validation**: Enhanced `api/scripts/comprehensive_test.ps1` to cover the full end-to-end user lifecycle from registration to soft-deletion.
+
+### 🎨 UI/UX & Tooling
+- **Unified Startup script**: Enhanced the root `run.bat` to automatically handle environment setup and start both API and React services in separate windows.
+- **Documentation Migration**: Moved all technical architecture and OIDC integration documentation into the `api/` directory for better context.
+
+### 🧹 Code Quality
+- **Refactored Service Layer**: Updated imports and path handling to support the new directory nesting.
+- **Cleaned Root Directory**: Removed legacy build logs and temporary files from the project root.
+
+---
+
 ## Version 0.1.0-beta.4 (2026-01-31)
+
 
 ### 🎯 Major Features
 
