@@ -489,8 +489,8 @@ function App() {
 
         try {
             // Dynamic import to avoid issues with SSR or initial load if WASM is heavy
-            const { createBLAKE3 } = await import('hash-wasm');
-            const hasher = await createBLAKE3();
+            const { createXXHash3 } = await import('hash-wasm');
+            const hasher = await createXXHash3();
             hasher.init();
 
             // Read in chunks to keep memory usage low
