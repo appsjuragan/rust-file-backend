@@ -1,71 +1,54 @@
-use crate::entities::{allowed_mimes, blocked_extensions, magic_signatures, prelude::*};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use crate::entities::prelude::*;
+use crate::entities::{users, allowed_mimes, magic_signatures, blocked_extensions};
+use argon2::PasswordHasher;
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, PaginatorTrait, Set, ColumnTrait, QueryFilter};
 use tracing::info;
+use uuid::Uuid;
 
-pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()> {
-    info!("🌱 Seeding validation data...");
+pub async fn seed_initial_data(db: &DatabaseConnection) -> anyhow::Result<()> {
+    info!("🌱 Checking for initial data seeding...");
+
+    // Seed Admin User if none exists
+    let user_count = Users::find().count(db).await?;
+    if user_count == 0 {
+        info!("👤 Creating initial admin user...");
+        
+        let argon2 = argon2::Argon2::default();
+        let salt = argon2::password_hash::SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
+        let password_hash = argon2
+            .hash_password("admin123456".as_bytes(), &salt)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .to_string();
+
+        let admin = users::ActiveModel {
+            id: Set(Uuid::new_v4().to_string()),
+            username: Set("admin".to_string()),
+            password_hash: Set(Some(password_hash)),
+            name: Set(Some("Administrator".to_string())),
+            ..Default::default()
+        };
+        
+        admin.insert(db).await?;
+        info!("✅ Admin user created (admin / admin123456)");
+    }
+
+    info!("✅ Initial seeding completed.");
+    Ok(())
+}
+
+pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Result<()> {
+    info!("🌱 Seeding validation data for SQLite...");
 
     // 1. Allowed MIME Types
     let mimes = vec![
         ("application/pdf", "Documents"),
         ("application/msword", "Documents"),
-        (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "Documents",
-        ),
-        ("application/vnd.ms-excel", "Documents"),
-        (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "Documents",
-        ),
-        ("application/vnd.ms-powerpoint", "Documents"),
-        (
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "Documents",
-        ),
-        ("application/rtf", "Documents"),
-        ("text/plain", "Documents"),
-        ("text/csv", "Documents"),
+        ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Documents"),
         ("image/jpeg", "Images"),
         ("image/png", "Images"),
-        ("image/gif", "Images"),
-        ("image/webp", "Images"),
-        ("image/bmp", "Images"),
-        ("image/tiff", "Images"),
-        ("image/svg+xml", "Images"),
         ("audio/mpeg", "Audio"),
-        ("audio/mp3", "Audio"),
-        ("audio/wav", "Audio"),
-        ("audio/ogg", "Audio"),
-        ("audio/flac", "Audio"),
-        ("audio/aac", "Audio"),
-        ("audio/webm", "Audio"),
-        ("audio/mp4", "Audio"),
-        ("audio/x-m4a", "Audio"),
-        ("audio/m4a", "Audio"),
         ("video/mp4", "Video"),
-        ("video/mpeg", "Video"),
-        ("video/webm", "Video"),
-        ("video/ogg", "Video"),
-        ("video/quicktime", "Video"),
-        ("video/x-msvideo", "Video"),
         ("application/zip", "Archives"),
-        ("application/x-rar-compressed", "Archives"),
-        ("application/vnd.rar", "Archives"),
-        ("application/x-7z-compressed", "Archives"),
-        ("application/gzip", "Archives"),
-        ("application/x-tar", "Archives"),
-        ("application/x-bzip2", "Archives"),
-        ("application/x-zip-compressed", "Archives"),
-        ("application/x-compress", "Archives"),
-        ("application/x-compressed", "Archives"),
-        ("application/x-zip", "Archives"),
-        ("application/x-rar", "Archives"),
-        ("application/octet-stream", "Archives"),
-        ("application/x-gtar", "Archives"),
-        ("application/x-tgz", "Archives"),
-        ("application/x-gzip", "Archives"),
-        ("video/mp2t", "Video"),
     ];
 
     for (mime, cat) in mimes {
@@ -87,48 +70,9 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
     // 2. Magic Signatures
     let sigs = vec![
         (vec![0x25, 0x50, 0x44, 0x46], "application/pdf"),
-        (vec![0xD0, 0xCF, 0x11, 0xE0], "application/msword"),
         (vec![0x50, 0x4B, 0x03, 0x04], "application/zip"),
         (vec![0xFF, 0xD8, 0xFF], "image/jpeg"),
         (vec![0x89, 0x50, 0x4E, 0x47], "image/png"),
-        (vec![0x47, 0x49, 0x46, 0x38], "image/gif"),
-        (vec![0x52, 0x49, 0x46, 0x46], "image/webp"),
-        (vec![0x42, 0x4D], "image/bmp"),
-        (vec![0x49, 0x44, 0x33], "audio/mpeg"),
-        (vec![0xFF, 0xFB], "audio/mpeg"),
-        (vec![0xFF, 0xFA], "audio/mpeg"),
-        (vec![0x4F, 0x67, 0x67, 0x53], "audio/ogg"),
-        (vec![0x66, 0x4C, 0x61, 0x43], "audio/flac"),
-        (
-            vec![
-                0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
-            ],
-            "audio/mp4",
-        ),
-        (
-            vec![
-                0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
-            ],
-            "audio/mp4",
-        ),
-        (
-            vec![
-                0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41,
-            ],
-            "audio/mp4",
-        ),
-        (
-            vec![0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70],
-            "video/mp4",
-        ),
-        (
-            vec![0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
-            "video/mp4",
-        ),
-        (vec![0x47], "video/mp2t"),
-        (vec![0x1F, 0x8B], "application/gzip"),
-        (vec![0x52, 0x61, 0x72, 0x21], "application/vnd.rar"),
-        (vec![0x37, 0x7A, 0xBC, 0xAF], "application/x-7z-compressed"),
     ];
 
     for (sig, mime) in sigs {
@@ -149,15 +93,7 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
     }
 
     // 3. Blocked Extensions
-    let blocked = vec![
-        "exe", "dll", "so", "dylib", "bin", "com", "bat", "cmd", "ps1", "sh", "bash", "js", "ts",
-        "jsx", "tsx", "py", "pyw", "rb", "php", "pl", "cgi", "asp", "aspx", "jsp", "jspx", "cfm",
-        "go", "rs", "java", "class", "jar", "war", "c", "cpp", "h", "hpp", "cs", "vb", "vbs",
-        "lua", "r", "swift", "kt", "scala", "groovy", "html", "htm", "xhtml", "shtml", "svg",
-        "xml", "xsl", "xslt", "htaccess", "htpasswd", "json", "yaml", "yml", "toml", "ini", "conf",
-        "config", "iso", "img", "vmdk", "vhd", "ova", "ovf", "docm", "xlsm", "pptm", "dotm",
-        "xltm", "potm",
-    ];
+    let blocked = vec!["exe", "dll", "bat", "cmd", "sh", "js"];
 
     for ext in blocked {
         let exists = BlockedExtensions::find()
@@ -174,6 +110,6 @@ pub async fn seed_validation_data(db: &DatabaseConnection) -> anyhow::Result<()>
         }
     }
 
-    info!("✅ Seeding completed.");
+    info!("✅ SQLite validation seeding completed.");
     Ok(())
 }

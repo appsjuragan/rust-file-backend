@@ -14,12 +14,6 @@ pub struct Model {
     pub email: Option<String>,
     pub name: Option<String>,
     pub avatar_url: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub public_key: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub private_key_enc: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub private_key_path: Option<String>,
     pub created_at: Option<DateTimeUtc>,
 }
 

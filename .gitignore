@@ -1,14 +1,17 @@
+
 # Root gitignore
 .idea
 .vscode
 .agent/
 /node_modules
+/target
 
 # Subdirectory ignores
 /api/target
 /api/.env
 /web/node_modules
 /web/dist
+/web/.env
 *.db
 *.db-journal
 *.log

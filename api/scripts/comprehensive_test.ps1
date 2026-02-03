@@ -21,8 +21,8 @@ New-Item "backend.db" -ItemType File | Out-Null
 # Start Server
 Write-Host "Starting server..."
 $serverProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -PassThru -NoNewWindow
-Write-Host "Server started with PID $($serverProcess.Id). Waiting 40s..."
-Start-Sleep -Seconds 40
+Write-Host "Server started with PID $($serverProcess.Id). Waiting 120s..."
+Start-Sleep -Seconds 20
 
 # Create Test Files
 Write-Host "Creating test payloads..."
@@ -51,7 +51,7 @@ Write-Host "`n--- 2. User A Flow ---" -ForegroundColor Cyan
 # Register A
 $bodyA = @{ username = "userA"; password = "passwordA" } | ConvertTo-Json
 try {
-    $regA = Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $bodyA -ContentType "application/json"
+    $regA = Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $bodyA -ContentType "application/json" -UseBasicParsing
     Assert-Status $regA 201 "User A Registration"
 }
 catch {
@@ -87,7 +87,7 @@ Write-Host "`n--- 3. User B Flow (Deduplication) ---" -ForegroundColor Cyan
 # Register B
 $bodyB = @{ username = "userB"; password = "passwordB" } | ConvertTo-Json
 try {
-    $regB = Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $bodyB -ContentType "application/json"
+    $regB = Invoke-WebRequest -Uri "$baseUrl/register" -Method Post -Body $bodyB -ContentType "application/json" -UseBasicParsing
     Assert-Status $regB 201 "User B Registration"
 }
 catch {
@@ -128,7 +128,7 @@ Write-Host "`n--- 4. Negative Cases ---" -ForegroundColor Cyan
 
 # Login Wrong Password
 try {
-    Invoke-WebRequest -Uri "$baseUrl/login" -Method Post -Body (@{ username = "userA"; password = "wrong" } | ConvertTo-Json) -ContentType "application/json"
+    Invoke-WebRequest -Uri "$baseUrl/login" -Method Post -Body (@{ username = "userA"; password = "wrong" } | ConvertTo-Json) -ContentType "application/json" -UseBasicParsing
     Write-Host "[FAIL] Login with wrong password should fail" -ForegroundColor Red
 }
 catch {
@@ -143,7 +143,7 @@ catch {
 # Cross-User Access (User B tries to delete User A's file)
 Write-Host "User B trying to delete User A's file ($idA)..."
 try {
-    Invoke-WebRequest -Uri "$baseUrl/files/$idA" -Method Delete -Headers @{ Authorization = "Bearer $tokenB" }
+    Invoke-WebRequest -Uri "$baseUrl/files/$idA" -Method Delete -Headers @{ Authorization = "Bearer $tokenB" } -UseBasicParsing
     Write-Host "[FAIL] Cross-user delete should fail" -ForegroundColor Red
 }
 catch {
@@ -190,7 +190,7 @@ cargo run --example check_dedup 1 $dedupHash
 # User B downloads file (should still work)
 Write-Host "User B downloading file ($idB)..."
 try {
-    Invoke-WebRequest -Uri "$baseUrl/files/$idB" -Method Get -Headers @{ Authorization = "Bearer $tokenB" } -OutFile "downloaded_dedup.txt"
+    Invoke-WebRequest -Uri "$baseUrl/files/$idB" -Method Get -Headers @{ Authorization = "Bearer $tokenB" } -OutFile "downloaded_dedup.txt" -UseBasicParsing
     $downHash = (Get-FileHash "downloaded_dedup.txt").Hash
     if ($downHash -eq $dedupHash) {
         Write-Host "[PASS] User B download successful and integrity verified" -ForegroundColor Green

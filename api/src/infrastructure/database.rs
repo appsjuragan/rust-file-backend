@@ -2,8 +2,7 @@ use crate::entities::{
     allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
     storage_files, tags, tokens, user_file_facts, user_files, user_settings, users,
 };
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
-use sea_orm::{ConnectionTrait, Schema};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, Schema, ConnectionTrait};
 use std::env;
 use std::time::Duration;
 use tracing::info;
@@ -29,201 +28,48 @@ pub async fn setup_database() -> anyhow::Result<DatabaseConnection> {
 
     run_migrations(&db).await?;
 
+    // Seed additional data if needed (e.g. system accounts)
+    crate::infrastructure::seed::seed_initial_data(&db).await?;
+
     Ok(db)
 }
 
 pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
-    if let Ok(db_url) = env::var("DATABASE_URL") {
-        info!("🔄 Running SQLx migrations...");
-        if db_url.starts_with("postgres://") {
-            let pool = sqlx::PgPool::connect(&db_url).await?;
-            sqlx::migrate!("./migrations").run(&pool).await?;
-        } else if db_url.starts_with("sqlite://") && !db_url.contains(":memory:") {
-            let pool = sqlx::SqlitePool::connect(&db_url).await?;
-            sqlx::migrate!("./migrations").run(&pool).await?;
+    let db_url = env::var("DATABASE_URL")?;
+    
+    if db_url.starts_with("postgres://") {
+        info!("🔄 Running SQLx migrations for PostgreSQL...");
+        let pool = sqlx::PgPool::connect(&db_url).await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
+    } else {
+        info!("🔄 Running SeaORM auto-migrations for SQLite/Other...");
+        let builder = db.get_database_backend();
+        let schema = Schema::new(builder);
+        
+        let stmts = vec![
+            schema.create_table_from_entity(users::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(user_settings::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(tokens::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(storage_files::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(user_files::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(tags::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(file_metadata::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(file_tags::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(audit_logs::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(user_file_facts::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(allowed_mimes::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(magic_signatures::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(blocked_extensions::Entity).if_not_exists().to_owned(),
+        ];
+
+        for stmt in stmts {
+            let stmt = builder.build(&stmt);
+            let _ = db.execute(stmt).await;
         }
+        
+        // Seed validation data for SQLite since SQL migrations won't run
+        crate::infrastructure::seed::seed_validation_data_sqlite(db).await?;
     }
-
-    let builder = db.get_database_backend();
-    let schema = Schema::new(builder);
-
-    info!("🔄 Running auto-migrations...");
-
-    // Order matters for foreign keys: Users -> Tokens, StorageFiles -> UserFiles
-    let stmts = vec![
-        (
-            "users",
-            schema
-                .create_table_from_entity(users::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "user_settings",
-            schema
-                .create_table_from_entity(user_settings::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "tokens",
-            schema
-                .create_table_from_entity(tokens::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "storage_files",
-            schema
-                .create_table_from_entity(storage_files::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "user_files",
-            schema
-                .create_table_from_entity(user_files::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "tags",
-            schema
-                .create_table_from_entity(tags::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "file_metadata",
-            schema
-                .create_table_from_entity(file_metadata::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "file_tags",
-            schema
-                .create_table_from_entity(file_tags::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "audit_logs",
-            schema
-                .create_table_from_entity(audit_logs::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "user_file_facts",
-            schema
-                .create_table_from_entity(user_file_facts::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "allowed_mimes",
-            schema
-                .create_table_from_entity(allowed_mimes::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "magic_signatures",
-            schema
-                .create_table_from_entity(magic_signatures::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-        (
-            "blocked_extensions",
-            schema
-                .create_table_from_entity(blocked_extensions::Entity)
-                .if_not_exists()
-                .to_owned(),
-        ),
-    ];
-
-    for (name, stmt) in stmts {
-        let stmt = builder.build(&stmt);
-        match db.execute(stmt).await {
-            Ok(_) => info!("   - Table '{}' checked/created", name),
-            Err(e) => tracing::warn!("   - Failed to create table '{}': {}", name, e),
-        }
-    }
-
-    // Manual migration for new features (Folders)
-    // We use raw SQL because SeaORM's create_table_from_entity is additive-only for tables, not columns
-    info!("🔄 Checking for schema updates...");
-
-    let schema_updates = vec![
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS parent_id VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS is_folder BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE user_files ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP DEFAULT NULL",
-        "ALTER TABLE user_files ALTER COLUMN storage_file_id DROP NOT NULL",
-        // Indexes for robust search
-        "CREATE INDEX IF NOT EXISTS idx_user_files_user_id ON user_files(user_id)",
-        "CREATE INDEX IF NOT EXISTS idx_user_files_parent_id ON user_files(parent_id)",
-        "CREATE INDEX IF NOT EXISTS idx_user_files_filename ON user_files(filename)",
-        "CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at)",
-        "CREATE INDEX IF NOT EXISTS idx_user_files_deleted_at ON user_files(deleted_at)",
-        "CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category)",
-        "CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id)",
-        // OIDC Support
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_sub VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub)",
-        // Profile fields
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT NULL",
-        // Obfuscation: Rename encryption_key to file_signature
-        "ALTER TABLE user_files RENAME COLUMN encryption_key TO file_signature",
-        "ALTER TABLE user_file_facts ADD COLUMN IF NOT EXISTS image_count BIGINT DEFAULT 0",
-        // Advanced Search: PostgreSQL Trigram support
-        "CREATE EXTENSION IF NOT EXISTS pg_trgm",
-        "CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops)",
-    ];
-
-    let is_sqlite = builder == sea_orm::DatabaseBackend::Sqlite;
-
-    for query in schema_updates {
-        // SQLite doesn't support ADD COLUMN IF NOT EXISTS or ALTER COLUMN
-        let mut final_query = query.to_owned();
-        if is_sqlite {
-            final_query = final_query.replace(" IF NOT EXISTS", "");
-            if final_query.contains("ALTER COLUMN") {
-                tracing::debug!("   - Skipping unsupported SQLite update: {}", final_query);
-                continue;
-            }
-        }
-
-        match db
-            .execute(sea_orm::Statement::from_string(
-                builder,
-                final_query.clone(),
-            ))
-            .await
-        {
-            Ok(_) => info!("   - Executed schema update: {}", final_query),
-            Err(e) => {
-                let err_msg = e.to_string().to_lowercase();
-                if err_msg.contains("duplicate column")
-                    || err_msg.contains("already exists")
-                    || err_msg.contains("no such column")
-                {
-                    info!(
-                        "   - Column/Index already updated or missing (skipped): {}",
-                        final_query
-                    );
-                } else {
-                    tracing::warn!("   - Schema update warning: {} -> {}", final_query, e);
-                }
-            }
-        }
-    }
-
-    crate::infrastructure::seed::seed_validation_data(db).await?;
-
+    
     Ok(())
 }

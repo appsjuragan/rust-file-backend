@@ -100,7 +100,10 @@ pub fn create_app(state: AppState) -> Router {
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/health", get(api::handlers::health::health_check))
-        .route("/system/validation-rules", get(api::handlers::health::get_validation_rules))
+        .route(
+            "/system/validation-rules",
+            get(api::handlers::health::get_validation_rules),
+        )
         .layer(from_fn(api::middleware::metrics::metrics_middleware))
         .layer(from_fn(api::middleware::request_id::request_id_middleware))
         .route("/register", post(api::handlers::auth::register))

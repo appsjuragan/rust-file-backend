@@ -11,5 +11,6 @@ For Legendary Agentic
 9. modular, clean architectural design and async first
 10. check any vulnerability before commit
 11. update readme, openapi, postman collection if it prepare for release
-12. use podman to run any container
+12. use podman to run any container, if no podman use docker
 13. use bun
+14. give each commit comprehensive short clear message

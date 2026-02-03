@@ -70,15 +70,13 @@ pub async fn register(
         id: Set(id.clone()),
         username: Set(payload.username),
         password_hash: Set(Some(password_hash)),
-        public_key: Set(None),
-        private_key_path: Set(None),
-        private_key_enc: Set(None),
         ..Default::default()
     };
 
-    user.insert(&state.db)
-        .await
-        .map_err(|_e| AppError::BadRequest("Username already exists".to_string()))?;
+    user.insert(&state.db).await.map_err(|e| {
+        tracing::error!("Registration failed: {:?}", e);
+        AppError::BadRequest("Username already exists or registration failed".to_string())
+    })?;
 
     let audit = AuditService::new(state.db.clone());
     audit
@@ -429,9 +427,6 @@ pub async fn callback_oidc(
                 oidc_sub: Set(Some(oidc_sub)),
                 email: Set(email),
                 password_hash: Set(None),
-                public_key: Set(None),
-                private_key_path: Set(None),
-                private_key_enc: Set(None),
                 ..Default::default()
             };
             let u = user

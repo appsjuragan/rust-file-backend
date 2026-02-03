@@ -48,10 +48,13 @@ pub async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     ),
     tag = "system"
 )]
-pub async fn get_validation_rules(State(state): State<AppState>) -> Result<Json<crate::utils::validation::ValidationRules>, crate::api::error::AppError> {
-    let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-        .await
-        .map_err(|e| crate::api::error::AppError::Internal(e.to_string()))?;
-    
+pub async fn get_validation_rules(
+    State(state): State<AppState>,
+) -> Result<Json<crate::utils::validation::ValidationRules>, crate::api::error::AppError> {
+    let rules =
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+            .await
+            .map_err(|e| crate::api::error::AppError::Internal(e.to_string()))?;
+
     Ok(Json(rules))
 }

@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use sea_orm::EntityTrait;
-use std::path::Path;
 use serde::Serialize;
+use std::path::Path;
 use utoipa::ToSchema;
 
 /// Maximum file size: 256 MB
@@ -17,7 +17,10 @@ pub struct ValidationRules {
 }
 
 impl ValidationRules {
-    pub async fn load(db: &sea_orm::DatabaseConnection, max_file_size: usize) -> Result<Self, sea_orm::DbErr> {
+    pub async fn load(
+        db: &sea_orm::DatabaseConnection,
+        max_file_size: usize,
+    ) -> Result<Self, sea_orm::DbErr> {
         use crate::entities::prelude::*;
 
         let mimes = AllowedMimes::find().all(db).await?;

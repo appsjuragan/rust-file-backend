@@ -203,9 +203,10 @@ pub async fn link_file(
     Extension(claims): Extension<Claims>,
     Json(req): Json<LinkFileRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
-    let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules =
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let sanitized_filename = crate::utils::validation::sanitize_filename(&req.filename, &rules)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -270,11 +271,14 @@ pub async fn upload_file(
                 let content_type = field.content_type().map(|s| s.to_string());
 
                 // 0. Load Validation Rules
-                let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-                    .await
-                    .map_err(|e| {
-                        AppError::Internal(format!("Failed to load validation rules: {}", e))
-                    })?;
+                let rules = crate::utils::validation::ValidationRules::load(
+                    &state.db,
+                    state.config.max_file_size,
+                )
+                .await
+                .map_err(|e| {
+                    AppError::Internal(format!("Failed to load validation rules: {}", e))
+                })?;
 
                 // 1. Sanitize filename
                 filename = sanitize_filename(&original_filename, &rules)
@@ -607,9 +611,10 @@ pub async fn create_folder(
 ) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
 
-    let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules =
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let sanitized_name =
         sanitize_filename(&req.name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -766,9 +771,10 @@ pub async fn rename_item(
             "Item not found or already deleted".to_string(),
         ))?;
 
-    let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules =
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let target_filename = if let Some(name) = req.name.clone() {
         sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?
@@ -858,9 +864,12 @@ pub async fn rename_item(
 
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
-        let rules = crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+        let rules =
+            crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+                .await
+                .map_err(|e| {
+                    AppError::Internal(format!("Failed to load validation rules: {}", e))
+                })?;
 
         let sanitized_name =
             sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;
