@@ -65,6 +65,7 @@ We didn't just write code; we engineered a masterpiece. This project follows **H
 - 🎫 **Download Tickets**: Secure, time-limited download links for file sharing.
 - 📦 **Bulk Operations**: Move and delete multiple files/folders in a single request.
 - 🗜️ **Archive Preview**: Inspect contents of ZIP, 7z, TAR, and RAR archives without downloading.
+- 🧩 **Chunked Uploads**: Bypass cloudflare limits with TUS-like resilient multipart uploads.
 
 ---
 

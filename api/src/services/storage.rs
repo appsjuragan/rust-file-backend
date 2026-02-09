@@ -41,6 +41,21 @@ pub trait StorageService: Send + Sync {
     async fn get_file(&self, key: &str) -> Result<Vec<u8>>;
     async fn list_objects(&self, prefix: &str) -> Result<Vec<String>>;
     async fn get_object_metadata(&self, key: &str) -> Result<FileMetadata>;
+    async fn create_multipart_upload(&self, key: &str) -> Result<String>;
+    async fn upload_part(
+        &self,
+        key: &str,
+        upload_id: &str,
+        part_number: i32,
+        data: Vec<u8>,
+    ) -> Result<String>;
+    async fn complete_multipart_upload(
+        &self,
+        key: &str,
+        upload_id: &str,
+        parts: Vec<(i32, String)>,
+    ) -> Result<()>;
+    async fn abort_multipart_upload(&self, key: &str, upload_id: &str) -> Result<()>;
 }
 
 pub struct S3StorageService {
@@ -295,5 +310,82 @@ impl StorageService for S3StorageService {
             last_modified,
             size: res.content_length.unwrap_or(0),
         })
+    }
+
+    async fn create_multipart_upload(&self, key: &str) -> Result<String> {
+        let res = self
+            .client
+            .create_multipart_upload()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await?;
+        res.upload_id()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No upload ID returned"))
+    }
+
+    async fn upload_part(
+        &self,
+        key: &str,
+        upload_id: &str,
+        part_number: i32,
+        data: Vec<u8>,
+    ) -> Result<String> {
+        let res = self
+            .client
+            .upload_part()
+            .bucket(&self.bucket)
+            .key(key)
+            .upload_id(upload_id)
+            .part_number(part_number)
+            .body(ByteStream::from(data))
+            .send()
+            .await?;
+        res.e_tag()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No ETag returned"))
+    }
+
+    async fn complete_multipart_upload(
+        &self,
+        key: &str,
+        upload_id: &str,
+        parts: Vec<(i32, String)>,
+    ) -> Result<()> {
+        let mut completed_parts = Vec::new();
+        for (part_number, etag) in parts {
+            completed_parts.push(
+                CompletedPart::builder()
+                    .part_number(part_number)
+                    .e_tag(etag)
+                    .build(),
+            );
+        }
+
+        let completed_multipart_upload = CompletedMultipartUpload::builder()
+            .set_parts(Some(completed_parts))
+            .build();
+
+        self.client
+            .complete_multipart_upload()
+            .bucket(&self.bucket)
+            .key(key)
+            .upload_id(upload_id)
+            .multipart_upload(completed_multipart_upload)
+            .send()
+            .await?;
+        Ok(())
+    }
+
+    async fn abort_multipart_upload(&self, key: &str, upload_id: &str) -> Result<()> {
+        self.client
+            .abort_multipart_upload()
+            .bucket(&self.bucket)
+            .key(key)
+            .upload_id(upload_id)
+            .send()
+            .await?;
+        Ok(())
     }
 }

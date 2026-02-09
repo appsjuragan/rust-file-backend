@@ -1,6 +1,7 @@
 use crate::entities::{
     allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
-    storage_files, tags, tokens, user_file_facts, user_files, user_settings, users,
+    storage_files, tags, tokens, upload_sessions, user_file_facts, user_files, user_settings,
+    users,
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, Schema, ConnectionTrait};
 use std::env;
@@ -60,6 +61,7 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             schema.create_table_from_entity(allowed_mimes::Entity).if_not_exists().to_owned(),
             schema.create_table_from_entity(magic_signatures::Entity).if_not_exists().to_owned(),
             schema.create_table_from_entity(blocked_extensions::Entity).if_not_exists().to_owned(),
+            schema.create_table_from_entity(upload_sessions::Entity).if_not_exists().to_owned(),
         ];
 
         for stmt in stmts {

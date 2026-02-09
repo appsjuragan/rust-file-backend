@@ -11,3 +11,4 @@ pub use super::user_file_facts::Entity as UserFileFacts;
 pub use super::user_files::Entity as UserFiles;
 pub use super::user_settings::Entity as UserSettings;
 pub use super::users::Entity as Users;
+pub use super::upload_sessions::Entity as UploadSessions;

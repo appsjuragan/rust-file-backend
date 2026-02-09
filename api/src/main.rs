@@ -89,11 +89,19 @@ async fn main() -> anyhow::Result<()> {
             security_config.clone(),
         ));
 
+        let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
+            db.clone(),
+            storage_service.clone(),
+            security_config.clone(),
+            file_service.clone(),
+        ));
+
         let state = AppState {
             db: db.clone(),
             storage: storage_service.clone(),
             scanner: scanner_service.clone(),
             file_service,
+            upload_service,
             config: security_config.clone(),
             download_tickets: Arc::new(dashmap::DashMap::new()),
         };

@@ -50,6 +50,10 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::users::upload_avatar,
         api::handlers::users::get_avatar,
         api::handlers::users::get_user_facts,
+        api::handlers::upload::init_upload_handler,
+        api::handlers::upload::upload_chunk_handler,
+        api::handlers::upload::complete_upload_handler,
+        api::handlers::upload::abort_upload_handler,
     ),
     components(
         schemas(
@@ -74,6 +78,11 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::users::UserProfileResponse,
             api::handlers::users::UpdateProfileRequest,
             api::handlers::users::AvatarResponse,
+            crate::services::upload_service::InitUploadRequest,
+            crate::services::upload_service::InitUploadResponse,
+            crate::services::upload_service::UploadPartResponse,
+            crate::services::upload_service::CompleteUploadRequest,
+            crate::services::upload_service::FileResponse,
         )
     ),
     tags(
@@ -92,6 +101,7 @@ pub struct AppState {
     pub storage: Arc<dyn StorageService>,
     pub scanner: Arc<dyn VirusScanner>,
     pub file_service: Arc<FileService>,
+    pub upload_service: Arc<crate::services::upload_service::UploadService>,
     pub config: SecurityConfig,
     pub download_tickets: Arc<dashmap::DashMap<String, (String, chrono::DateTime<chrono::Utc>)>>,
 }
@@ -137,6 +147,34 @@ pub fn create_app(state: AppState) -> Router {
                     state.clone(),
                     api::middleware::auth::auth_middleware,
                 )),
+        )
+        .route(
+            "/files/upload/init",
+            post(api::handlers::upload::init_upload_handler).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
+        )
+        .route(
+            "/files/upload/:upload_id/chunk/:part_number",
+            axum::routing::put(api::handlers::upload::upload_chunk_handler).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
+        )
+        .route(
+            "/files/upload/:upload_id/complete",
+            post(api::handlers::upload::complete_upload_handler).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
+        )
+        .route(
+            "/files/upload/:upload_id",
+            axum::routing::delete(api::handlers::upload::abort_upload_handler).layer(from_fn_with_state(
+                state.clone(),
+                api::middleware::auth::auth_middleware,
+            )),
         )
         .route(
             "/files/:id",
@@ -241,6 +279,9 @@ pub fn create_app(state: AppState) -> Router {
                 api::middleware::auth::auth_middleware,
             )),
         )
+        .layer(axum::extract::DefaultBodyLimit::max(
+            state.config.max_file_size + 10 * 1024 * 1024,
+        ))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -248,8 +289,5 @@ pub fn create_app(state: AppState) -> Router {
                 .allow_headers(Any)
                 .expose_headers(Any),
         )
-        .layer(axum::extract::DefaultBodyLimit::max(
-            state.config.max_file_size + 10 * 1024 * 1024,
-        ))
         .with_state(state)
 }

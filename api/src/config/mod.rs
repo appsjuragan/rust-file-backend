@@ -137,17 +137,30 @@ impl SecurityConfig {
 
     /// Create config for production (strict security)
     pub fn production() -> Self {
+        let default = Self::default();
         Self {
-            max_file_size: 1024 * 1024 * 1024,
-            uploads_per_hour: 250,
-            enable_virus_scan: true,
-            virus_scanner_type: "clamav".to_string(),
+            max_file_size: env::var("MAX_FILE_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(default.max_file_size),
+            uploads_per_hour: env::var("UPLOADS_PER_HOUR")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(default.uploads_per_hour),
+            enable_virus_scan: env::var("ENABLE_VIRUS_SCAN")
+                .map(|v| v.to_lowercase() != "false" && v != "0")
+                .unwrap_or(default.enable_virus_scan),
+            virus_scanner_type: env::var("VIRUS_SCANNER_TYPE")
+                .unwrap_or(default.virus_scanner_type),
             clamav_host: env::var("CLAMAV_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
             clamav_port: env::var("CLAMAV_PORT")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(3310),
-            chunk_size: 10 * 1024 * 1024,
+            chunk_size: env::var("CHUNK_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(default.chunk_size),
             oidc_issuer_url: env::var("OIDC_ISSUER_URL").ok(),
             oidc_client_id: env::var("OIDC_CLIENT_ID").ok(),
             oidc_client_secret: env::var("OIDC_CLIENT_SECRET").ok(),
