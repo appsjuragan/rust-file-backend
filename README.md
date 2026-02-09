@@ -155,9 +155,36 @@ Open your browser to:
 
 ---
 
+## 🐳 Docker Deployment
+
+The project is fully containerized for easy deployment. Both the backend and frontend include optimized multi-stage Dockerfiles.
+
+### Quick Run with Docker Compose
+1. Ensure Docker and Docker Compose are installed.
+2. Run the following command:
+```bash
+docker-compose up --build
+```
+
+### Manual Docker Build
+**Backend:**
+```bash
+cd api
+docker build -t rust-file-backend-api .
+```
+
+**Frontend:**
+```bash
+cd web
+docker build -t rust-file-backend-web .
+```
+
+---
+
 ## 📊 Tech Stack of the Future
 
-*   **Language:** Rust 1.93+ (Memory safe, zero-cost abstractions)
+*   **Language:** Rust 1.84+ (Memory safe, zero-cost abstractions)
+
 *   **Web Framework:** Axum 0.7 (High performance, ergonomic)
 *   **Database ORM:** SeaORM 1.1 (Type-safe, async)
 *   **Database:** PostgreSQL or SQLite
