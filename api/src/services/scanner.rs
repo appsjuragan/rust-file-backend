@@ -69,62 +69,148 @@ impl VirusScanner for ClamAvScanner {
         stream.write_all(b"zINSTREAM\0").await?;
 
         // Send data in chunks
-        const CHUNK_SIZE: usize = 32 * 1024 * 1024; // 32MB chunks
+        const CHUNK_SIZE: usize = 4 * 1024 * 1024; // 4MB chunks for better socket responsiveness
         let mut buffer = vec![0u8; CHUNK_SIZE];
 
+        let mut total_sent = 0;
+        let mut response = Vec::new();
+        let mut write_done = false;
+        let mut read_done = false;
+        let mut write_error: Option<std::io::Error> = None;
+        let mut read_error: Option<std::io::Error> = None;
+
+        let mut read_buf = [0u8; 1024];
+
         loop {
-            // Add a timeout for each read/write operation if needed,
-            // but the whole scan is what usually takes time.
-            let n = reader.read(&mut buffer).await?;
-            if n == 0 {
-                break;
+            tokio::select! {
+                // Read from ClamAV
+                read_res = stream.read(&mut read_buf), if !read_done => {
+                    match read_res {
+                        Ok(0) => {
+                            read_done = true;
+                        }
+                        Ok(n) => {
+                            response.extend_from_slice(&read_buf[..n]);
+                            // If we already have a full response (ends with OK or contains FOUND), we can stop reading
+                            let resp_str = String::from_utf8_lossy(&response);
+                            if resp_str.contains("FOUND") || resp_str.contains("ERROR") || resp_str.ends_with("OK\n") || resp_str.ends_with("OK") {
+                                read_done = true;
+                                if !write_done {
+                                     tracing::debug!("ClamAV sent early response: '{}', stopping stream.", resp_str.trim());
+                                }
+                                break; 
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!("ClamAV read error mid-stream: {}", e);
+                            read_error = Some(e);
+                            read_done = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Write to ClamAV
+                write_chunk = reader.read(&mut buffer), if !write_done => {
+                    match write_chunk {
+                        Ok(0) => {
+                            // Send zero-length chunk to indicate end of stream
+                            if let Err(e) = stream.write_all(&0u32.to_be_bytes()).await {
+                                tracing::warn!("Failed to send end-of-stream: {}", e);
+                            }
+                            let _ = stream.flush().await;
+                            write_done = true;
+                            tracing::debug!("Finished sending data to ClamAV ({} bytes)", total_sent);
+                        }
+                        Ok(n) => {
+                            let len = (n as u32).to_be_bytes();
+                            if let Err(e) = stream.write_all(&len).await {
+                                tracing::warn!("ClamAV write error (len): {}", e);
+                                write_error = Some(e);
+                                write_done = true;
+                            } else if let Err(e) = stream.write_all(&buffer[..n]).await {
+                                tracing::warn!("ClamAV write error (data): {}", e);
+                                write_error = Some(e);
+                                write_done = true;
+                            } else {
+                                total_sent += n;
+                                if total_sent % (100 * 1024 * 1024) == 0 {
+                                    tracing::info!("Scan progress: {} MB sent to ClamAV...", total_sent / 1024 / 1024);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            return Err(anyhow!("Failed to read from source: {}", e));
+                        }
+                    }
+                }
+
+                // Overall timeout
+                _ = tokio::time::sleep(std::time::Duration::from_secs(1800)) => {
+                    return Err(anyhow!("ClamAV scan timed out (total sent: {} bytes)", total_sent));
+                }
             }
 
-            let len = (n as u32).to_be_bytes();
-            stream.write_all(&len).await?;
-            stream.write_all(&buffer[..n]).await?;
+            if write_done && read_done {
+                break;
+            }
         }
 
-        // Send zero-length chunk to indicate end of stream
-        stream.write_all(&0u32.to_be_bytes()).await?;
-        stream.flush().await?;
-
-        // Read response with a generous timeout (5 minutes for large files)
-        let mut response = Vec::new();
-        tokio::time::timeout(
-            std::time::Duration::from_secs(300),
-            stream.read_to_end(&mut response),
-        )
-        .await
-        .map_err(|_| anyhow!("ClamAV scan timed out after 5 minutes"))??;
-
-        let response_str = String::from_utf8_lossy(&response);
-        let response_str = response_str.trim_end_matches('\0').trim();
-
-        tracing::debug!("ClamAV response: {}", response_str);
-
-        // Parse response
-        if response_str.ends_with("OK") {
-            Ok(ScanResult::Clean)
-        } else if response_str.contains("FOUND") {
-            let parts: Vec<&str> = response_str.split(':').collect();
-            let threat = if parts.len() > 1 {
-                parts[1].trim().replace(" FOUND", "")
-            } else {
-                "Unknown threat".to_string()
-            };
-            Ok(ScanResult::Infected {
-                threat_name: threat,
-            })
-        } else if response_str.contains("ERROR") {
-            Ok(ScanResult::Error {
-                reason: response_str.to_string(),
-            })
-        } else {
-            Ok(ScanResult::Error {
-                reason: format!("Unexpected ClamAV response: {}", response_str),
-            })
+        // Final attempt to read if we stopped because of a write error but haven't finished reading
+        if !read_done {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                while let Ok(n) = stream.read(&mut read_buf).await {
+                    if n == 0 { break; }
+                    response.extend_from_slice(&read_buf[..n]);
+                    let resp_str = String::from_utf8_lossy(&response);
+                    if resp_str.contains("FOUND") || resp_str.contains("ERROR") || resp_str.ends_with("OK") {
+                        break;
+                    }
+                }
+            }).await;
         }
+
+        if !response.is_empty() {
+            let response_str = String::from_utf8_lossy(&response);
+            let response_str = response_str.trim_end_matches('\0').trim();
+
+            tracing::debug!("ClamAV final response: '{}'", response_str);
+
+            if response_str.ends_with("OK") {
+                return Ok(ScanResult::Clean);
+            } else if response_str.contains("FOUND") {
+                let parts: Vec<&str> = response_str.split(':').collect();
+                let threat = if parts.len() > 1 {
+                    parts[1].trim().replace(" FOUND", "")
+                } else {
+                    "Unknown threat".to_string()
+                };
+                return Ok(ScanResult::Infected {
+                    threat_name: threat,
+                });
+            } else if response_str.contains("ERROR") {
+                let reason = if response_str.contains("size limit exceeded") {
+                    format!("ClamAV limit exceeded: {}. Please increase StreamMaxLength in clamd.conf", response_str)
+                } else {
+                    response_str.to_string()
+                };
+                return Ok(ScanResult::Error { reason });
+            }
+        }
+
+        // Handle failure cases where no valid response was parsed
+        if let Some(e) = read_error {
+            if let Some(we) = write_error {
+                return Err(anyhow!("ClamAV connection failed (ReadError: {}, WriteError: {}). No result received.", e, we));
+            }
+            return Err(anyhow!("ClamAV read error: {}", e));
+        }
+
+        if let Some(e) = write_error {
+            return Err(anyhow!("ClamAV write error: {}. ClamAV closed connection without sending a result.", e));
+        }
+
+        Err(anyhow!("ClamAV returned no response (total sent: {} bytes)", total_sent))
     }
 
     async fn health_check(&self) -> bool {

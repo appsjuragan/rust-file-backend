@@ -230,8 +230,15 @@ impl FileService {
                         let storage = self.storage.clone();
                         let s3_key = permanent_key.clone();
 
+                        // Mark as scanning immediately in the DB to claim the task
+                        let _ = storage_files::Entity::update_many()
+                            .col_expr(storage_files::Column::ScanStatus, sea_orm::sea_query::Expr::value("scanning"))
+                            .filter(storage_files::Column::Id.eq(file_id.clone()))
+                            .exec(&self.db)
+                            .await;
+
                         tokio::spawn(async move {
-                            tracing::info!("🚀 Starting async scan for file: {}", file_id);
+                            tracing::info!("🚀 Starting immediate virus scan for file: {} (S3: {})", file_id, s3_key);
 
                             let scan_res = if let Some(ref path) = temp_path_opt
                                 && let Ok(file) = tokio::fs::File::open(&path).await
