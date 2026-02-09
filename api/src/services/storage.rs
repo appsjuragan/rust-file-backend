@@ -142,7 +142,7 @@ impl StorageService for S3StorageService {
             .send()
             .await?;
 
-        let hash = format!("{:016x}", hasher.digest());
+        let hash = format!("{:032x}", hasher.digest128());
 
         Ok(UploadResult {
             hash,

@@ -27,5 +27,19 @@ pub async fn setup_storage() -> Arc<S3StorageService> {
         .build();
 
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+
+    // Ensure bucket exists
+    match s3_client.head_bucket().bucket(&bucket).send().await {
+        Ok(_) => info!("✅ Bucket '{}' is ready", bucket),
+        Err(_) => {
+            info!("🪣 Bucket '{}' not found, creating...", bucket);
+            if let Err(e) = s3_client.create_bucket().bucket(&bucket).send().await {
+                tracing::error!("❌ Failed to create bucket '{}': {}", bucket, e);
+            } else {
+                info!("✅ Bucket '{}' created successfully", bucket);
+            }
+        }
+    }
+
     Arc::new(S3StorageService::new(s3_client, bucket))
 }

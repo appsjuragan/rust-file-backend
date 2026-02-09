@@ -52,7 +52,7 @@ use validator::Validate;
 
 #[derive(Deserialize, ToSchema, Validate)]
 pub struct PreCheckRequest {
-    #[validate(length(min = 64, max = 64, message = "Invalid hash format"))]
+    #[validate(length(min = 32, max = 32, message = "Invalid hash format"))]
     pub full_hash: String,
     #[validate(range(min = 1, message = "File size must be positive"))]
     pub size: i64,
