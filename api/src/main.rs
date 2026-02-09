@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::signal;
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser, Debug)]
@@ -24,10 +24,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // 1. Initial Environment & Logging Setup
     dotenv().ok();
     let args = Args::parse();
 
-    // Initialize tracing with EnvFilter
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -36,9 +36,9 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("🚀 Starting Rust File Backend in mode: {}...", args.mode);
+    info!("🚀 Starting Rust File Backend [Mode: {}]...", args.mode);
 
-    // Setup Common Infrastructure
+    // 2. Setup Common Infrastructure
     let db = database::setup_database().await?;
     let storage_service = storage::setup_storage().await;
 
@@ -53,12 +53,11 @@ async fn main() -> anyhow::Result<()> {
 
     let scanner_service = scanner::setup_scanner(&security_config).await;
 
-    // Setup Shutdown Channel
+    // 3. Setup Graceful Shutdown Channel
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
-
     let mut handles = Vec::new();
 
-    // Start Worker if requested
+    // 4. Initialize Worker Service
     if args.mode == "worker" || args.mode == "all" {
         let worker_db = db.clone();
         let worker_storage = storage_service.clone();
@@ -80,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
         info!("👷 Worker service initialized.");
     }
 
-    // Start API if requested
+    // 5. Initialize API Service
     if args.mode == "api" || args.mode == "all" {
         let file_service = Arc::new(FileService::new(
             db.clone(),
@@ -106,44 +105,42 @@ async fn main() -> anyhow::Result<()> {
             download_tickets: Arc::new(dashmap::DashMap::new()),
         };
 
-        let app = create_app(state).layer(
-            TraceLayer::new_for_http()
-                .make_span_with(|request: &axum::http::Request<_>| {
-                    let request_id = request
-                        .headers()
-                        .get("x-request-id")
-                        .and_then(|v| v.to_str().ok())
-                        .unwrap_or("unknown");
-                    tracing::info_span!(
-                        "http_request",
-                        method = %request.method(),
-                        uri = %request.uri(),
-                        request_id = %request_id,
-                    )
-                })
-                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
-                    info!("📥 {} {}", request.method(), request.uri());
-                })
-                .on_response(
-                    |response: &axum::http::Response<_>,
-                     latency: std::time::Duration,
-                     _span: &tracing::Span| {
-                        info!(
-                            "📤 Finished in {:?} with status {}",
-                            latency,
-                            response.status()
-                        );
-                    },
-                ),
-        );
+        // Configure tracing layer for HTTP requests
+        let trace_layer = TraceLayer::new_for_http()
+            .make_span_with(|request: &axum::http::Request<_>| {
+                let request_id = request
+                    .headers()
+                    .get("x-request-id")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("unknown");
+                tracing::info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    request_id = %request_id,
+                )
+            })
+            .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                info!("📥 {} {}", request.method(), request.uri());
+            })
+            .on_response(
+                |response: &axum::http::Response<_>,
+                 latency: std::time::Duration,
+                 _span: &tracing::Span| {
+                    info!(
+                        "📤 Finished in {:?} with status {}",
+                        latency,
+                        response.status()
+                    );
+                },
+            );
 
+        let app = create_app(state).layer(trace_layer);
         let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
-        info!("✅ API Server ready at http://localhost:{}", args.port);
-        if args.mode == "all" || args.mode == "api" {
-            info!("📖 Swagger UI: http://localhost:{}/swagger-ui", args.port);
-        }
-
         let listener = tokio::net::TcpListener::bind(addr).await?;
+
+        info!("✅ API Server listening on: http://0.0.0.0:{}", args.port);
+        info!("📖 Swagger UI documentation: http://localhost:{}/swagger-ui", args.port);
 
         let server_handle = tokio::spawn(async move {
             if let Err(e) = axum::serve(listener, app)
@@ -152,30 +149,29 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .await
             {
-                tracing::error!("Server error: {}", e);
+                error!("❌ Server runtime error: {}", e);
             }
         });
         handles.push(server_handle);
     }
 
-    // Wait for shutdown or for all services to finish
+    // 6. Wait for Shutdown Signal
     if args.mode == "worker" {
-        // If only worker, we need a special shutdown signal wait because it's not wrapped in Axum's graceful shutdown
-        tokio::select! {
-            _ = shutdown_signal() => {
-                info!("🛑 Shutdown signal received.");
-                let _ = shutdown_tx.send(true);
-            }
-        }
+        // Special wait for standalone worker mode
+        shutdown_signal().await;
+        let _ = shutdown_tx.send(true);
     } else {
-        // If API is running, Axum handles the signal internally, but we should still notify the worker
-        // Wait for handles or just join them
-        // For simplicity, let's keep it simple:
+        // API server's axum::serve handles the signal, but we need to notify the worker
         shutdown_signal().await;
         let _ = shutdown_tx.send(true);
     }
 
-    info!("👋 Shutting down...");
+    info!("🛑 Shutting down backend services...");
+    
+    // Optional: Wait for tasks to complete
+    // for handle in handles { let _ = handle.await; }
+
+    info!("👋 Backend exited cleanly.");
     Ok(())
 }
 
@@ -199,10 +195,11 @@ async fn shutdown_signal() {
 
     tokio::select! {
         _ = ctrl_c => {
-            info!("⌨️  Ctrl+C received, starting graceful shutdown...");
+            info!("⌨️  Ctrl+C received, initiating graceful shutdown...");
         },
         _ = terminate => {
-            info!("💤 SIGTERM received, starting graceful shutdown...");
+            info!("💤 SIGTERM received, initiating graceful shutdown...");
         },
     }
 }
+

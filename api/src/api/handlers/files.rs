@@ -15,13 +15,12 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter,
     QueryOrder, QuerySelect, RelationTrait, Set, sea_query::Expr,
 };
-use serde::Deserialize;
-use serde::Serialize;
-
+use serde::{Deserialize, Serialize};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
+use validator::Validate;
 
 #[derive(Serialize, ToSchema)]
 pub struct UploadResponse {
@@ -48,9 +47,9 @@ pub struct FileMetadataResponse {
     pub hash: Option<String>,
 }
 
-use validator::Validate;
 
 #[derive(Deserialize, ToSchema, Validate)]
+
 pub struct PreCheckRequest {
     #[validate(length(min = 32, max = 32, message = "Invalid hash format"))]
     pub full_hash: String,

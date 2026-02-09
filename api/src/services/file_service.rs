@@ -1,17 +1,18 @@
 use crate::api::error::AppError;
 use crate::config::SecurityConfig;
 use crate::entities::{prelude::*, *};
-use crate::services::metadata::MetadataService;
-use crate::services::storage::StorageService;
+use crate::services::{
+    audit::{AuditEventType, AuditService},
+    metadata::MetadataService,
+    scanner::{VirusScanner, ScanResult},
+    storage::StorageService,
+};
 use crate::utils::validation::validate_upload;
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use uuid::Uuid;
-
-use crate::services::audit::{AuditEventType, AuditService};
-use crate::services::scanner::VirusScanner;
 
 pub struct FileService {
     db: DatabaseConnection,
