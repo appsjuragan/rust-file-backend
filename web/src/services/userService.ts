@@ -10,23 +10,20 @@ export const userService = {
     }),
 
     getAvatar: (userId: string) => {
-        // This likely returns a URL or Blob, need to check usage. 
-        // Based on api.ts usage, it seems it might be returning an endpoint path mostly.
-        // But let's keep it consistent.
-        // NOTE: The backend returns a redirect or image directly.
-        // In the frontend, we usually construct the URL directly.
+        const BASE = import.meta.env.VITE_API_URL || "/api";
+        return `${BASE}/users/avatar/${userId}`;
     },
 
     uploadAvatar: (file: File) => {
         const formData = new FormData();
         formData.append('avatar', file);
-        return request('/users/avatar', {
+        return request('/users/me/avatar', {
             method: 'POST',
             body: formData,
         });
     },
 
-    getUserFacts: () => request('/users/facts'),
+    getUserFacts: () => request('/users/me/facts'),
 
     getSettings: () => request('/settings'),
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useFileManager } from "../../context";
 import { FileType } from "../../types";
 import SvgIcon from "../Icons/SvgIcon";
-import { api } from "../../../src/api";
+import { fileService } from "../../../src/services/fileService";
 
 interface IContextMenuProps {
     x: number;
@@ -65,8 +65,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     const handleDownload = async () => {
         if (file && !file.isDir) {
             try {
-                const res = await api.getDownloadTicket(file.id);
-                const url = api.getDownloadUrl(res.ticket);
+                const res = await fileService.getDownloadTicket(file.id);
+                const url = fileService.getDownloadUrl(res.ticket);
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = file.name;

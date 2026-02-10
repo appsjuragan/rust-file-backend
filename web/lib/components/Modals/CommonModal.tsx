@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Draggable from "react-draggable";
-import SvgIcon from "../Icons/SvgIcon";
+import { X } from "lucide-react";
 
 interface IModalProps {
   title: string;
@@ -82,14 +82,14 @@ const CommonModal: React.FC<IModalProps> = ({
       >
         <div className="rfm-modal-header">
           <h3 className="rfm-modal-title">{title}</h3>
-          <SvgIcon
+          <X
             onClick={(e) => {
               e.stopPropagation();
               onClose();
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            svgType="close"
             className="rfm-modal-icon"
+            size={20}
           />
         </div>
         <div className="rfm-modal-body">

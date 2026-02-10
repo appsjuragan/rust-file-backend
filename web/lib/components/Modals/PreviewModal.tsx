@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import CommonModal from "./CommonModal";
-import { api } from "../../../src/api";
+import { fileService } from "../../../src/services/fileService";
 
 interface IPreviewModalProps {
     isVisible: boolean;
@@ -49,8 +49,8 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             // Generate secure ticket URL if fileId is present
             if (fileId) {
                 try {
-                    const res = await api.getDownloadTicket(fileId);
-                    urlToUse = api.getDownloadUrl(res.ticket);
+                    const res = await fileService.getDownloadTicket(fileId);
+                    urlToUse = fileService.getDownloadUrl(res.ticket);
                     setSecureUrl(urlToUse);
                 } catch (e) {
                     console.error("Failed to get preview ticket", e);
@@ -78,7 +78,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
                         setLoading(false);
                     });
             } else if (isArchiveFile && fileId) {
-                api.getZipContents(fileId)
+                fileService.getZipContents(fileId)
                     .then((entries: any) => {
                         setArchiveEntries(entries);
                         setLoading(false);

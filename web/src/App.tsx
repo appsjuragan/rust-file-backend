@@ -3,7 +3,7 @@ import { getAuthToken, setAuthToken, clearAuthToken } from "./services/httpClien
 import { AuthPage } from "./features/auth/AuthPage";
 import Dashboard from "./features/dashboard/Dashboard";
 import "./App.css";
-import "./lib/tailwind.css";
+import "../lib/tailwind.css";
 
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(!!getAuthToken());

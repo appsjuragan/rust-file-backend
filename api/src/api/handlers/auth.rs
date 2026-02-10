@@ -6,7 +6,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{Json, extract::State, http::{StatusCode, HeaderMap}};
 use axum::{
     extract::Query,
     response::{IntoResponse, Redirect},
@@ -33,6 +33,8 @@ pub struct AuthRequest {
     pub username: String,
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
+    pub captcha_id: String,
+    pub captcha_answer: i32,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -45,14 +47,25 @@ pub struct AuthResponse {
     path = "/register",
     request_body = AuthRequest,
     responses(
-        (status = 201, description = "User registered successfully"),
+        (status = 201, description = "User registered successfully", body = AuthResponse),
         (status = 400, description = "Username already exists")
     )
 )]
 pub async fn register(
     State(state): State<crate::AppState>,
+    headers: HeaderMap,
     Json(payload): Json<AuthRequest>,
-) -> Result<StatusCode, AppError> {
+) -> Result<(StatusCode, Json<AuthResponse>), AppError> {
+    // Validate CAPTCHA first
+    let ip = crate::api::handlers::captcha::extract_client_ip(&headers);
+    crate::api::handlers::captcha::validate_captcha(
+        &state.captchas,
+        &state.cooldowns,
+        &payload.captcha_id,
+        payload.captcha_answer,
+        &ip,
+    )?;
+
     payload
         .validate()
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -82,7 +95,7 @@ pub async fn register(
     audit
         .log(
             AuditEventType::UserRegister,
-            Some(id),
+            Some(id.clone()),
             None,
             "register",
             "success",
@@ -91,7 +104,23 @@ pub async fn register(
         )
         .await;
 
-    Ok(StatusCode::CREATED)
+    // Auto-login: generate JWT token for the new user
+    let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+    let token_str = create_jwt(&id, &secret).map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let token_id = Uuid::new_v4().to_string();
+    let expires_at = chrono::Utc::now() + chrono::Duration::hours(24);
+
+    let token_model = tokens::ActiveModel {
+        id: Set(token_id),
+        user_id: Set(id),
+        token: Set(token_str.clone()),
+        expires_at: Set(expires_at),
+    };
+
+    token_model.insert(&state.db).await?;
+
+    Ok((StatusCode::CREATED, Json(AuthResponse { token: token_str })))
 }
 
 #[utoipa::path(
@@ -105,8 +134,19 @@ pub async fn register(
 )]
 pub async fn login(
     State(state): State<crate::AppState>,
+    headers: HeaderMap,
     Json(payload): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
+    // Validate CAPTCHA first
+    let ip = crate::api::handlers::captcha::extract_client_ip(&headers);
+    crate::api::handlers::captcha::validate_captcha(
+        &state.captchas,
+        &state.cooldowns,
+        &payload.captcha_id,
+        payload.captcha_answer,
+        &ip,
+    )?;
+
     let user = Users::find()
         .filter(users::Column::Username.eq(payload.username))
         .one(&state.db)

@@ -26,6 +26,7 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         api::handlers::auth::register,
         api::handlers::auth::login,
+        api::handlers::captcha::generate_captcha,
         api::handlers::files::upload_file,
         api::handlers::files::pre_check_dedup,
         api::handlers::files::link_file,
@@ -58,6 +59,7 @@ use utoipa_swagger_ui::SwaggerUi;
         schemas(
             api::handlers::auth::AuthRequest,
             api::handlers::auth::AuthResponse,
+            api::handlers::captcha::CaptchaResponse,
             api::handlers::files::UploadResponse,
             api::handlers::files::PreCheckRequest,
             api::handlers::files::PreCheckResponse,
@@ -103,6 +105,8 @@ pub struct AppState {
     pub upload_service: Arc<crate::services::upload_service::UploadService>,
     pub config: SecurityConfig,
     pub download_tickets: Arc<dashmap::DashMap<String, (String, chrono::DateTime<chrono::Utc>)>>,
+    pub captchas: Arc<dashmap::DashMap<String, api::handlers::captcha::CaptchaChallenge>>,
+    pub cooldowns: Arc<dashmap::DashMap<String, api::handlers::captcha::CooldownEntry>>,
 }
 
 pub fn create_app(state: AppState) -> Router {
@@ -119,6 +123,7 @@ pub fn create_app(state: AppState) -> Router {
             "/system/validation-rules",
             get(api::handlers::health::get_validation_rules),
         )
+        .route("/captcha", get(api::handlers::captcha::generate_captcha))
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
         .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))

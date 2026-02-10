@@ -15,7 +15,6 @@ import {
   OperationToast,
   DialogModal
 } from "./components";
-import { api } from "../src/api";
 // Types
 import type { FileSystemType, FileType } from "./types";
 import { ViewStyle, UploadStatus } from "./types";

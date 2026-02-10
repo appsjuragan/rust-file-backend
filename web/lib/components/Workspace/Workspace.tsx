@@ -7,7 +7,6 @@ import { isDescendantOrSelf, formatSize, formatMimeType } from "../../utils/file
 
 // Components
 import FolderPath from "./FolderPath";
-import { api } from "../../../src/api";
 import { scanEntries } from "../../utils/upload";
 
 // Modularized Workspace components

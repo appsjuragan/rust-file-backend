@@ -95,6 +95,9 @@ async fn main() -> anyhow::Result<()> {
             file_service.clone(),
         ));
 
+        let captchas: Arc<dashmap::DashMap<String, rust_file_backend::api::handlers::captcha::CaptchaChallenge>> = Arc::new(dashmap::DashMap::new());
+        let cooldowns: Arc<dashmap::DashMap<String, rust_file_backend::api::handlers::captcha::CooldownEntry>> = Arc::new(dashmap::DashMap::new());
+
         let state = AppState {
             db: db.clone(),
             storage: storage_service.clone(),
@@ -103,7 +106,25 @@ async fn main() -> anyhow::Result<()> {
             upload_service,
             config: security_config.clone(),
             download_tickets: Arc::new(dashmap::DashMap::new()),
+            captchas: captchas.clone(),
+            cooldowns: cooldowns.clone(),
         };
+
+        // Spawn periodic cleanup task for expired CAPTCHAs and stale cooldowns
+        {
+            let cleanup_captchas = captchas.clone();
+            let cleanup_cooldowns = cooldowns.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    interval.tick().await;
+                    rust_file_backend::api::handlers::captcha::cleanup_expired(
+                        &cleanup_captchas,
+                        &cleanup_cooldowns,
+                    );
+                }
+            });
+        }
 
         // Configure tracing layer for HTTP requests
         let trace_layer = TraceLayer::new_for_http()
