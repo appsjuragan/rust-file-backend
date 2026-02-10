@@ -63,7 +63,7 @@ impl FileService {
 
         // 2. Load Validation Rules from DB
         let rules =
-            crate::utils::validation::ValidationRules::load(&self.db, self.config.max_file_size)
+            crate::utils::validation::ValidationRules::load(&self.db, self.config.max_file_size, self.config.chunk_size)
                 .await
                 .map_err(|e| {
                     AppError::Internal(format!("Failed to load validation rules: {}", e))

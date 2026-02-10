@@ -52,7 +52,7 @@ pub async fn get_validation_rules(
     State(state): State<AppState>,
 ) -> Result<Json<crate::utils::validation::ValidationRules>, crate::api::error::AppError> {
     let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
             .await
             .map_err(|e| crate::api::error::AppError::Internal(e.to_string()))?;
 

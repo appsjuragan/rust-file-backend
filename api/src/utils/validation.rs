@@ -14,12 +14,14 @@ pub struct ValidationRules {
     #[serde(skip)]
     pub magic_signatures: Vec<(Vec<u8>, String)>,
     pub max_file_size: usize,
+    pub chunk_size: usize,
 }
 
 impl ValidationRules {
     pub async fn load(
         db: &sea_orm::DatabaseConnection,
         max_file_size: usize,
+        chunk_size: usize,
     ) -> Result<Self, sea_orm::DbErr> {
         use crate::entities::prelude::*;
 
@@ -35,6 +37,7 @@ impl ValidationRules {
                 .map(|s| (s.signature, s.mime_type))
                 .collect(),
             max_file_size,
+            chunk_size,
         })
     }
 }

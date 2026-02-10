@@ -203,7 +203,7 @@ pub async fn link_file(
     Json(req): Json<LinkFileRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
     let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
             .await
             .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
@@ -273,6 +273,7 @@ pub async fn upload_file(
                 let rules = crate::utils::validation::ValidationRules::load(
                     &state.db,
                     state.config.max_file_size,
+                    state.config.chunk_size,
                 )
                 .await
                 .map_err(|e| {
@@ -611,7 +612,7 @@ pub async fn create_folder(
     let id = Uuid::new_v4().to_string();
 
     let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
             .await
             .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
@@ -771,7 +772,7 @@ pub async fn rename_item(
         ))?;
 
     let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
             .await
             .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
@@ -898,7 +899,7 @@ pub async fn rename_item(
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
         let rules =
-            crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size)
+            crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
                 .await
                 .map_err(|e| {
                     AppError::Internal(format!("Failed to load validation rules: {}", e))
