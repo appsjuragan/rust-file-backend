@@ -187,18 +187,31 @@ pub fn create_app(state: AppState) -> Router {
         .route("/users/me/facts", get(api::handlers::users::get_user_facts))
         .layer(auth_middleware);
 
+    // Configure CORS based on allowed_origins
+    let cors_layer = if state.config.allowed_origins.contains(&"*".to_string()) {
+        CorsLayer::new().allow_origin(Any)
+    } else {
+        let origins: Vec<axum::http::HeaderValue> = state
+            .config
+            .allowed_origins
+            .iter()
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        CorsLayer::new().allow_origin(origins)
+    };
+
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(public_routes)
         .merge(protected_routes)
         .layer(from_fn(api::middleware::metrics::metrics_middleware))
         .layer(from_fn(api::middleware::request_id::request_id_middleware))
+        .layer(from_fn(api::middleware::security::security_headers))
         .layer(axum::extract::DefaultBodyLimit::max(
             state.config.max_file_size + 10 * 1024 * 1024,
         ))
         .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
+            cors_layer
                 .allow_methods(Any)
                 .allow_headers(Any)
                 .expose_headers(Any),

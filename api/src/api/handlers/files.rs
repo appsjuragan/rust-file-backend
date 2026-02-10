@@ -1440,7 +1440,7 @@ async fn serve_file_stream(
         }
         response.headers_mut().insert(
             header::CACHE_CONTROL,
-            header::HeaderValue::from_static("public, max-age=31536000"),
+            header::HeaderValue::from_static("private, max-age=31536000"),
         );
         return Ok(response);
     }
@@ -1489,7 +1489,7 @@ async fn serve_file_stream(
     }
     response.headers_mut().insert(
         header::CACHE_CONTROL,
-        header::HeaderValue::from_static("public, max-age=31536000"),
+        header::HeaderValue::from_static("private, max-age=31536000"),
     );
 
     Ok(response)

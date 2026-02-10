@@ -40,6 +40,9 @@ pub struct SecurityConfig {
 
     /// JWT Secret Key (Required)
     pub jwt_secret: String,
+
+    /// Allowed CORS Origins (comma separated)
+    pub allowed_origins: Vec<String>,
 }
 
 impl Default for SecurityConfig {
@@ -59,6 +62,7 @@ impl Default for SecurityConfig {
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
             jwt_secret: "secret".to_string(),
+            allowed_origins: vec!["*".to_string()],
         }
     }
 }
@@ -112,6 +116,11 @@ impl SecurityConfig {
                 .unwrap_or(default.staging_cleanup_age_hours),
 
             jwt_secret: env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string()), // Fallback for dev convenience, strictly enforced in production method
+
+            allowed_origins: env::var("ALLOWED_ORIGINS")
+                .ok()
+                .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
+                .unwrap_or_else(|| vec!["*".to_string()]),
         }
     }
 
@@ -132,6 +141,7 @@ impl SecurityConfig {
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
             jwt_secret: "secret".to_string(),
+            allowed_origins: vec!["*".to_string()],
         }
     }
 
@@ -173,6 +183,10 @@ impl SecurityConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(24),
             jwt_secret: env::var("JWT_SECRET").expect("CRITICAL: JWT_SECRET must be set"),
+            allowed_origins: env::var("ALLOWED_ORIGINS")
+                .ok()
+                .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
+                .unwrap_or_else(|| vec!["https://myfiles1.thepihouse.my.id".to_string()]), // Default to known prod domain if not set
         }
     }
 }
