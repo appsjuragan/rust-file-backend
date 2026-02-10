@@ -103,7 +103,7 @@ impl StorageService for S3StorageService {
         let mut hasher = Xxh3::new();
         let mut total_size = 0;
 
-        let chunk_size = 10 * 1024 * 1024;
+        let chunk_size = 7 * 1024 * 1024; // 7MB
         let mut buffer = vec![0u8; chunk_size];
 
         loop {

@@ -16,7 +16,7 @@ export const useFileUpload = (
             const { createXXHash128 } = await import('hash-wasm');
             const hasher = await createXXHash128();
             hasher.init();
-            const chunkSize = 10 * 1024 * 1024;
+            const chunkSize = Number(import.meta.env.VITE_CHUNK_SIZE) || 7 * 1024 * 1024; // Default to 7MB if not set
             let offset = 0;
             while (offset < file.size) {
                 const chunk = file.slice(offset, offset + chunkSize);

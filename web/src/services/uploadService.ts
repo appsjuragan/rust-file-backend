@@ -1,11 +1,13 @@
 import { request, getAuthToken } from "./httpClient";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
+const DEFAULT_CHUNK_SIZE = 7 * 1024 * 1024; // 7MB
+const CHUNK_SIZE = Number(import.meta.env.VITE_CHUNK_SIZE) || DEFAULT_CHUNK_SIZE;
 
 export const uploadService = {
     // Normal / multipart upload for smaller files
     uploadFile: async (file: File, parentId?: string, onProgress?: (percent: number) => void) => {
-        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+        // CHUNK_SIZE used here for threshold calculation logic if needed, but mainly for chunked upload
         const THRESHOLD = 90 * 1024 * 1024; // 90MB
 
         if (file.size > THRESHOLD) {
@@ -60,7 +62,7 @@ export const uploadService = {
 
     // Chunked upload for large files
     uploadFileChunked: async (file: File, parentId?: string, onProgress?: (percent: number) => void) => {
-        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+        // Use module-level CHUNK_SIZE
         const file_name = file.name;
         const file_type = file.type || 'application/octet-stream';
         const total_size = file.size;

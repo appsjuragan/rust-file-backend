@@ -21,7 +21,7 @@ pub struct SecurityConfig {
     /// ClamAV port (default: 3310)
     pub clamav_port: u16,
 
-    /// Chunk size for large file hashing in bytes (default: 10 MB)
+    /// Chunk size for large file hashing in bytes (default: 7 MB)
     pub chunk_size: usize,
 
     /// OIDC Issuer URL
@@ -54,7 +54,7 @@ impl Default for SecurityConfig {
             virus_scanner_type: "clamav".to_string(),
             clamav_host: "127.0.0.1".to_string(),
             clamav_port: 3310,
-            chunk_size: 10 * 1024 * 1024, // 10 MB
+            chunk_size: 7 * 1024 * 1024, // 7 MB
             oidc_issuer_url: None,
             oidc_client_id: None,
             oidc_client_secret: None,
@@ -138,7 +138,7 @@ impl SecurityConfig {
             virus_scanner_type: "noop".to_string(),
             clamav_host: "127.0.0.1".to_string(),
             clamav_port: 3310,
-            chunk_size: 10 * 1024 * 1024,
+            chunk_size: 7 * 1024 * 1024, // 7 MB
             oidc_issuer_url: None,
             oidc_client_id: None,
             oidc_client_secret: None,
