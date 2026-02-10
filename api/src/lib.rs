@@ -20,6 +20,9 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use dashmap::DashMap;
+use chrono::{DateTime, Utc};
+use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -39,6 +42,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::get_zip_contents,
         api::handlers::files::bulk_delete,
         api::handlers::files::bulk_move,
+        api::handlers::files::bulk_copy,
         api::handlers::files::generate_download_ticket,
         api::handlers::files::download_file_with_ticket,
         api::handlers::user_settings::get_settings,
@@ -72,6 +76,7 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::BulkDeleteResponse,
             api::handlers::files::BulkMoveRequest,
             api::handlers::files::BulkMoveResponse,
+            api::handlers::files::BulkCopyResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
@@ -104,9 +109,9 @@ pub struct AppState {
     pub file_service: Arc<FileService>,
     pub upload_service: Arc<crate::services::upload_service::UploadService>,
     pub config: SecurityConfig,
-    pub download_tickets: Arc<dashmap::DashMap<String, (String, chrono::DateTime<chrono::Utc>)>>,
-    pub captchas: Arc<dashmap::DashMap<String, api::handlers::captcha::CaptchaChallenge>>,
-    pub cooldowns: Arc<dashmap::DashMap<String, api::handlers::captcha::CooldownEntry>>,
+    pub download_tickets: Arc<DashMap<String, (String, DateTime<Utc>)>>,
+    pub captchas: Arc<DashMap<String, CaptchaChallenge>>,
+    pub cooldowns: Arc<DashMap<String, CooldownEntry>>,
 }
 
 pub fn create_app(state: AppState) -> Router {
@@ -180,6 +185,7 @@ pub fn create_app(state: AppState) -> Router {
         .route("/folders", post(api::handlers::files::create_folder))
         .route("/files/bulk-delete", post(api::handlers::files::bulk_delete))
         .route("/files/bulk-move", post(api::handlers::files::bulk_move))
+        .route("/files/bulk-copy", post(api::handlers::files::bulk_copy))
         .route(
             "/settings",
             get(api::handlers::user_settings::get_settings)

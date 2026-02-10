@@ -135,7 +135,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             setFs((prevFs: FileSystemType) => {
                 let newFs;
                 if (offset === 0) {
-                    newFs = prevFs.filter(f => (f.parentId || "0") !== effectiveParentId && f.id !== "0");
+                    // Filter out files that are already in this folder OR have the same ID as incoming files (moved/updated)
+                    const incomingIds = new Set(mappedFs.map(f => f.id));
+                    newFs = prevFs.filter(f =>
+                        (f.parentId || "0") !== effectiveParentId &&
+                        !incomingIds.has(f.id) &&
+                        f.id !== "0"
+                    );
                 } else {
                     newFs = [...prevFs];
                 }
@@ -337,6 +343,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     onRename={async (id: string, n: string) => { await fileService.renameItem(id, n); fetchFiles(currentFolder); }}
                     onMove={async (id: string, pid: string) => { await fileService.renameItem(id, undefined, pid); fetchFiles(currentFolder); }}
                     onBulkMove={async (ids: string[], pid: string) => { await fileService.bulkMove(ids, pid); fetchFiles(currentFolder); }}
+                    onBulkCopy={async (ids: string[], pid: string) => { await fileService.bulkCopy(ids, pid); fetchFiles(currentFolder); }}
                     activeUploads={activeUploads}
                     setActiveUploads={setActiveUploads}
                     userFacts={userFacts}

@@ -1250,6 +1250,41 @@ pub async fn bulk_move(
     Ok(Json(BulkMoveResponse { moved_count }))
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct BulkCopyResponse {
+    pub copied_count: usize,
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/bulk-copy",
+    request_body = BulkMoveRequest,
+    responses(
+        (status = 200, description = "Items copied", body = BulkCopyResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 400, description = "Bad request")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn bulk_copy(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<BulkMoveRequest>,
+) -> Result<Json<BulkCopyResponse>, AppError> {
+    if req.item_ids.is_empty() {
+        return Err(AppError::BadRequest("No items provided".to_string()));
+    }
+
+    let copied_count = state
+        .file_service
+        .bulk_copy(&claims.sub, req.item_ids, req.parent_id)
+        .await?;
+
+    Ok(Json(BulkCopyResponse { copied_count }))
+}
+
 #[utoipa::path(
     post,
     path = "/files/{id}/ticket",

@@ -80,7 +80,8 @@ The central orchestrator for all file operations:
 - **Upload Processing**: Streaming upload to S3 ("staging"), hash calculation (`xxhash`), deduplication check, metadata extraction.
 - **Advanced Validation**: Deep content inspection for entropy and malicious scripts (`validation.rs`).
 - **Download**: Secure streaming with range request support (HTTP 206) for large files.
-- **Bulk Operations**: Atomic `bulk_delete` and `bulk_move` with transaction support.
+- **Bulk Operations**: Atomic `bulk_delete`, `bulk_move`, and `bulk_copy` with transaction support.
+- **Recursive Duplication**: `bulk_copy` implements an asynchronous recursive strategy to clone folder structures while maintaining reference counting for deduplicated physical storage.
 - **Lifecycle**: Soft deletion with reference counting for deduplicated storage cleanup.
 
 ### Metadata Service (`src/services/metadata.rs`)

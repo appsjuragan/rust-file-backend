@@ -1,10 +1,12 @@
 # Stage 1: Cargo Chef (Prepare)
-FROM lukemathwalker/cargo-chef:0.1.68-rust-1.84-alpine AS chef
+FROM rust:alpine AS chef
 WORKDIR /app
 
 # Install build dependencies
-# musl-dev is required for static compilation on alpine
 RUN apk add --no-cache musl-dev gcc g++ make pkgconfig openssl-dev perl
+
+# Install cargo-chef
+RUN cargo install cargo-chef
 
 FROM chef AS planner
 COPY . .

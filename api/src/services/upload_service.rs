@@ -22,13 +22,6 @@ pub struct InitUploadRequest {
     pub file_name: String,
     pub file_type: Option<String>,
     pub total_size: i64,
-    pub parent_id: Option<Uuid>, // Not used in init but passed to complete context if needed, or we store it?
-    // Actually, parent_id is usually needed at the end to place the file. 
-    // We should probably store it in the session or pass it at completion.
-    // Let's pass it at completion to be stateless about destination until then, 
-    // OR store it now. Storing it now is better UX (client doesn't need to remember).
-    // But my upload_sessions table doesn't have parent_id.
-    // I will modify the InitUploadRequest to NOT take parent_id, and require it in Complete.
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -166,8 +159,10 @@ impl UploadService {
             let etag = etag.clone();
             let part_number = part_number;
             Box::pin(async move {
+                use sea_orm::QuerySelect;
                 let session = upload_sessions::Entity::find_by_id(session_id)
                     .filter(upload_sessions::Column::UserId.eq(user_id))
+                    .lock_exclusive()
                     .one(txn)
                     .await?
                     .ok_or_else(|| anyhow!("Upload session not found"))?;

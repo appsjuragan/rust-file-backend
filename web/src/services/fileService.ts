@@ -84,4 +84,10 @@ export const fileService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_ids: ids, parent_id: newParentId === '0' ? null : newParentId }),
     }),
+
+    bulkCopy: (ids: string[], newParentId: string) => request('/files/bulk-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_ids: ids, parent_id: newParentId === '0' ? null : newParentId }),
+    }),
 };

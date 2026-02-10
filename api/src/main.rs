@@ -9,6 +9,8 @@ use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use dashmap::DashMap;
+use rust_file_backend::api::handlers::captcha::{CaptchaChallenge, CooldownEntry, cleanup_expired};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -95,8 +97,8 @@ async fn main() -> anyhow::Result<()> {
             file_service.clone(),
         ));
 
-        let captchas: Arc<dashmap::DashMap<String, rust_file_backend::api::handlers::captcha::CaptchaChallenge>> = Arc::new(dashmap::DashMap::new());
-        let cooldowns: Arc<dashmap::DashMap<String, rust_file_backend::api::handlers::captcha::CooldownEntry>> = Arc::new(dashmap::DashMap::new());
+        let captchas: Arc<DashMap<String, CaptchaChallenge>> = Arc::new(DashMap::new());
+        let cooldowns: Arc<DashMap<String, CooldownEntry>> = Arc::new(DashMap::new());
 
         let state = AppState {
             db: db.clone(),
@@ -105,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
             file_service,
             upload_service,
             config: security_config.clone(),
-            download_tickets: Arc::new(dashmap::DashMap::new()),
+            download_tickets: Arc::new(DashMap::new()),
             captchas: captchas.clone(),
             cooldowns: cooldowns.clone(),
         };
@@ -118,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
                 loop {
                     interval.tick().await;
-                    rust_file_backend::api::handlers::captcha::cleanup_expired(
+                    cleanup_expired(
                         &cleanup_captchas,
                         &cleanup_cooldowns,
                     );

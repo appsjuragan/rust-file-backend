@@ -77,10 +77,13 @@ export const uploadService = {
                 total_size,
             }),
         });
-        const { upload_id, chunk_size, key } = initRes;
+        const { upload_id, chunk_size: serverChunkSize, key } = initRes;
+
+        // Use the chunk size returned by the server to ensure frontend/backend agreement
+        const effectiveChunkSize = serverChunkSize || CHUNK_SIZE;
 
         // 2. Upload Chunks
-        const totalChunks = Math.ceil(total_size / CHUNK_SIZE);
+        const totalChunks = Math.ceil(total_size / effectiveChunkSize);
         const CONCURRENCY = 3; // Number of parallel uploads
 
         // Track progress per chunk to calculate total progress correctly across parallel requests
@@ -88,8 +91,8 @@ export const uploadService = {
         let completedChunks = 0;
 
         const uploadChunk = async (chunkIndex: number, retryCount = 0) => {
-            const start = chunkIndex * CHUNK_SIZE;
-            const end = Math.min(start + CHUNK_SIZE, total_size);
+            const start = chunkIndex * effectiveChunkSize;
+            const end = Math.min(start + effectiveChunkSize, total_size);
             const chunk = file.slice(start, end);
             const partNumber = chunkIndex + 1;
             const MAX_RETRIES = 3;
