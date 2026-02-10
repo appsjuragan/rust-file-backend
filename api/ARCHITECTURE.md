@@ -4,12 +4,12 @@
 The Rust File Backend is built on a **Hexagonal Architecture** (Ports and Adapters) to ensure strict separation between business logic and infrastructure. This design allows for high testability, maintainability, and the ability to swap infrastructure components without touching core domain logic.
 
 ### Explicit Architectural Layers:
-*   **Domain Layer (`src/entities`)**: Contains the core data models and business rules. This layer has zero dependencies on external libraries or other layers.
+*   **Domain Layer (`src/entities`)**: Contains the core data models (SeaORM entities) and business rules. This layer has zero dependencies on external libraries or other layers.
 *   **Application Layer (`src/services`)**: Implements use cases (e.g., "Process Upload", "Delete Folder"). It orchestrates domain entities and interacts with infrastructure via **Ports (Traits)**.
 *   **Ports / Interfaces**: Explicit traits (e.g., `StorageService`, `VirusScanner`) that define the contract for infrastructure.
-*   **Infrastructure Layer (`src/infrastructure`)**: Concrete implementations of Ports (Adapters), such as `S3StorageService` or `ClamAVScanner`.
+*   **Infrastructure Layer (`src/infrastructure`)**: Concrete implementations of Ports (Adapters), such as `S3StorageService` (using `aws-sdk-s3`) or `ClamAVScanner`.
 *   **Interface Layer (`src/api`)**: The entry point for the system. Handles HTTP/REST concerns, serialization, and maps errors to the outside world.
-*   **Background Workers**: Async tasks for non-blocking operations like storage lifecycle cleanup and scheduled retention jobs.
+*   **Background Workers**: Async tasks for non-blocking operations like storage lifecycle cleanup, virus scanning, and user statistics updates.
 
 ---
 
@@ -18,10 +18,11 @@ Every request passes through a multi-stage security and observability pipeline b
 
 | Zone | Component | Responsibility |
 | :--- | :--- | :--- |
-| **Zone 1: Perimeter** | `CORS` / `Rate Limit` | Protects against unauthorized origins and DoS attacks. |
-| **Zone 2: AuthN** | `JWT Middleware` | Validates identity tokens and extracts `Claims`. Supports both local JWT and OIDC. |
-| **Zone 3: Observability** | `Tracing` / `Metrics` | Injects `Request-ID` and records latency/throughput metrics. |
-| **Zone 4: AuthZ** | `Ownership Check` | Ensures users can only access or modify their own files/folders. |
+| **Zone 1: Perimeter** | `CORS` / `Rate Limit` | Protects against unauthorized origins and DoS attacks. Configurable via `ALLOWED_ORIGINS`. |
+| **Zone 2: Input Validation** | `Advanced Validation` | **New**: Entropy analysis (packed binary detection), Script Injection checks (XSS protection), MIME type verification, and Magic Byte analysis. |
+| **Zone 3: AuthN** | `JWT Middleware` | Validates identity tokens and extracts `Claims`. Supports both local JWT and OIDC. Verified against DB. |
+| **Zone 4: Observability** | `Tracing` / `Metrics` | Injects `Request-ID` and records latency/throughput metrics using `tracing`. |
+| **Zone 5: AuthZ** | `Ownership Check` | Ensures users can only access or modify their own files/folders. |
 
 ---
 
@@ -35,7 +36,8 @@ graph TD
 
     subgraph "Security & Observability Pipeline"
         Handlers --> RL[Rate Limiter]
-        RL --> AN[AuthN - JWT/OIDC]
+        RL --> IV[Input Validation]
+        IV --> AN[AuthN - JWT/OIDC]
         AN --> TR[Tracing/Metrics]
         TR --> AZ[AuthZ - Ownership]
     end
@@ -45,6 +47,7 @@ graph TD
         AZ --> SL[Lifecycle Service]
         AZ --> FF[Facts Service]
         FS --> MS[Metadata Service]
+        FS --> AS[Audit Service]
     end
 
     subgraph "Ports (Interfaces)"
@@ -62,7 +65,9 @@ graph TD
     end
 
     subgraph "Background Workers"
-        Worker[Lifecycle Worker] -->|Async| SL
+        Worker[Background Worker] -->|Async| FS
+        Worker -->|Async| SL
+        Worker -->|Async| FF
     end
 ```
 
@@ -72,72 +77,83 @@ graph TD
 
 ### File Service (`src/services/file_service.rs`)
 The central orchestrator for all file operations:
-- **Upload Processing**: Streaming upload, hash calculation, deduplication check, virus scanning, metadata extraction.
-- **Download**: Secure streaming with range request support for large files.
+- **Upload Processing**: Streaming upload to S3 ("staging"), hash calculation (`xxhash`), deduplication check, metadata extraction.
+- **Advanced Validation**: Deep content inspection for entropy and malicious scripts (`validation.rs`).
+- **Download**: Secure streaming with range request support (HTTP 206) for large files.
+- **Bulk Operations**: Atomic `bulk_delete` and `bulk_move` with transaction support.
 - **Lifecycle**: Soft deletion with reference counting for deduplicated storage cleanup.
+
+### Metadata Service (`src/services/metadata.rs`)
+Extracts rich metadata from various file types:
+- **Images**: Dimensions, EXIF data (using `image`, `kamadak-exif`).
+- **Audio/Video**: Duration, Bitrate, ID3 tags (using `lofty`).
+- **Documents**: Page counts, Authors (using `lopdf` for PDF, `zip`+`xml` for Office/OpenXML).
+- **Text**: Line/Word counts.
+
+### Background Worker (`src/services/worker.rs`)
+Handles asynchronous maintenance tasks:
+- **Virus Scanning**: Polls `pending` scans, streams from S3 to Scanner, updates DB.
+- **Facts Update**: Periodically recalculates user storage usage (cached in `user_file_facts`).
+- **Cleanup**: 
+    - Expires files past `expires_at`.
+    - Removes infected files after grace period.
+    - Cleans abandoned S3 staging files.
 
 ### Facts Service (`src/services/facts_service.rs`)
 Computes and caches per-user storage statistics:
-- Total file count and storage size
-- File type distribution (images, videos, documents, etc.)
-- Cached with 10-second TTL for performance
+- Total file count and storage size.
+- File type distribution (images, videos, documents, etc.).
+- Cached for performance to avoid expensive aggregations on every request.
 
-### Scanner Service (`src/services/scanner.rs`)
+### Scanner Service (`src/services/scanner.rs` & `infrastructure/scanner.rs`)
 Pluggable virus scanning interface:
-- **ClamAVScanner**: Production scanner connecting via TCP/Unix socket
-- **NoOpScanner**: Development scanner that always passes
-- **AlwaysInfectedScanner**: Testing scanner for security validation
+- **ClamAVScanner**: Production scanner connecting via TCP/Unix socket.
+- **NoOpScanner**: Development scanner that always passes.
+- **AlwaysInfectedScanner**: Testing scanner for security validation.
 
 ### Audit Service (`src/services/audit.rs`)
 Tracks security-relevant events:
-- User registrations and logins
-- File uploads and deletions
-- OIDC authentication events
+- User registrations and logins.
+- File uploads, deletions, and shared link generation.
+- OIDC authentication events.
 
 ---
 
-## 5. API Handler Groups
+## 5. Security Hardening Measures
 
-### Authentication (`src/api/handlers/auth.rs`)
-- `register`: Create new user with Argon2 password hashing
-- `login`: Authenticate and issue JWT token
-- `login_oidc`: Initiate OpenID Connect flow
-- `callback_oidc`: Handle OIDC provider callback
+### Container Security
+- **Non-Root User**: The Docker container runs as `appuser` (UID 10001) to follow the Principle of Least Privilege.
+- **Minimal Base Image**: Uses `alpine` or `distroless` (implied by binary portability).
 
-### Files (`src/api/handlers/files.rs`)
-- `upload_file`: Multipart upload with streaming
-- `pre_check_dedup`: Client-side deduplication check
-- `link_file`: Link to existing storage (skip upload)
-- `list_files`: Paginated listing with search/filter
-- `download_file`: Secure file download with range support
-- `create_folder`: Create new directory
-- `delete_item`: Soft delete file/folder
-- `rename_item`: Rename file/folder, with folder restructuring
-- `bulk_delete`: Delete multiple items
-- `bulk_move`: Move multiple items to new parent
-- `get_zip_contents`: Preview archive contents
-- `generate_download_ticket`: Create time-limited download link
-- `download_file_with_ticket`: Public download via ticket
+### Advanced Input Validation (`src/utils/validation.rs`)
+- **Entropy Analysis**: Calculates Shannon entropy of file headers to detect packed/encrypted executables masking as text/images (Trigger > 7.9).
+- **Script Injection Detection**: Scans first 2KB of text/media files for XSS vectors (e.g., `<script>`, `javascript:`, `onerror=`).
+- **Magic Bytes**: Strict file signature verification against MIME types.
+- **Filename Sanitization**: Removes dangerous characters and control codes.
 
-### Users (`src/api/handlers/users.rs`)
-- `get_profile`: Retrieve user information
-- `update_profile`: Update email, name, password
-- `upload_avatar`: Upload profile picture
-- `get_avatar`: Retrieve profile picture
-- `get_user_facts`: Get storage statistics
-
-### Settings (`src/api/handlers/user_settings.rs`)
-- `get_settings`: Retrieve theme and view preferences
-- `update_settings`: Update user preferences
-
-### Health (`src/api/handlers/health.rs`)
-- `health_check`: Database and storage connectivity status
+### Header Security
+- **CORS**: Configurable `Access-Control-Allow-Origin`.
+- **HSTS / Content-Security-Policy**: (Recommended for production deployment via reverse proxy or middleware).
 
 ---
 
-## 6. Data Models
+## 6. Infrastructure Details
 
-### Core Entities
+### Storage (`src/infrastructure/storage.rs`)
+- **S3 Compatible**: Works with AWS S3, MinIO, Cloudflare R2.
+- **Multipart Uploads**: Handles large files by splitting them into 10MB chunks.
+- **Streaming**: Never loads entire file into memory; pipes `AsyncRead` -> `S3 Stream`.
+
+### Database
+- **SeaORM**: Async ORM for type-safe interactions.
+- **Migrations**: Managed via `migration` crate (not shown in source tree but standard).
+- **Connection Pooling**: Built-in via `sqlx`.
+
+---
+
+## 7. Data Models
+
+### Core Entities (`src/entities`)
 | Entity | Description |
 |--------|-------------|
 | `users` | User accounts with authentication data |
@@ -161,26 +177,10 @@ User B uploads same file (hash: abc123)
 
 ---
 
-## 7. Cross-Cutting Concerns
-
-### Config & Secrets Management
-*   **Environment-Based**: Configuration is loaded via `dotenvy` and mapped to a strongly-typed `SecurityConfig` struct.
-*   **Secret Masking**: Sensitive values (JWT secrets, S3 keys) are never logged.
-
-### Tracing & Observability
-*   **Structured Logging**: Uses `tracing-subscriber` with JSON output for ELK/Loki compatibility.
-*   **Span Propagation**: Spans track a file from the initial multipart chunk read to the final S3 commit.
-
-### Error Handling
-*   **Typed Errors**: `AppError` enum with variants for BadRequest, Unauthorized, NotFound, Forbidden, Internal.
-*   **Consistent Responses**: All errors return structured JSON with appropriate HTTP status codes.
-
----
-
 ## 8. Architectural Invariants (The "Golden Rules")
 
 1.  **No Direct Infra Access**: Services **must not** instantiate concrete infrastructure types (e.g., `S3Client`). They must receive `Arc<dyn Port>`.
-2.  **Statelessness**: The API layer is completely stateless. All state is persisted in the Infrastructure layer.
+2.  **Statelessness**: The API layer is completely stateless. All state is persisted in the Database or S3.
 3.  **Unidirectional Dependencies**: Dependencies always point inward. Infrastructure depends on Ports; Ports depend on Domain. Domain depends on nothing.
 4.  **Streaming First**: All file operations must use `AsyncRead`/`AsyncWrite` to maintain a constant memory footprint regardless of file size.
 5.  **Soft Deletion**: Files are never immediately purged. Reference counting ensures shared storage is cleaned up only when all references are removed.
