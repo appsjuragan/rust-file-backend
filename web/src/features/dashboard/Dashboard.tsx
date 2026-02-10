@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { ReactFileManager, CommonModal, AvatarCropModal } from "../../../lib";
+import { ReactFileManager } from "../../../lib";
 import { fileService } from "../../services/fileService";
 import { userService } from "../../services/userService";
 import { formatFriendlyError } from "../../utils/errorFormatter";
-import type { FileSystemType, FileType, UploadStatus } from "../../../lib/types";
+import type { FileSystemType, FileType } from "../../../lib/types";
 import "./Dashboard.css";
 
 // Components
@@ -32,6 +32,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
     // Search State
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchSuggestions, setSearchSuggestions] = useState<FileType[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Pagination State
     const [hasMoreFiles, setHasMoreFiles] = useState(true);
@@ -155,6 +157,40 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         }
     }, []);
 
+    // Search Effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (searchQuery.trim().length > 2) {
+                setIsSearching(true);
+                try {
+                    const results = await fileService.searchFiles({ q: searchQuery, limit: 10 });
+                    const mappedResults: FileType[] = results.map((item: any) => ({
+                        id: item.id,
+                        name: item.filename,
+                        isDir: item.is_folder,
+                        parentId: item.parent_id || "0",
+                        lastModified: new Date(item.created_at).getTime() / 1000,
+                        scanStatus: item.scan_status,
+                        size: item.size,
+                        mimeType: item.mime_type,
+                        hash: item.hash,
+                        extraMetadata: item.extra_metadata,
+                        path: item.path
+                    }));
+                    setSearchSuggestions(mappedResults);
+                } catch (error) {
+                    console.error("Search failed", error);
+                } finally {
+                    setIsSearching(false);
+                }
+            } else {
+                setSearchSuggestions([]);
+            }
+        }, 300); // 300ms debounce
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     // Hooks Usage (must be after fetchFiles definition)
     const { activeUploads, setActiveUploads, onUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(fetchFiles, fsRef);
 
@@ -274,6 +310,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 theme={theme}
                 toggleTheme={toggleTheme}
                 onLogout={onLogout}
+                searchSuggestions={searchSuggestions}
+                isSearching={isSearching}
+                onSearchResultClick={(file) => {
+                    if (file.isDir) {
+                        setCurrentFolder(file.id);
+                    } else {
+                        if (file.parentId) {
+                            setCurrentFolder(file.parentId);
+                            setHighlightedId(file.id);
+                        }
+                    }
+                }}
             />
 
             <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

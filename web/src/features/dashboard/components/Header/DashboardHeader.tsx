@@ -1,5 +1,7 @@
 import React from "react";
-import { Search, User, Moon, LogOut, ChevronDown, Sun } from "lucide-react";
+import { Search, User, Moon, LogOut, ChevronDown, Sun, Folder, File } from "lucide-react";
+import { FileType } from "../../../../../lib/types";
+import { FileIcon, FolderPath } from "../../../../../lib";
 import "./DashboardHeader.css";
 
 interface DashboardHeaderProps {
@@ -13,6 +15,9 @@ interface DashboardHeaderProps {
     theme: string;
     toggleTheme: () => void;
     onLogout: () => void;
+    searchSuggestions?: FileType[];
+    isSearching?: boolean;
+    onSearchResultClick?: (file: FileType) => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -26,6 +31,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     theme,
     toggleTheme,
     onLogout,
+    searchSuggestions = [],
+    isSearching = false,
+    onSearchResultClick,
 }) => {
     return (
         <header className="app-header">
@@ -43,6 +51,43 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="global-search-input"
                     />
+
+                    {/* Search Suggestions Dropdown */}
+                    {searchQuery.length > 2 && (
+                        <div className="search-suggestions-dropdown">
+                            {isSearching ? (
+                                <div className="search-loading">
+                                    <div className="spinner-small"></div> Searching...
+                                </div>
+                            ) : searchSuggestions.length > 0 ? (
+                                searchSuggestions.map((file) => (
+                                    <div
+                                        key={file.id}
+                                        className="suggestion-item"
+                                        onClick={() => {
+                                            onSearchResultClick?.(file);
+                                            setSearchQuery(""); // Clear search on selection usage preference
+                                        }}
+                                    >
+                                        <div className="suggestion-icon">
+                                            {file.isDir ? <Folder size={20} className="text-blue-500" /> : <File size={20} className="text-gray-500" />}
+                                        </div>
+                                        <div className="suggestion-info">
+                                            <div className="suggestion-name">{file.name}</div>
+                                            <div className="suggestion-path">{file.path || (file.parentId === "0" ? "/" : "In folder")}</div>
+                                        </div>
+                                        <div className="suggestion-meta">
+                                            {file.isDir ? "Folder" : "File"}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="no-suggestions">
+                                    No results found for "{searchQuery}"
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="user-info">
