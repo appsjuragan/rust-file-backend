@@ -81,42 +81,73 @@ export const uploadService = {
 
         // 2. Upload Chunks
         const totalChunks = Math.ceil(total_size / CHUNK_SIZE);
-        let uploaded = 0;
+        const CONCURRENCY = 3; // Number of parallel uploads
 
-        for (let i = 0; i < totalChunks; i++) {
-            const start = i * CHUNK_SIZE;
+        // Track progress per chunk to calculate total progress correctly across parallel requests
+        const chunkProgress = new Map<number, number>();
+        let completedChunks = 0;
+
+        const uploadChunk = async (chunkIndex: number, retryCount = 0) => {
+            const start = chunkIndex * CHUNK_SIZE;
             const end = Math.min(start + CHUNK_SIZE, total_size);
             const chunk = file.slice(start, end);
-            const partNumber = i + 1;
+            const partNumber = chunkIndex + 1;
+            const MAX_RETRIES = 3;
 
-            await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open('PUT', `${BASE_URL}/files/upload/${upload_id}/chunk/${partNumber}`);
+            try {
+                return await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', `${BASE_URL}/files/upload/${upload_id}/chunk/${partNumber}`);
 
-                const token = getAuthToken();
-                if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                    const token = getAuthToken();
+                    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-                // Track progress
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable && onProgress) {
-                        const chunkLoaded = e.loaded;
-                        const totalUploaded = uploaded + chunkLoaded;
-                        const percent = Math.min(Math.round((totalUploaded / total_size) * 100), 99);
-                        onProgress(percent);
-                    }
-                };
+                    // Track progress
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable && onProgress) {
+                            chunkProgress.set(chunkIndex, e.loaded);
+                            const totalLoaded = Array.from(chunkProgress.values()).reduce((a, b) => a + b, 0);
+                            const percent = Math.min(Math.round((totalLoaded / total_size) * 100), 99);
+                            onProgress(percent);
+                        }
+                    };
 
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) resolve(null);
-                    else reject(new Error(`Chunk upload failed: ${xhr.responseText}`));
-                };
-                xhr.onerror = () => reject(new Error('Network error during chunk upload'));
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            chunkProgress.set(chunkIndex, end - start); // Ensure full size is recorded on completion
+                            resolve(null);
+                        } else {
+                            reject(new Error(`Chunk upload failed with status ${xhr.status}: ${xhr.responseText}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error during chunk upload'));
+                    xhr.onabort = () => reject(new Error('Chunk upload aborted'));
 
-                xhr.send(chunk);
-            });
-            uploaded += (end - start);
-            if (onProgress) onProgress(Math.min(Math.round((uploaded / total_size) * 100), 99));
-        }
+                    xhr.send(chunk);
+                });
+            } catch (error) {
+                if (retryCount < MAX_RETRIES) {
+                    console.warn(`Retrying chunk ${partNumber} (attempt ${retryCount + 1})...`);
+                    // Exponential backoff: 1s, 2s, 4s
+                    await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 1000));
+                    return uploadChunk(chunkIndex, retryCount + 1);
+                }
+                throw error;
+            }
+        };
+
+        // Execution Queue
+        const queue = Array.from({ length: totalChunks }, (_, i) => i);
+        const workers = Array(Math.min(CONCURRENCY, totalChunks)).fill(null).map(async () => {
+            while (queue.length > 0) {
+                const chunkIndex = queue.shift();
+                if (chunkIndex !== undefined) {
+                    await uploadChunk(chunkIndex);
+                }
+            }
+        });
+
+        await Promise.all(workers);
 
         // 3. Complete Upload
         const completeRes = await request(`/files/upload/${upload_id}/complete`, {

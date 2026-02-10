@@ -1,68 +1,76 @@
-# 🌐 Rust File Backend: Modern Web Frontend
+# 🌐 RFB Web: The Premium Frontend
 
-This is the official React-based frontend for the **Rust File Backend**. It provides a sleek, high-performance interface for managing your enterprise storage, built with React, Vite, and Tailwind CSS.
-
----
-
-## ✨ Features
-
-- **🚀 Blazing Fast**: Powered by Vite and Bun for near-instant load times and development.
-- **📁 Full File Management**: Create folders, rename items, and delete files with a familiar desktop-like interface.
-- **📤 Smart Uploads**: Supports drag-and-drop uploads with real-time progress.
-- **🔍 Content-Aware**: Seamlessly integrates with the backend's metadata extraction to show file details.
-- **🛡️ Secure**: Built-in JWT authentication and secure download handling.
-- **🌏 Full UTF-8 Support**: Correctly handles and displays filenames in any language (Chinese, Japanese, Korean, etc.).
-- **🎨 Premium Design**: Modern UI with smooth transitions, responsive layout, and Lucide icons.
+The `web` directory contains the modern React frontend for the Rust File Backend. It provides a visual, intuitive interface for heavy-duty file management.
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Design Philosophy
 
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **Runtime**: Bun (Recommended)
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **State Management**: TanStack Table & React Hooks
+We believe enterprise software shouldn't look boring. RFB Web features:
+- **Glassmorphism UI**: Subtle blurs, transclucent panels, and soft shadows.
+- **Deep Micro-interactions**: Hover effects, smooth transitions, and real-time state updates.
+- **Responsive Layout**: Seamless experience from ultra-wide monitors to mobile devices.
+- **Premium Dark/Light Modes**: Curated HSL color palettes for maximum readability.
 
 ---
 
-## 🚦 Getting Started
+## 🛠 Tech Stack
 
-### 1. Prerequisites
-Ensure you have [Bun](https://bun.sh/) installed on your system.
+- **React 18**: Component-based UI architecture.
+- **Vite 5**: The next-generation frontend tool for near-instant HMR.
+- **Bun**: Modern JavaScript runtime for blazing-fast installs and execution.
+- **Tailwind CSS**: Utility-first styling for custom, high-fidelity designs.
+- **Lucide React**: Beautiful, consistent iconography.
+- **TanStack Table**: Efficient rendering for large file lists.
 
-### 2. Install Dependencies
+---
+
+## 🚀 Key Features
+
+### 📤 High-Concurrency Uploads
+Our advanced `uploadService` handles large files by splitting them into chunks and sending them in **parallel**.
+- **Retry Mechanism**: Automatic exponential backoff for failed chunks.
+- **Progress Tracking**: Per-file and aggregate progress bars.
+- **Drag-and-Drop**: Upload entire folders or individual files.
+
+### 🔍 Real-time Search
+Search through thousands of files instantly.
+- **Debounced Input**: Efficient API usage as you type.
+- **Dropdown Suggestions**: Quick navigation to folders and files.
+
+### 📁 Advanced File Management
+- **Bulk Operations**: Select multiple items to move or delete.
+- **Breadcrumb Navigation**: Deep tree traversal with easy path jumping.
+- **Context Menus**: Right-click actions for a desktop-like experience.
+
+---
+
+## 🚥 Getting Started
+
+### Prerequisites
+- [Bun](https://bun.sh/) (Recommended) or Node.js
+
+### Installation
 ```bash
 bun install
 ```
 
-### 3. Configure Environment
-Create a `.env` file in the `web` directory (or ensure the backend is running on the default port):
-```env
-VITE_API_URL=http://localhost:3000
-```
-
-### 4. Launch Development Server
+### Development
 ```bash
 bun run dev
 ```
-The app will be available at `http://localhost:5173`.
+
+### Configuration
+Edit `.env` to point to your backend:
+```env
+VITE_API_URL=http://localhost:3000
+VITE_CHUNK_SIZE=7340032 # Should match backend
+```
 
 ---
 
-## 🏗️ Project Structure
-
-- `src/features`: Feature-based modules containing logic, components, and styles (e.g., `auth`, `dashboard`).
-- `src/services`: Domain-specific API services (`authService`, `fileService`, `userService`, `uploadService`) built on a centralized `httpClient`.
-- `src/captcha`: Modular CAPTCHA implementation with custom hooks and widgets.
-- `src/components`: Reusable UI components (File list, Modals, Uploaders).
-- `src/lib`: Core library code and types.
-- `src/utils`: Shared utility functions (`errorFormatter`, `validation`).
-- `src/App.tsx`: Main application entry and high-level routing orchestrator.
-
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**.
+## 📁 Source Overview
+- `src/features`: Modular feature sets (Auth, Dashboard, Settings).
+- `src/services`: API abstraction layers using a custom `httpClient`.
+- `src/components`: UI components organized by complexity (Atoms, Molecules, Organisms).
+- `src/lib`: Shared types and library wrappers.

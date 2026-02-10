@@ -1,204 +1,115 @@
-# 🚀 Rust File Backend: The Ultimate Enterprise Storage Engine
+# 🚀 Rust File Backend (RFB)
 
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://www.rust-lang.org/)
+[![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Beta](https://img.shields.io/badge/version-0.1.0--beta.6-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-0.1.0--beta.6-blue)](https://github.com/appsjuragan/rust-file-backend)
 
-### **Stop Wasting Storage. Start Scaling Securely.**
-
-In a world where data is exploding, most backends are just "dumb pipes" that eat up your disk space and leave your servers vulnerable. **Rust File Backend** is different. It's a high-performance, intelligent storage powerhouse designed to save you money, protect your users, and scale to millions of files without breaking a sweat.
+**Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system. It combines the absolute memory safety and blazing speed of **Rust** on the backend with a modern, glassmorphic **React** frontend. Designed for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
 ---
 
-## 🌟 Why This is a "Must-Have" for Your Next Project
+## 💎 Core Value Propositions
 
-### 💰 **The Storage Saver (Deduplication)**
-Why store the same 100MB video ten times just because ten users uploaded it? Our engine uses **SHA-256 Content Hashing**. If a file already exists on your server, we don't store it again. We simply point the new user to the existing file. 
-*   **Result:** Up to 90% reduction in storage costs for shared content.
+### ⚡ Blazing Performance
+Built on the **Axum** web framework and the **Tokio** runtime, RFB handles thousands of concurrent requests with minimal CPU and RAM overhead. It uses 10x less memory than equivalent Node.js or Python solutions.
 
-### 🛡️ **The Digital Fortress (Security First)**
-We don't just trust file extensions. 
-*   **Virus Scanning:** Integrated with **ClamAV** to stop malware before it hits your disk.
-*   **Magic Byte Verification:** We peek inside the file to ensure a `.jpg` is actually an image, not a hidden script.
-*   **Path Traversal Protection:** Automatic sanitization to prevent hackers from escaping the storage sandbox.
+### 💰 Intelligent Storage Deduplication
+RFB stops storage bloat by using **SHA-256 Content Hashing**. If a file has been uploaded before by *any* user, the system detects it instantly and creates a database link rather than a physical copy.
+*   **Result:** Drastically reduced storage costs and instant "uploads" for existing content.
 
-### ⚡ **Blazing Fast & Lightweight**
-Built with **Rust** and the **Tokio** async engine. It's designed to handle **50,000+ concurrent connections** while using a fraction of the RAM required by Node.js or Python backends. 
-*   **Streaming Power:** We stream files directly to storage (S3/MinIO). Even a 1GB upload won't crash your server's memory.
+### 🛡️ Multi-Layered Security
+*   **Malware Protection:** Built-in integration with **ClamAV** for real-time virus scanning.
+*   **Identity Integrity:** **Magic Byte Verification** ensures that file extensions match their actual binary content.
+*   **Sandbox Safety:** Aggressive filename sanitization and path-traversal guards.
+*   **Encrypted Transport:** Designed for S3-compatible backends with full JWT-based authorization.
 
-### 🧠 **Smart Metadata Extraction**
-Our backend doesn't just store bytes; it understands them. It automatically extracts:
-*   **Images:** EXIF data, camera models, dimensions.
-*   **Documents:** Word counts, page counts, authors, versions.
-*   **Media:** Durations, bitrates, codecs.
+### 🧩 Resilient Parallel Uploads
+Our custom chunked upload engine supports **parallel workers** and **exponential backoff retries**. It can handle multi-GB files even on unstable connections by sending multiple chunks simultaneously.
 
 ---
 
-## 🏗️ The Enterprise Blueprint (Architecture)
+## 🏗️ Monorepo Architecture
 
-We didn't just write code; we engineered a masterpiece. This project follows **Hexagonal Architecture (Ports & Adapters)**, the gold standard for enterprise software.
+The project is structured as a clean, modular monorepo:
 
-*   **Domain Isolation:** Your business rules are protected from technical changes.
-*   **Pluggable Infrastructure:** Swap PostgreSQL for SQLite or MinIO for AWS S3 in minutes.
-*   **Observability:** Built-in **Request-ID tracking** and **Performance Metrics** so you always know what's happening under the hood.
-*   **Graceful Reliability:** Background workers handle cleanup and expiration silently, with full support for graceful shutdowns.
+### ⚙️ [Backend (api/)](./api)
+*   **Core:** Rust 1.84+
+*   **Framework:** Axum (Async HTTP)
+*   **ORM:** SeaORM (Typed SQL)
+*   **Storage:** AWS SDK for Rust (S3/MinIO)
+*   **Security:** JWT, Argon2, ClamAV
 
----
-
-## 🛠️ Features at a Glance
-
-### Core Features
-- 🔑 **JWT Authentication**: Secure, industry-standard user management with OIDC support.
-- 👤 **Profile Management**: Update your name, email, and password with ease.
-- 🖼️ **Avatars & MinIO**: Integrated profile picture support, stored securely in S3-compatible buckets.
-- ☁️ **S3-Compatible**: Works perfectly with AWS S3, MinIO, DigitalOcean Spaces, and more.
-- 📂 **Folder Support**: Full recursive folder management and bulk operations.
-- 📊 **File Facts & Statistics**: Real-time per-user storage statistics including total size and file type classification.
-- ⏳ **Auto-Expiration**: Set files to self-destruct after a certain number of hours.
-- 📖 **Swagger UI**: Beautiful, interactive API documentation out of the box.
-- 🏥 **Health Monitoring**: Real-time status of your database and storage connectivity.
-
-### Advanced Features (v0.1.0-beta.6)
-- 🔍 **Similarity Search**: Fuzzy filename search powered by PostgreSQL trigram extension.
-- 📄 **Lazy Loading**: Efficient offset-based pagination for file lists and search suggestions.
-- 🎨 **User Settings**: Persistent theme and view style preferences.
-- 🎫 **Download Tickets**: Secure, time-limited download links for file sharing.
-- 📦 **Bulk Operations**: Move and delete multiple files/folders in a single request.
-- 🗜️ **Archive Preview**: Inspect contents of ZIP, 7z, TAR, and RAR archives without downloading.
-- 🧩 **Chunked Uploads**: Bypass cloudflare limits with TUS-like resilient multipart uploads.
+### 🌐 [Frontend (web/)](./web)
+*   **Core:** React 18 + TypeScript
+*   **Build:** Vite 5 + Bun
+*   **Styling:** Tailwind CSS (Modern Glassmorphism)
+*   **Icons:** Lucide-React
 
 ---
 
-## 📁 Project Structure
+## 🚀 Quick Start (Local Development)
 
-This project is organized as a monorepo:
-- **`api/`**: The Rust backend service.
-- **`web/`**: The React frontend application (Vite + TailwindCSS).
+### 1. Prerequisites
+*   [Rust](https://rustup.rs/) (Stable)
+*   [Bun](https://bun.sh/)
+*   [MinIO](https://min.io/) or an AWS S3 Bucket
+*   Optional: [ClamAV](https://www.clamav.net/)
 
----
-
-## 🚦 Quick Start in 3 Steps
-
-### 1. Prepare Your Environment
-Copy the example configuration for the backend:
+### 2. Environment Setup
 ```bash
-cd api
-cp .env.example .env
+# Backend config
+cd api && cp .env.example .env
+
+# Web config
+cd ../web && echo "VITE_API_URL=http://localhost:3000" > .env
 ```
 
-### 2. Launch the Engine
-You can use the root `run.bat` to start both backend and frontend, or run them manually:
-
-**Backend:**
+### 3. Run Everything
+Use the provided batch script on Windows:
 ```bash
-cd api
-cargo run --release
+./run.bat
 ```
-
-**Frontend:**
+Or manually:
 ```bash
-cd web
-bun install
-bun run dev
-```
+# Start API
+cd api && cargo run --bin rust-file-backend -- --mode api
 
-### 3. Explore the API
-Open your browser to:
-`http://127.0.0.1:3000/swagger-ui`
+# Start Worker (Background processing)
+cd api && cargo run --bin rust-file-backend -- --mode worker
+
+# Start Frontend
+cd web && bun run dev
+```
 
 ---
 
-## 📡 API Endpoints Summary
+## 📡 API Overview
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/register` | Register a new user |
-| POST | `/login` | Login with username/password |
-| GET | `/auth/oidc/login` | Initiate OIDC login flow |
-| GET | `/auth/oidc/callback` | OIDC callback handler |
-
-### Files & Folders
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/upload` | Upload a file (multipart) |
-| POST | `/files/pre-check` | Check if file exists (deduplication) |
-| POST | `/files/link` | Link to existing storage file |
-| GET | `/files` | List files with pagination & search |
-| GET | `/files/{id}` | Download a file |
-| DELETE | `/files/{id}` | Delete a file or folder |
-| PUT | `/files/{id}/rename` | Rename a file or folder |
-| GET | `/files/{id}/zip-contents` | Get archive contents |
-| POST | `/files/{id}/ticket` | Generate download ticket |
-| GET | `/tickets/{ticket}` | Download via ticket |
-| POST | `/folders` | Create a new folder |
-| GET | `/folders/{id}/path` | Get folder breadcrumb path |
-| POST | `/files/bulk-delete` | Bulk delete files/folders |
-| POST | `/files/bulk-move` | Bulk move files/folders |
-
-### Users & Settings
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/users/me` | Get current user profile |
-| PUT | `/users/me` | Update user profile |
-| POST | `/users/me/avatar` | Upload avatar image |
-| GET | `/users/me/avatar` | Get avatar image |
-| GET | `/users/me/facts` | Get storage statistics |
-| GET | `/settings` | Get user settings |
-| PUT | `/settings` | Update user settings |
-
-### System
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | System health check |
-| GET | `/system/validation-rules` | Get allowed MIME types and rules |
+| Feature | Description |
+| :--- | :--- |
+| **Auth** | JWT Register/Login + OIDC Support |
+| **Files** | Upload, Download, Rename, Move, Delete |
+| **Search** | Fuzzy matching with debounced suggestions |
+| **Folders** | Full recursive tree management |
+| **Stats** | Real-time user storage breakdown (Facts) |
+| **Sharing** | Time-limited Download Tickets |
+| **Preview** | Virtual archive inspection (ZIP, 7z, RAR) |
 
 ---
 
 ## 🐳 Docker Deployment
 
-The project is fully containerized for easy deployment. Both the backend and frontend include optimized multi-stage Dockerfiles.
+RFB is production-ready with optimized multi-stage Dockerfiles.
 
-### Quick Run with Docker Compose
-1. Ensure Docker and Docker Compose are installed.
-2. Run the following command:
 ```bash
+# Launch full stack (API + Web + Redis/DB)
 docker-compose up --build
 ```
-
-### Manual Docker Build
-**Backend:**
-```bash
-cd api
-docker build -t rust-file-backend-api .
-```
-
-**Frontend:**
-```bash
-cd web
-docker build -t rust-file-backend-web .
-```
-
----
-
-## 📊 Tech Stack of the Future
-
-*   **Language:** Rust 1.84+ (Memory safe, zero-cost abstractions)
-
-*   **Web Framework:** Axum 0.7 (High performance, ergonomic)
-*   **Database ORM:** SeaORM 1.1 (Type-safe, async)
-*   **Database:** PostgreSQL or SQLite
-*   **Storage Client:** AWS SDK for Rust (Enterprise grade)
-*   **Security:** Argon2 (Password hashing), JWT (Tokens), ClamAV (Virus scanning)
-*   **Frontend:** React 18 + Vite 5 + TailwindCSS 3
 
 ---
 
 ## 📜 License
+Licensed under the **MIT License**. Created with ❤️ by the **Antigravity** team.
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
----
-
-### **Ready to build something legendary?**
-[Get Started Now](https://github.com/appsjuragan/rust-file-backend) | [Report a Bug](https://github.com/appsjuragan/rust-file-backend/issues)
+[GitHub Repository](https://github.com/appsjuragan/rust-file-backend) | [Documentation (Swagger)](http://localhost:3000/swagger-ui)

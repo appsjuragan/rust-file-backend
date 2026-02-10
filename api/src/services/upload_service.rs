@@ -137,7 +137,7 @@ impl UploadService {
         data: Vec<u8>,
     ) -> Result<UploadPartResponse> {
         let session = upload_sessions::Entity::find_by_id(session_id)
-            .filter(upload_sessions::Column::UserId.eq(user_id))
+            .filter(upload_sessions::Column::UserId.eq(user_id.clone()))
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow!("Upload session not found"))?;
@@ -156,30 +156,42 @@ impl UploadService {
             .upload_part(&session.s3_key, &session.upload_id, part_number, data)
             .await?;
 
-        // Update DB
-        // We need to parse existing parts, add new one, and save.
-        // Race condition warning: if parallel uploads for same session occur, this read-modify-write is unsafe.
-        // For now, assuming sequential or locked client, OR we handle it by checking if part exists.
-        // Better: just append to list. But JSONB append in generic SQL/SeaORM is tricky.
-        // We will do optimistic locking or just simple update for now as MVP.
+        // Update DB with transaction to avoid race conditions during parallel uploads
+        use sea_orm::TransactionTrait;
+        let db = self.db.clone();
         
-        let mut parts: Vec<PartInfo> = serde_json::from_value(session.parts.clone())?;
-        
-        // Remove if existing (retry)
-        parts.retain(|p| p.part_number != part_number);
-        parts.push(PartInfo {
-            part_number,
-            etag: etag.clone(),
-        });
-        
-        // Sort by part number for tidiness
-        parts.sort_by_key(|p| p.part_number);
+        db.transaction::<_, (), anyhow::Error>(|txn| {
+            let session_id = session_id;
+            let user_id = user_id.clone();
+            let etag = etag.clone();
+            let part_number = part_number;
+            Box::pin(async move {
+                let session = upload_sessions::Entity::find_by_id(session_id)
+                    .filter(upload_sessions::Column::UserId.eq(user_id))
+                    .one(txn)
+                    .await?
+                    .ok_or_else(|| anyhow!("Upload session not found"))?;
 
-        let mut active: upload_sessions::ActiveModel = session.clone().into();
-        active.parts = Set(json!(parts));
-        active.uploaded_chunks = Set(parts.len() as i32);
-        
-        active.update(&self.db).await?;
+                let mut parts: Vec<PartInfo> = serde_json::from_value(session.parts.clone())?;
+                
+                // Remove if existing (retry)
+                parts.retain(|p| p.part_number != part_number);
+                parts.push(PartInfo {
+                    part_number,
+                    etag: etag,
+                });
+                
+                // Sort by part number for tidiness
+                parts.sort_by_key(|p| p.part_number);
+
+                let mut active: upload_sessions::ActiveModel = session.into();
+                active.parts = Set(json!(parts));
+                active.uploaded_chunks = Set(parts.len() as i32);
+                
+                active.update(txn).await?;
+                Ok(())
+            })
+        }).await?;
 
         Ok(UploadPartResponse { etag })
     }
