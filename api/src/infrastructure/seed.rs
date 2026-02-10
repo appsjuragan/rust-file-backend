@@ -49,6 +49,10 @@ pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Res
         ("audio/mpeg", "Audio"),
         ("video/mp4", "Video"),
         ("application/zip", "Archives"),
+        ("application/x-zip-compressed", "Archives"),
+        ("application/x-rar-compressed", "Archives"),
+        ("application/x-7z-compressed", "Archives"),
+        ("application/x-tar", "Archives"),
     ];
 
     for (mime, cat) in mimes {

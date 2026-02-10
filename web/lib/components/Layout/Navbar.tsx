@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { useFileManager } from "../context";
-import type { FileType } from "../types";
+import { useFileManager } from "../../context";
+import type { FileType } from "../../types";
 
 const Navbar = () => {
   const { fs, setCurrentFolder, onRefresh } = useFileManager();

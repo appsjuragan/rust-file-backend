@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { useFileManager } from "../context";
-import { FileType } from "../types";
-import SvgIcon from "./SvgIcon";
-import { api } from "../../src/api";
+import { useFileManager } from "../../context";
+import { FileType } from "../../types";
+import SvgIcon from "../Icons/SvgIcon";
+import { api } from "../../../src/api";
 
 interface IContextMenuProps {
     x: number;
@@ -182,36 +182,61 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         >
             {file && (
                 <>
-                    {!file.isDir && (
-                        <div className="rfm-context-menu-item" onClick={handleDownload}>
-                            <SvgIcon svgType="download" className="rfm-context-menu-icon" />
-                            Download
-                        </div>
-                    )}
-                    <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
-                        <SvgIcon svgType="info" className="rfm-context-menu-icon" />
-                        View Meta Data
-                    </div>
-                    <div className="rfm-context-menu-item" onClick={handleRename}>
-                        <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
-                        Rename
-                    </div>
-                    <div className="rfm-context-menu-item" onClick={handleOpen}>
-                        <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
-                        Open (Preview)
-                    </div>
-                    <div className="rfm-context-menu-item" onClick={handleCopy}>
-                        <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
-                        Copy
-                    </div>
-                    <div className="rfm-context-menu-item" onClick={handleCut}>
-                        <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
-                        Cut
-                    </div>
-                    <div className="rfm-context-menu-item text-rose-500" onClick={handleDelete}>
-                        <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
-                        Delete
-                    </div>
+                    {(() => {
+                        const isScanBusy = file.scanStatus === 'pending' || file.scanStatus === 'scanning';
+                        return (
+                            <>
+                                {!file.isDir && (
+                                    <div
+                                        className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                        onClick={isScanBusy ? undefined : handleDownload}
+                                    >
+                                        <SvgIcon svgType="download" className="rfm-context-menu-icon" />
+                                        Download {isScanBusy && '(Checking...)'}
+                                    </div>
+                                )}
+                                <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
+                                    <SvgIcon svgType="info" className="rfm-context-menu-icon" />
+                                    View Meta Data
+                                </div>
+                                <div
+                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={isScanBusy ? undefined : handleRename}
+                                >
+                                    <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                                    Rename
+                                </div>
+                                <div
+                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={isScanBusy ? undefined : handleOpen}
+                                >
+                                    <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
+                                    Open (Preview)
+                                </div>
+                                <div
+                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={isScanBusy ? undefined : handleCopy}
+                                >
+                                    <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                                    Copy
+                                </div>
+                                <div
+                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={isScanBusy ? undefined : handleCut}
+                                >
+                                    <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
+                                    Cut
+                                </div>
+                                <div
+                                    className={`rfm-context-menu-item text-rose-500 ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={isScanBusy ? undefined : handleDelete}
+                                >
+                                    <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
+                                    Delete
+                                </div>
+                            </>
+                        );
+                    })()}
                     {file.isDir && (
                         <>
                             <div className="rfm-border-t my-1 border-slate-100" />

@@ -25,6 +25,18 @@ Based on the ZAP Report (`zap_report.md`) and Quick Scan (`quick_report.md`), th
   - Added default `Cache-Control: no-cache, no-store, must-revalidate` to all API responses via middleware.
   - Updated file download handler (`api/src/api/handlers/files.rs`) to use `private, max-age=31536000` instead of `public`, ensuring only the user's browser (and not shared proxies) caches the file content.
 
+### 4. Frontend Scan Status Update Fix & UI Enhancement (Bug Fix + UX)
+- **Issue:** Frontend stopped polling for scan status updates prematurely and lacked visual feedback for the "scanning" phase.
+- **Fixes:** 
+  - **Polling:** Updated `web/src/App.tsx` polling logic to include both "pending" and "scanning" statuses.
+  - **Labels:** Updated UI labels to "AV Scanning..." and "AV Pending..." for better clarity.
+  - **Animation:** Added a CSS pulse animation to the scanning badge to indicate active background processing.
+  - **UX Protection:** 
+    - Disabled Interaction: Context menu actions (Download, Rename, Delete) are now disabled while a file is scanning.
+    - Blocked Preview: Prevented opening or double-clicking files that haven't finished the security scan.
+  - **Search Integration:** Added scan status badges to Global Search suggestions.
+
+
 ## Verification
 - Run `cargo check` to ensure code integrity.
 - Deploy the updated binary.

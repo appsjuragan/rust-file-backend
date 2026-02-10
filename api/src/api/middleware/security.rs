@@ -19,7 +19,7 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
     // Site Isolation
     headers.insert(
         header::HeaderName::from_static("cross-origin-resource-policy"),
-        header::HeaderValue::from_static("same-origin"),
+        header::HeaderValue::from_static("cross-origin"),
     );
 
     // Cache-Control for sensitive content

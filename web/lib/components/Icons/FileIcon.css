@@ -1,0 +1,20 @@
+@layer utilities {
+
+    /* FileIcon */
+    .rfm-file-icon-container {
+        @apply relative flex flex-col justify-center items-center overflow-hidden cursor-pointer transition-all duration-300 p-2 rounded-xl dark:hover:bg-gray-700/50;
+    }
+
+    .rfm-file-icon-svg {
+        @apply w-20 h-20 mb-2;
+    }
+
+    .rfm-file-icon-extension {
+        @apply absolute top-[42px] text-[10px] font-bold text-white select-none pointer-events-none uppercase;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .rfm-file-icon-name {
+        @apply w-full text-xs text-center text-ellipsis overflow-hidden whitespace-nowrap px-1 select-none font-medium;
+    }
+}

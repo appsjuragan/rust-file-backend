@@ -1,0 +1,68 @@
+@layer utilities {
+
+    /* Common Forms & Buttons */
+    .rfm-form-group {
+        @apply flex flex-col gap-1;
+    }
+
+    .rfm-form-group label {
+        @apply text-xs font-bold text-slate-500 uppercase tracking-wider;
+    }
+
+    .rfm-form-group input {
+        @apply bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg block w-full p-1 focus:ring-sky-500 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100;
+    }
+
+    .rfm-btn-primary {
+        @apply px-3 py-1 text-white rounded-lg bg-sky-500 hover:bg-sky-700 transition-all duration-200 cursor-pointer font-medium;
+    }
+
+    /* Specific Component Forms */
+    .rfm-new-folder-modal-form {
+        @apply flex flex-col gap-4;
+    }
+
+    .rfm-new-folder-modal-input {
+        @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full px-3 py-2.5 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:focus:ring-sky-500 dark:focus:border-sky-500;
+    }
+
+    .rfm-new-folder-modal-btn {
+        @apply text-white bg-sky-600 hover:bg-sky-700 focus:ring-4 focus:outline-none focus:ring-sky-600 font-semibold rounded-lg text-sm w-full px-4 py-2.5 text-center transition-all;
+    }
+
+    .rfm-metadata-form {
+        @apply flex flex-col gap-4 my-4 text-left min-w-[400px];
+    }
+
+    .rfm-metadata-json {
+        @apply bg-slate-900 text-sky-400 p-2 rounded-lg text-xs overflow-auto max-h-60 font-mono;
+    }
+
+    .rfm-dialog-content {
+        @apply flex flex-col gap-4;
+    }
+
+    .rfm-dialog-message {
+        @apply text-sm text-slate-600 dark:text-slate-300 leading-relaxed;
+    }
+
+    .rfm-dialog-footer {
+        @apply flex justify-end gap-3 mt-2;
+    }
+
+    .rfm-upload-file-modal-container {
+        @apply flex flex-row gap-4 justify-center items-center mt-4;
+    }
+
+    .rfm-upload-file-modal-btn {
+        @apply text-white focus:ring-4 focus:outline-none font-medium rounded-lg text-sm w-full sm:w-auto px-2.5 py-1 text-center;
+    }
+
+    .rfm-upload-file-modal-btn-confirm {
+        @apply bg-emerald-500 hover:bg-emerald-700 focus:ring-emerald-600;
+    }
+
+    .rfm-upload-file-modal-btn-cancel {
+        @apply bg-rose-500 hover:bg-rose-700 focus:ring-rose-600;
+    }
+}

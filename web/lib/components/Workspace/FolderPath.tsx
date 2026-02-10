@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
 // Context
-import { useFileManager } from "../context";
+import { useFileManager } from "../../context";
 // Types
-import type { FileType } from "../types";
-import { ViewStyle } from "../types";
+import type { FileType } from "../../types";
+import { ViewStyle } from "../../types";
 // Components
-import SvgIcon from "./SvgIcon";
+import SvgIcon from "../Icons/SvgIcon";
 
 const FolderPath = () => {
   const { fs, currentFolder, setCurrentFolder, viewStyle, setViewStyle } = useFileManager();

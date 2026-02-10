@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useFileManager } from "../context";
+import { useFileManager } from "../../context";
 import CommonModal from "./CommonModal";
 
 interface INewFolderModalProps {

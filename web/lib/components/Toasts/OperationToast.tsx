@@ -1,6 +1,6 @@
 import React from "react";
-import { useFileManager } from "../context";
-import SvgIcon from "./SvgIcon";
+import { useFileManager } from "../../context";
+import SvgIcon from "../Icons/SvgIcon";
 
 const OperationToast = () => {
     const { isMoving } = useFileManager();

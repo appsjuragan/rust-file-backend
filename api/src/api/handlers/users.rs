@@ -7,7 +7,7 @@ use argon2::{
 };
 use axum::{
     Extension, Json,
-    extract::{Multipart, Query, State},
+    extract::{Multipart, Query, State, Path},
     response::IntoResponse,
 };
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
@@ -62,12 +62,20 @@ pub async fn get_profile(
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
+    let avatar_url = user.avatar_url.map(|url| {
+        if url.starts_with("/users/me/avatar") {
+            format!("/users/avatar/{}", user.id)
+        } else {
+            url
+        }
+    });
+
     Ok(Json(UserProfileResponse {
         id: user.id,
         username: user.username,
         email: user.email,
         name: user.name,
-        avatar_url: user.avatar_url,
+        avatar_url,
     }))
 }
 
@@ -90,7 +98,10 @@ pub async fn update_profile(
 ) -> Result<Json<UserProfileResponse>, AppError> {
     payload
         .validate()
-        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Validation failed for update_profile: {}", e);
+            AppError::BadRequest(e.to_string())
+        })?;
 
     let user = Users::find_by_id(&claims.sub)
         .one(&state.db)
@@ -123,12 +134,20 @@ pub async fn update_profile(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
+    let avatar_url = updated.avatar_url.map(|url| {
+        if url.starts_with("/users/me/avatar") {
+            format!("/users/avatar/{}", updated.id)
+        } else {
+            url
+        }
+    });
+
     Ok(Json(UserProfileResponse {
         id: updated.id,
         username: updated.username,
         email: updated.email,
         name: updated.name,
-        avatar_url: updated.avatar_url,
+        avatar_url,
     }))
 }
 
@@ -155,16 +174,15 @@ pub async fn upload_avatar(
         .map_err(|e| AppError::BadRequest(e.to_string()))?
         .ok_or_else(|| AppError::BadRequest("No file found in request".to_string()))?;
 
-    let filename = field.file_name().unwrap_or("avatar.png").to_string();
+    let _field_name = field.name().unwrap_or("file").to_string();
     let data = field
         .bytes()
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .to_vec();
 
-    // Store in MinIO under avatars/ folder
-    let extension = filename.split('.').next_back().unwrap_or("png");
-    let storage_key = format!("avatars/{}.{}", claims.sub, extension);
+    // Store in MinIO under avatars/ folder - always use .jpg since frontend sends JPEG
+    let storage_key = format!("avatars/{}.jpg", claims.sub);
 
     state
         .storage
@@ -180,7 +198,7 @@ pub async fn upload_avatar(
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     let mut active: users::ActiveModel = user.into();
-    let avatar_url = format!("/users/me/avatar?t={}", uuid::Uuid::new_v4()); // Cache busting URL
+    let avatar_url = format!("/users/avatar/{}?t={}", claims.sub, uuid::Uuid::new_v4()); // Cache busting URL
     active.avatar_url = Set(Some(avatar_url.clone()));
     active
         .update(&state.db)
@@ -192,20 +210,20 @@ pub async fn upload_avatar(
 
 #[utoipa::path(
     get,
-    path = "/users/me/avatar",
+    path = "/users/avatar/{user_id}",
     responses(
         (status = 200, description = "Avatar image"),
         (status = 404, description = "Avatar not found")
     )
 )]
 pub async fn get_avatar(
+    Path(user_id): Path<String>,
     State(state): State<crate::AppState>,
     Query(_params): Query<std::collections::HashMap<String, String>>, // For cache busting
-    Extension(claims): Extension<Claims>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Try common extensions
-    for ext in &["png", "jpg", "jpeg", "gif", "webp"] {
-        let key = format!("avatars/{}.{}", claims.sub, ext);
+    // Try common extensions, prioritizing jpg since that's what we upload
+    for ext in &["jpg", "png", "jpeg", "gif", "webp"] {
+        let key = format!("avatars/{}.{}", user_id, ext);
         if let Ok(data) = state.storage.get_file(&key).await {
             let mime = match *ext {
                 "png" => "image/png",

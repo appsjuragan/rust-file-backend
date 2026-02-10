@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import CommonModal from "./CommonModal";
-import { api } from "../../src/api";
+import { api } from "../../../src/api";
 
 interface IPreviewModalProps {
     isVisible: boolean;
@@ -10,6 +10,7 @@ interface IPreviewModalProps {
     fileId?: string;
     mimeType?: string;
     size?: number;
+    scanStatus?: "pending" | "scanning" | "clean" | "infected" | "unchecked";
     clickPosition?: { x: number; y: number } | null;
 }
 
@@ -21,6 +22,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     fileId,
     mimeType,
     size,
+    scanStatus,
     clickPosition,
 }) => {
     const [textContent, setTextContent] = useState<string | null>(null);

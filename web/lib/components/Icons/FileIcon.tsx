@@ -1,7 +1,7 @@
 import React from "react";
 import { useMemo } from "react";
 // Context
-import { useFileManager } from "../context";
+import { useFileManager } from "../../context";
 // Components
 import SvgIcon from "./SvgIcon";
 

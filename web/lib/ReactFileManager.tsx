@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 // Context
 import { FileManagerContext } from "./context";
 // Components
-import { Navbar, Workspace, Sidebar } from "./components";
-import NewFolderModal from "./components/NewFolderModal";
-import PreviewModal from "./components/PreviewModal";
-import UploadProgressToast from "./components/UploadProgressToast";
-import ContextMenu from "./components/ContextMenu";
-import MetadataModal from "./components/MetadataModal";
-import RenameModal from "./components/RenameModal";
-import OperationToast from "./components/OperationToast";
-import DialogModal from "./components/DialogModal";
+import {
+  Navbar,
+  Workspace,
+  Sidebar,
+  NewFolderModal,
+  PreviewModal,
+  UploadProgressToast,
+  ContextMenu,
+  MetadataModal,
+  RenameModal,
+  OperationToast,
+  DialogModal
+} from "./components";
 import { api } from "../src/api";
 // Types
 import type { FileSystemType, FileType } from "./types";
@@ -92,7 +96,17 @@ export const ReactFileManager = ({
   const [renameVisible, setRenameVisible] = useState<boolean>(false);
   const [renameFile, setRenameFile] = useState<FileType | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
-  const [openUpload, setOpenUpload] = useState<(() => void) | null>(null);
+  const [openUploadDummy, setOpenUploadDummy] = useState<number>(0);
+  const openUploadRef = useRef<(() => void) | null>(null);
+
+  const triggerOpenUpload = useCallback(() => {
+    openUploadRef.current?.();
+  }, []);
+
+  const registerOpenUpload = useCallback((fn: (() => void) | null) => {
+    openUploadRef.current = fn;
+    setOpenUploadDummy(prev => prev + 1); // Only to trigger re-render of components using the trigger if needed, but ContextMenu uses triggerOpenUpload which is STABLE
+  }, []);
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [dialogState, setDialogState] = useState<{
@@ -138,69 +152,76 @@ export const ReactFileManager = ({
     };
   }, [showAlert]);
 
+  const contextValue = useMemo(() => ({
+    fs: fs,
+    viewStyle: viewStyle,
+    setViewStyle: setViewStyle,
+    viewOnly: viewOnly,
+    currentFolder: currentFolder,
+    setCurrentFolder: setCurrentFolder,
+    onDoubleClick: onDoubleClick,
+    onRefresh: onRefresh,
+    onUpload: onUpload,
+    onCreateFolder: onCreateFolder,
+    onDelete: onDelete,
+    onMove: onMove,
+    onRename: onRename,
+    onBulkDelete,
+    onBulkMove,
+    onBulkCopy,
+    uploadedFileData: uploadedFileData,
+    setUploadedFileData: setUploadedFileData,
+    activeUploads,
+    setActiveUploads,
+    selectedIds,
+    setSelectedIds,
+    clipboardIds,
+    setClipboardIds,
+    isCut,
+    setIsCut,
+    newFolderModalVisible,
+    setNewFolderModalVisible,
+    previewVisible,
+    setPreviewVisible,
+    previewFile,
+    setPreviewFile,
+    metadataVisible,
+    setMetadataVisible,
+    metadataFile,
+    setMetadataFile,
+    renameVisible,
+    setRenameVisible,
+    renameFile,
+    setRenameFile,
+    contextMenu,
+    setContextMenu,
+    openUpload: triggerOpenUpload,
+    setOpenUpload: registerOpenUpload,
+    modalPosition,
+    setModalPosition,
+    isMoving,
+    setIsMoving,
+    dialogState,
+    setDialogState,
+    showAlert,
+    showConfirm,
+    userFacts,
+    highlightedId,
+    setHighlightedId,
+    onLoadMore,
+    hasMore,
+    isLoadingMore,
+  }), [
+    fs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
+    onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, uploadedFileData,
+    activeUploads, selectedIds, clipboardIds, isCut, newFolderModalVisible, previewVisible,
+    previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
+    triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
+    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads
+  ]);
+
   return (
-    <FileManagerContext.Provider
-      value={{
-        fs: fs,
-        viewStyle: viewStyle,
-        setViewStyle: setViewStyle,
-        viewOnly: viewOnly,
-        currentFolder: currentFolder,
-        setCurrentFolder: setCurrentFolder,
-        onDoubleClick: onDoubleClick,
-        onRefresh: onRefresh,
-        onUpload: onUpload,
-        onCreateFolder: onCreateFolder,
-        onDelete: onDelete,
-        onMove: onMove,
-        onRename: onRename,
-        onBulkDelete,
-        onBulkMove,
-        onBulkCopy,
-        uploadedFileData: uploadedFileData,
-        setUploadedFileData: setUploadedFileData,
-        activeUploads,
-        setActiveUploads,
-        selectedIds,
-        setSelectedIds,
-        clipboardIds,
-        setClipboardIds,
-        isCut,
-        setIsCut,
-        newFolderModalVisible,
-        setNewFolderModalVisible,
-        previewVisible,
-        setPreviewVisible,
-        previewFile,
-        setPreviewFile,
-        metadataVisible,
-        setMetadataVisible,
-        metadataFile,
-        setMetadataFile,
-        renameVisible,
-        setRenameVisible,
-        renameFile,
-        setRenameFile,
-        contextMenu,
-        setContextMenu,
-        openUpload: openUpload || undefined,
-        setOpenUpload,
-        modalPosition,
-        setModalPosition,
-        isMoving,
-        setIsMoving,
-        dialogState,
-        setDialogState,
-        showAlert,
-        showConfirm,
-        userFacts,
-        highlightedId,
-        setHighlightedId,
-        onLoadMore,
-        hasMore,
-        isLoadingMore,
-      }}
-    >
+    <FileManagerContext.Provider value={contextValue}>
 
       <div className="rfm-main-container">
         <div className="rfm-content-container">
@@ -222,6 +243,7 @@ export const ReactFileManager = ({
                 fileId={previewFile.id}
                 mimeType={previewFile.mimeType}
                 size={previewFile.size}
+                scanStatus={previewFile.scanStatus}
                 clickPosition={modalPosition}
               />
             )}
@@ -255,7 +277,7 @@ export const ReactFileManager = ({
               setModalPosition({ x: contextMenu.x, y: contextMenu.y });
               setNewFolderModalVisible(true);
             }}
-            onUpload={() => openUpload?.()}
+            onUpload={triggerOpenUpload}
           />
         )}
         <MetadataModal

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { useFileManager } from "../context";
-import SvgIcon from "./SvgIcon";
-import type { FileType } from "../types";
-import { isDescendantOrSelf, formatSize } from "../utils/fileUtils";
+import { useFileManager } from "../../context";
+import SvgIcon from "../Icons/SvgIcon";
+import type { FileType } from "../../types";
+import { isDescendantOrSelf, formatSize } from "../../utils/fileUtils";
 
 const FolderTreeItem = ({ folder, level }: { folder: FileType; level: number }) => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving } = useFileManager();
@@ -120,6 +120,33 @@ const StorageStats = ({ userFacts }: { userFacts: any }) => {
     const renderPie = () => {
         if (total === 0) return <div className="rfm-facts-pie-empty"></div>;
 
+        const activeCategories = categories.filter(c => c.value > 0);
+        const radius = 42; // Reduced radius to prevent clipping
+
+        // If only one category, render a circle for better visual and avoid path bugs
+        if (activeCategories.length === 1) {
+            const cat = activeCategories[0]!;
+            return (
+                <svg viewBox="0 0 100 100" className="rfm-facts-pie-svg">
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r={radius}
+                        fill={cat.color}
+                        className={`rfm-pie-segment ${hoveredCategory === cat.id ? 'active' : ''}`}
+                        onMouseEnter={() => setHoveredCategory(cat.id)}
+                        onMouseLeave={() => setHoveredCategory(null)}
+                    />
+                    {hoveredCategory === cat.id && (
+                        <g className="rfm-pie-text-group">
+                            <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">100%</text>
+                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label}s</text>
+                        </g>
+                    )}
+                </svg>
+            );
+        }
+
         let currentAngle = -90;
         return (
             <svg viewBox="0 0 100 100" className="rfm-facts-pie-svg">
@@ -130,13 +157,13 @@ const StorageStats = ({ userFacts }: { userFacts: any }) => {
                     const endAngle = currentAngle + angle;
                     currentAngle += angle;
 
-                    const x1 = 50 + 50 * Math.cos((Math.PI * startAngle) / 180);
-                    const y1 = 50 + 50 * Math.sin((Math.PI * startAngle) / 180);
-                    const x2 = 50 + 50 * Math.cos((Math.PI * endAngle) / 180);
-                    const y2 = 50 + 50 * Math.sin((Math.PI * endAngle) / 180);
+                    const x1 = 50 + radius * Math.cos((Math.PI * startAngle) / 180);
+                    const y1 = 50 + radius * Math.sin((Math.PI * startAngle) / 180);
+                    const x2 = 50 + radius * Math.cos((Math.PI * endAngle) / 180);
+                    const y2 = 50 + radius * Math.sin((Math.PI * endAngle) / 180);
 
                     const largeArcFlag = angle > 180 ? 1 : 0;
-                    const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+                    const pathData = `M 50 50 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
 
                     return (
                         <path
@@ -149,6 +176,17 @@ const StorageStats = ({ userFacts }: { userFacts: any }) => {
                         />
                     );
                 })}
+                {hoveredCategory && (() => {
+                    const cat = categories.find(c => c.id === hoveredCategory);
+                    if (!cat) return null;
+                    const percentage = Math.round((cat.value / total) * 100);
+                    return (
+                        <g className="rfm-pie-text-group">
+                            <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">{percentage}%</text>
+                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label}s</text>
+                        </g>
+                    );
+                })()}
             </svg>
         );
     };

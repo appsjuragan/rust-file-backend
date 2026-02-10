@@ -1,5 +1,5 @@
 import React from "react";
-import { useFileManager } from "../context";
+import { useFileManager } from "../../context";
 import CommonModal from "./CommonModal";
 
 const DialogModal = () => {

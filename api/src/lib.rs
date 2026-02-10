@@ -110,6 +110,10 @@ pub fn create_app(state: AppState) -> Router {
 
     // Public routes
     let public_routes = Router::new()
+        .route(
+            "/users/avatar/:user_id",
+            get(api::handlers::users::get_avatar),
+        )
         .route("/health", get(api::handlers::health::health_check))
         .route(
             "/system/validation-rules",
@@ -182,7 +186,7 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route(
             "/users/me/avatar",
-            get(api::handlers::users::get_avatar).post(api::handlers::users::upload_avatar),
+            post(api::handlers::users::upload_avatar),
         )
         .route("/users/me/facts", get(api::handlers::users::get_user_facts))
         .layer(auth_middleware);

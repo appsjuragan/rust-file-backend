@@ -1,6 +1,6 @@
 import React from "react";
 import CommonModal from "./CommonModal";
-import { FileType } from "../types";
+import { FileType } from "../../types";
 
 interface IMetadataModalProps {
     isVisible: boolean;

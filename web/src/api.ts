@@ -262,9 +262,11 @@ export const api = {
         });
     },
     getAvatarUrl: (path?: string) => {
-        const effectivePath = path || '/users/me/avatar';
-        const separator = effectivePath.includes('?') ? '&' : '?';
-        return `${BASE_URL}${effectivePath}${separator}token=${getAuthToken()}`;
+        if (!path) return '';
+        // If it's a full URL already
+        if (path.startsWith('http')) return path;
+        // Prepend BASE_URL
+        return `${BASE_URL}${path}`;
     },
     getValidationRules: () => request('/system/validation-rules'),
 };

@@ -29,3 +29,39 @@ export const formatSize = (bytes: number): string => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
+export const formatMimeType = (mime?: string) => {
+    if (!mime) return 'Unknown';
+
+    if (mime.startsWith('image/')) return 'Image';
+    if (mime.startsWith('video/')) return 'Video';
+    if (mime.startsWith('audio/')) return 'Audio';
+
+    switch (mime) {
+        case 'application/pdf': return 'PDF';
+        case 'text/plain': return 'Text';
+        case 'application/zip':
+        case 'application/x-zip-compressed': return 'Zip Archive';
+
+        // Microsoft Office
+        case 'application/msword':
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+            return 'Word Document';
+        case 'application/vnd.ms-excel':
+        case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+            return 'Excel Spreadsheet';
+        case 'application/vnd.ms-powerpoint':
+        case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+            return 'PowerPoint Presentation';
+
+        default:
+            // Try to clean up others if they are too long
+            if (mime.length > 30) {
+                const parts = mime.split('/');
+                if (parts.length > 1 && parts[1]) {
+                    const subParts = parts[1].split(/[.-]/);
+                    if (subParts.length > 0 && subParts[0]) return subParts[0].toUpperCase();
+                }
+            }
+            return mime;
+    }
+};

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ReactFileManager, CommonModal } from "../lib";
+import { ReactFileManager, CommonModal, AvatarCropModal } from "../lib";
 import { api, getAuthToken, setAuthToken, clearAuthToken } from "./api";
 import { formatFriendlyError } from "./utils/errorFormatter";
 import { isRestrictedFile } from "./utils/validation";
@@ -18,6 +18,8 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [authLoading, setAuthLoading] = useState(false);
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
+    const [cropModalVisible, setCropModalVisible] = useState(false);
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
     const [currentFolder, setCurrentFolder] = useState<string>(() => {
         return localStorage.getItem("currentFolder") || "0";
     });
@@ -292,6 +294,8 @@ function App() {
 
     const alertedInfectedFiles = React.useRef<Set<string>>(new Set());
 
+    const scanningFilesRef = React.useRef<Set<string>>(new Set());
+
     useEffect(() => {
         if (isAuthenticated) {
             fetchFiles(currentFolder);
@@ -329,10 +333,34 @@ function App() {
             // Poll every 5 seconds if there are pending files
             const interval = setInterval(() => {
                 const currentFs = fsRef.current;
-                const hasPending = currentFs.some(f => f.scanStatus === 'pending');
-                if (hasPending) {
+
+                // Fix: Include 'scanning' status in polling condition
+                const activeScans = currentFs.filter(f => f.scanStatus === 'pending' || f.scanStatus === 'scanning');
+                const hasActive = activeScans.length > 0;
+
+                if (hasActive) {
                     fetchFiles(currentFolderRef.current, true);
                 }
+
+                // Check for transitions to completed (Clean)
+                const currentScanningIds = new Set(activeScans.map(f => f.id));
+
+                // Check if any file we were tracking has finished scanning
+                scanningFilesRef.current.forEach(id => {
+                    if (!currentScanningIds.has(id)) {
+                        // It's no longer pending/scanning. Check result.
+                        const file = currentFs.find(f => f.id === id);
+                        if (file && file.scanStatus === 'clean') {
+                            // Ideally use a Toast here, but for now we'll ensure the UI update is noticed
+                            console.log(`File "${file.name}" scan complete: Clean`);
+                            // We could trigger a subtle UI flash or toast here if we had a Toast component
+                        }
+                        scanningFilesRef.current.delete(id);
+                    }
+                });
+
+                // Add currently active scans to tracking
+                activeScans.forEach(f => scanningFilesRef.current.add(f.id));
 
                 // Check for infected files to show toast/alert
                 const infectedFiles = currentFs.filter(f => f.scanStatus === 'infected');
@@ -414,8 +442,8 @@ function App() {
     const handleSaveProfile = async () => {
         try {
             await api.updateProfile({
-                name: editName,
-                email: editEmail,
+                name: editName || undefined,
+                email: editEmail || undefined,
                 password: editPassword || undefined
             });
             await fetchProfile();
@@ -425,14 +453,26 @@ function App() {
         }
     };
 
-    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            try {
-                await api.uploadAvatar(e.target.files[0]);
-                await fetchProfile();
-            } catch (err: any) {
-                alert(formatFriendlyError(err.message));
-            }
+            const reader = new FileReader();
+            reader.addEventListener("load", () => {
+                setImageToCrop(reader.result as string);
+                setCropModalVisible(true);
+            });
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+
+    const handleCropSave = async (croppedBlob: Blob) => {
+        try {
+            const file = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+            await api.uploadAvatar(file);
+            await fetchProfile();
+            setCropModalVisible(false);
+            setImageToCrop(null);
+        } catch (err: any) {
+            alert(formatFriendlyError(err.message));
         }
     };
 
@@ -472,16 +512,16 @@ function App() {
     };
 
 
-    const onRefresh = async (id: string) => {
+    const onRefresh = useCallback(async (id: string) => {
         await fetchFiles(id);
         fetchUserFacts();
-    };
+    }, [fetchFiles, fetchUserFacts]);
 
     const [pendingUpload, setPendingUpload] = useState<{ file: File, folderId: string, onProgress?: (p: number) => void } | null>(null);
 
     const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
-    const calculateHash = async (file: File, onProgress?: (p: number) => void): Promise<string> => {
+    const calculateHash = useCallback(async (file: File, onProgress?: (p: number) => void): Promise<string> => {
         // Limit client-side hashing to 1GB to prevent excessive performance hit
         if (file.size > 1024 * 1024 * 1024) {
             return "";
@@ -512,7 +552,7 @@ function App() {
             console.error("Hashing failed:", err);
             return "";
         }
-    };
+    }, []);
 
     const performUpload = async (file: File, folderId: string, onProgress?: (p: number) => void, totalSize?: number) => {
         // 1. Calculate hash for deduplication
@@ -535,13 +575,13 @@ function App() {
             if (onProgress) onProgress(100);
         } else {
             // 4. Upload new file
-            await api.uploadFile(file, folderId, onProgress, totalSize);
+            await api.uploadFile(file, folderId, onProgress);
         }
     };
 
     const [activeUploads, setActiveUploads] = useState<UploadStatus[]>([]);
 
-    const ensureFolderExists = async (path: string, rootId: string, cache: Map<string, string>): Promise<string> => {
+    const ensureFolderExists = useCallback(async (path: string, rootId: string, cache: Map<string, string>): Promise<string> => {
         if (!path || path === "" || path === ".") return rootId;
         const cacheKey = `${rootId}:${path}`;
         if (cache.has(cacheKey)) return cache.get(cacheKey) || rootId;
@@ -600,11 +640,11 @@ function App() {
             cache.set(subCacheKey, currentParentId);
         }
         return currentParentId;
-    };
+    }, []);
 
 
 
-    const onUpload = async (files: { file: File, path: string }[], folderId: string) => {
+    const onUpload = useCallback(async (files: { file: File, path: string }[], folderId: string) => {
         if (files.length === 0) return;
 
         const statusItems = files.map(f => ({
@@ -750,7 +790,7 @@ function App() {
         setTimeout(() => {
             setActiveUploads(prev => prev.filter(u => u.status === 'uploading' || u.status === 'error'));
         }, 5000);
-    };
+    }, [fetchFiles, fetchUserFacts, fetchValidationRules, calculateHash, ensureFolderExists]);
 
 
     const onCreateFolder = async (name: string) => {
@@ -929,7 +969,15 @@ function App() {
                                 >
                                     <span className="suggestion-icon">{file.isDir ? "📁" : "📄"}</span>
                                     <div className="suggestion-info">
-                                        <div className="suggestion-name">{file.name}</div>
+                                        <div className="suggestion-name">
+                                            {file.name}
+                                            {(file.scanStatus === 'pending' || file.scanStatus === 'scanning') && (
+                                                <span className="rfm-scanning-badge" style={{ verticalAlign: 'middle', scale: '0.8', display: 'inline-flex', alignItems: 'center' }}>
+                                                    {file.scanStatus === 'scanning' && <div className="rfm-spinner-small mr-1" style={{ width: '10px', height: '10px', borderWidth: '1.5px' }}></div>}
+                                                    {file.scanStatus === 'scanning' ? 'Antivirus scan...' : 'AV Pending...'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="suggestion-path">in {fs.find(f => f.id === file.parentId)?.name || "Root"}</div>
                                     </div>
                                 </div>
@@ -982,11 +1030,11 @@ function App() {
 
                 <div className="user-info">
                     <div className="user-dropdown-container" onClick={() => setDropdownVisible(!dropdownVisible)}>
-                        <div className="user-avatar">
+                        <div className="user-avatar" style={{ backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                             {profile.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="Avatar" />
                             ) : (
-                                (profile.name || username).charAt(0).toUpperCase()
+                                <span style={{ pointerEvents: 'none' }}>{(profile.name || username).charAt(0).toUpperCase()}</span>
                             )}
                         </div>
                         <span>{profile.name || username}</span>
@@ -1081,7 +1129,7 @@ function App() {
                                 {profile.avatarUrl ? (
                                     <img src={profile.avatarUrl} alt="Avatar" />
                                 ) : (
-                                    (profile.name || username).charAt(0).toUpperCase()
+                                    <span style={{ pointerEvents: 'none' }}>{(profile.name || username).charAt(0).toUpperCase()}</span>
                                 )}
                                 <div className="profile-avatar-overlay">Change</div>
                             </div>
@@ -1150,6 +1198,18 @@ function App() {
                     </div>
 
                 </CommonModal>
+
+                {imageToCrop && (
+                    <AvatarCropModal
+                        isVisible={cropModalVisible}
+                        imageSrc={imageToCrop}
+                        onClose={() => {
+                            setCropModalVisible(false);
+                            setImageToCrop(null);
+                        }}
+                        onCropComplete={handleCropSave}
+                    />
+                )}
             </main>
         </div>
     );

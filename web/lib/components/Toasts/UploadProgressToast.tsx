@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useFileManager } from "../context";
-import SvgIcon from "./SvgIcon";
+import { useFileManager } from "../../context";
+import SvgIcon from "../Icons/SvgIcon";
 
 const UploadProgressToast = () => {
     const { activeUploads, setActiveUploads } = useFileManager();
