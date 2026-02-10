@@ -1,8 +1,8 @@
 {
 	"info": {
 		"name": "Rust File Backend API",
-		"description": "Enterprise File Storage API - v0.1.0-beta.6",
-		"version": "0.1.0-beta.6",
+		"description": "Enterprise File Storage API - v0.1.0-beta.7",
+		"version": "0.1.0-beta.7",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -13,6 +13,11 @@
 		},
 		{
 			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "upload_id",
 			"value": "",
 			"type": "string"
 		}
@@ -99,6 +104,35 @@
 							]
 						}
 					}
+				},
+				{
+					"name": "OIDC Callback",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/auth/oidc/callback?code=CODE&state=STATE",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"oidc",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "CODE",
+									"description": "Auth code from provider"
+								},
+								{
+									"key": "state",
+									"value": "STATE",
+									"description": "State param for CSRF protection"
+								}
+							]
+						}
+					}
 				}
 			]
 		},
@@ -106,7 +140,165 @@
 			"name": "Files",
 			"item": [
 				{
-					"name": "Upload File",
+					"name": "Multipart Upload",
+					"item": [
+						{
+							"name": "Init Upload",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.collectionVariables.set('upload_id', jsonData.upload_id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"file_name\": \"large.iso\",\n  \"file_type\": \"application/octet-stream\",\n  \"total_size\": 104857600\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/files/upload/init",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"files",
+										"upload",
+										"init"
+									]
+								}
+							}
+						},
+						{
+							"name": "Upload Chunk",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/octet-stream"
+									}
+								],
+								"body": {
+									"mode": "file",
+									"file": {}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/files/upload/:upload_id/chunk/:part_number",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"files",
+										"upload",
+										":upload_id",
+										"chunk",
+										":part_number"
+									],
+									"variable": [
+										{
+											"key": "upload_id",
+											"value": "{{upload_id}}"
+										},
+										{
+											"key": "part_number",
+											"value": "1"
+										}
+									]
+								}
+							}
+						},
+						{
+							"name": "Complete Upload",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"parent_id\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/files/upload/:upload_id/complete",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"files",
+										"upload",
+										":upload_id",
+										"complete"
+									],
+									"variable": [
+										{
+											"key": "upload_id",
+											"value": "{{upload_id}}"
+										}
+									]
+								}
+							}
+						},
+						{
+							"name": "Abort Upload",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/files/upload/:upload_id",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"files",
+										"upload",
+										":upload_id"
+									],
+									"variable": [
+										{
+											"key": "upload_id",
+											"value": "{{upload_id}}"
+										}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Upload File (Simple)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -164,15 +356,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"hash\": \"sha256-hash-of-file\",\n  \"filename\": \"example.pdf\",\n  \"size\": 1024000\n}"
+							"raw": "{\n  \"full_hash\": \"sha256-hash-of-file-32-chars-min\",\n  \"size\": 1024000\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/files/pre-check",
+							"raw": "{{baseUrl}}/pre-check",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"files",
 								"pre-check"
 							]
 						}
@@ -361,12 +552,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/folders/:id/path",
+							"raw": "{{baseUrl}}/files/:id/path",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"folders",
+								"files",
 								":id",
 								"path"
 							],
@@ -453,7 +644,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"ids\": [\"file-id-1\", \"file-id-2\"]\n}"
+							"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/files/bulk-delete",
@@ -483,7 +674,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"ids\": [\"file-id-1\", \"file-id-2\"],\n  \"target_parent_id\": \"destination-folder-id\"\n}"
+							"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"],\n  \"parent_id\": \"destination-folder-id\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/files/bulk-move",
@@ -531,12 +722,12 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/tickets/:ticket",
+							"raw": "{{baseUrl}}/download/:ticket",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"tickets",
+								"download",
 								":ticket"
 							],
 							"variable": [
