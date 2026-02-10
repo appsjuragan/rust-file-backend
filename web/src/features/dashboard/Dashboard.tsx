@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { ReactFileManager } from "../../../lib";
+import { ReactFileManager, AvatarCropModal } from "../../../lib";
 import { fileService } from "../../services/fileService";
 import { userService } from "../../services/userService";
 import { formatFriendlyError } from "../../utils/errorFormatter";
