@@ -53,10 +53,13 @@ The app will be available at `http://localhost:5173`.
 
 ## 🏗️ Project Structure
 
+- `src/features`: Feature-based modules containing logic, components, and styles (e.g., `auth`, `dashboard`).
+- `src/services`: Domain-specific API services (`authService`, `fileService`, `userService`, `uploadService`) built on a centralized `httpClient`.
+- `src/captcha`: Modular CAPTCHA implementation with custom hooks and widgets.
 - `src/components`: Reusable UI components (File list, Modals, Uploaders).
-- `src/lib`: API clients and utility functions.
-- `src/hooks`: Custom React hooks for data fetching and state.
-- `src/App.tsx`: Main application entry and routing logic.
+- `src/lib`: Core library code and types.
+- `src/utils`: Shared utility functions (`errorFormatter`, `validation`).
+- `src/App.tsx`: Main application entry and high-level routing orchestrator.
 
 ---
 
