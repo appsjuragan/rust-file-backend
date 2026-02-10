@@ -61,8 +61,13 @@ ENV RUST_LOG=info \
     OIDC_SKIP_DISCOVERY=true
 
 # Create data directory and define volume
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && \
+    adduser -D -u 10001 appuser && \
+    chown -R appuser:appuser /app
 VOLUME /app/data
+
+# Switch to non-root user
+USER appuser
 
 # Metadata
 LABEL maintainer="AppsJuragan"

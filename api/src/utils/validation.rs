@@ -299,7 +299,83 @@ pub fn validate_upload(
     // 4. Magic bytes verification
     verify_magic_bytes(header, mime, rules)?;
 
+    // 5. Deep content inspection
+    inspect_content_security(header, mime)?;
+
     Ok(sanitized_filename)
+}
+
+/// Calculate Shannon entropy to detect packed/encrypted content
+pub fn calculate_entropy(data: &[u8]) -> f64 {
+    if data.is_empty() {
+        return 0.0;
+    }
+    let mut frequency = [0usize; 256];
+    for &byte in data {
+        frequency[byte as usize] += 1;
+    }
+    let len = data.len() as f64;
+    frequency
+        .iter()
+        .filter(|&&count| count > 0)
+        .fold(0.0, |acc, &count| {
+            let p = count as f64 / len;
+            acc - p * p.log2()
+        })
+}
+
+/// Deep inspection for hidden threats (scripts, high entropy in text)
+pub fn inspect_content_security(header: &[u8], mime_type: &str) -> Result<()> {
+    // Check for script injection in non-script formats (XSS vectors)
+    // We check the first 2KB which usually contains the header/metadata
+    let check_len = std::cmp::min(header.len(), 2048);
+    let sample = &header[..check_len];
+    
+    // Convert to lowercase roughly for pattern matching (not perfect for full unicode but good for keywords)
+    // We use lossy conversion to simple ASCII lowercase for checking standard tags
+    let sample_lower = sample.iter().map(|b| b.to_ascii_lowercase()).collect::<Vec<u8>>();
+    let sample_str = String::from_utf8_lossy(&sample_lower);
+
+    // Block common XSS vectors in uploaded files
+    // Note: This is an aggressive filter.
+    let dangerous_patterns = [
+        "<script",
+        "javascript:",
+        "vbscript:",
+        "onload=",
+        "onerror=",
+        "onclick=",
+        "onmouseover=",
+    ];
+
+    for pattern in dangerous_patterns {
+        if sample_str.contains(pattern) {
+             return Err(anyhow!(ValidationError {
+                code: "POTENTIAL_SCRIPT_INJECTION",
+                message: format!("File contains potentially malicious script pattern: '{}'", pattern),
+            }));
+        }
+    }
+
+    // Entropy Check
+    // Text files should have relatively low entropy (< 6.0 usually). 
+    // If a text file has very high entropy (> 7.5), it might be encrypted/packed code hiding as text.
+    if mime_type.starts_with("text/") {
+        let entropy = calculate_entropy(sample);
+        if entropy > 7.5 {
+             tracing::warn!("High entropy ({:.2}) detected in text file. Potential embedded code/obfuscation.", entropy);
+             // We generally allow it but warn, unless strict mode is on.
+             // For this implementation, we'll strict fail on extremely high entropy for text to be safe
+             if entropy > 7.9 {
+                 return Err(anyhow!(ValidationError {
+                    code: "SUSPICIOUS_ENTROPY",
+                    message: "Text file has suspiciously high entropy, resembling encrypted data.".to_string(),
+                }));
+             }
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -412,5 +488,46 @@ mod tests {
 
         // Executable disguised as image
         assert!(verify_magic_bytes(&[0x4D, 0x5A, 0x00, 0x00], "image/jpeg", &rules).is_err());
+    }
+
+    #[test]
+    fn test_calculate_entropy() {
+        // Zero entropy (all same bytes)
+        let data = vec![0u8; 100];
+        assert_eq!(calculate_entropy(&data), 0.0);
+
+        // Max entropy (random bytes)
+        // In a perfect random distribution 0..255, entropy is 8.0
+        // We simulate a simple high entropy case
+        let data: Vec<u8> = (0..255).collect();
+        let entropy = calculate_entropy(&data);
+        assert!(entropy > 7.9);
+    }
+
+    #[test]
+    fn test_inspect_content_security() {
+        // Safe text
+        assert!(inspect_content_security(b"Hello World", "text/plain").is_ok());
+
+        // XSS Vector 1: Script tag
+        let xss = b"<html><script>alert(1)</script></html>";
+        assert!(inspect_content_security(xss, "text/html").is_err());
+
+        // XSS Vector 2: Javascript URI
+        let xss = b"<a href='javascript:alert(1)'>Click me</a>";
+        assert!(inspect_content_security(xss, "text/html").is_err());
+
+        // XSS Vector 3: Onload handler
+        let xss = b"<img src=x onerror=alert(1)>";
+        assert!(inspect_content_security(xss, "text/html").is_err());
+
+        // High entropy text (simulated encryption)
+        // Determine what constitutes strict failure (implementation says > 7.9)
+        let mut high_entropy = Vec::new();
+        for _ in 0..10 {
+            high_entropy.extend(0..255);
+        }
+        // This should trigger the suspicious entropy error
+        assert!(inspect_content_security(&high_entropy, "text/plain").is_err());
     }
 }

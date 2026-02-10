@@ -4,7 +4,7 @@ use crate::entities::{prelude::*, *};
 use crate::services::{
     audit::{AuditEventType, AuditService},
     metadata::MetadataService,
-    scanner::{VirusScanner, ScanResult},
+    scanner::VirusScanner,
     storage::StorageService,
 };
 use crate::utils::validation::validate_upload;
