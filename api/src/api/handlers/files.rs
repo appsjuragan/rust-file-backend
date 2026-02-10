@@ -781,9 +781,43 @@ pub async fn rename_item(
         item.filename.clone()
     };
 
+    // Validate and sanitize parent_id input
     let target_parent_id = match req.parent_id.clone() {
         Some(p) if p == "root" || p == "0" => None,
-        Some(p) => Some(p),
+        Some(p) => {
+            // Validate that parent_id is a valid UUID format to prevent SQL injection attempts
+            if !p.is_empty() && p != "root" && p != "0" {
+                // Check if it's a valid UUID format (basic validation)
+                if p.len() != 36 || p.chars().filter(|c| *c == '-').count() != 4 {
+                    return Err(AppError::BadRequest(
+                        "Invalid parent_id format. Must be a valid UUID.".to_string(),
+                    ));
+                }
+                
+                // Verify the parent folder exists and belongs to the user
+                let parent_folder = UserFiles::find_by_id(&p)
+                    .filter(user_files::Column::UserId.eq(&claims.sub))
+                    .filter(user_files::Column::DeletedAt.is_null())
+                    .one(&state.db)
+                    .await?;
+                
+                if parent_folder.is_none() {
+                    return Err(AppError::NotFound(
+                        "Parent folder not found or access denied".to_string(),
+                    ));
+                }
+                
+                // Verify it's actually a folder
+                if let Some(ref parent) = parent_folder {
+                    if !parent.is_folder {
+                        return Err(AppError::BadRequest(
+                            "Parent ID must refer to a folder, not a file".to_string(),
+                        ));
+                    }
+                }
+            }
+            Some(p)
+        }
         None => item.parent_id.clone(),
     };
 

@@ -198,7 +198,15 @@ pub fn create_app(state: AppState) -> Router {
 
     // Configure CORS based on allowed_origins
     let cors_layer = if state.config.allowed_origins.contains(&"*".to_string()) {
-        CorsLayer::new().allow_origin(Any)
+        tracing::warn!(
+            "CORS configured with wildcard (*) - this is insecure for production! \
+             Set ALLOWED_ORIGINS environment variable to specific domains."
+        );
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+            .expose_headers(Any)
     } else {
         let origins: Vec<axum::http::HeaderValue> = state
             .config
@@ -206,7 +214,31 @@ pub fn create_app(state: AppState) -> Router {
             .iter()
             .filter_map(|s| s.parse().ok())
             .collect();
-        CorsLayer::new().allow_origin(origins)
+        
+        tracing::info!("CORS configured for origins: {:?}", state.config.allowed_origins);
+        
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::DELETE,
+                axum::http::Method::OPTIONS,
+            ])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::ACCEPT,
+                axum::http::header::HeaderName::from_static("x-request-id"),
+            ])
+            .expose_headers([
+                axum::http::header::CONTENT_LENGTH,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::CONTENT_DISPOSITION,
+                axum::http::header::HeaderName::from_static("x-request-id"),
+            ])
+            .allow_credentials(true)
     };
 
     Router::new()
@@ -219,12 +251,7 @@ pub fn create_app(state: AppState) -> Router {
         .layer(axum::extract::DefaultBodyLimit::max(
             state.config.max_file_size + 10 * 1024 * 1024,
         ))
-        .layer(
-            cors_layer
-                .allow_methods(Any)
-                .allow_headers(Any)
-                .expose_headers(Any),
-        )
+        .layer(cors_layer)
         .with_state(state)
 }
 

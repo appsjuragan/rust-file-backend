@@ -62,7 +62,12 @@ impl Default for SecurityConfig {
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
             jwt_secret: "secret".to_string(),
-            allowed_origins: vec!["*".to_string()],
+            // More secure default: localhost only instead of wildcard
+            allowed_origins: vec![
+                "http://localhost:3000".to_string(),
+                "http://localhost:5173".to_string(), // Vite default
+                "http://127.0.0.1:3000".to_string(),
+            ],
         }
     }
 }
@@ -141,7 +146,12 @@ impl SecurityConfig {
             oidc_skip_discovery: false,
             staging_cleanup_age_hours: 24,
             jwt_secret: "secret".to_string(),
-            allowed_origins: vec!["*".to_string()],
+            // Development: localhost origins only
+            allowed_origins: vec![
+                "http://localhost:3000".to_string(),
+                "http://localhost:5173".to_string(), // Vite default
+                "http://127.0.0.1:3000".to_string(),
+            ],
         }
     }
 
