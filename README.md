@@ -1,9 +1,9 @@
 # 🚀 Rust File Backend (RFB)
 
-[![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.1.0--beta.6-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.0.8--beta-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -26,6 +26,7 @@
 - **Magic Byte Verification:** File type validation beyond extensions
 - **Path Traversal Protection:** Aggressive filename sanitization
 - **JWT Authentication:** Secure token-based access control
+- **CAPTCHA Registration:** Bot-resistant account creation
 - **S3-Compatible Storage:** Encrypted transport layer
 
 ### 🧩 Resilient Parallel Uploads
@@ -39,6 +40,7 @@
 - **Bulk Actions:** Move, delete, and copy multiple items
 - **Archive Preview:** Inspect ZIP, 7z, RAR, TAR without extraction
 - **Download Tickets:** Time-limited shareable links
+- **PDF Preview:** Inline document viewing
 
 ---
 
@@ -48,8 +50,8 @@
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│   React     │─────▶│  Axum API    │─────▶│  PostgreSQL │
-│  Frontend   │      │  (Rust)      │      │  Database   │
+│   React     │─────▶│  Axum API    │─────▶│  PostgreSQL  │
+│  Frontend   │      │  (Rust)      │      │  Database    │
 └─────────────┘      └──────────────┘      └─────────────┘
                             │
                             ├─────▶ S3/MinIO (File Storage)
@@ -62,23 +64,23 @@
 **Technology Stack:**
 - **Language:** Rust 2024 Edition
 - **Web Framework:** Axum 0.7
-- **ORM:** SeaORM (PostgreSQL)
+- **ORM:** SeaORM (PostgreSQL & SQLite)
 - **Storage:** AWS SDK for Rust (S3-compatible)
-- **Security:** JWT, Argon2, ClamAV
+- **Security:** JWT, Argon2, ClamAV, CAPTCHA
 - **Runtime:** Tokio async
 
 **Key Modules:**
-- `api/handlers/` - HTTP request handlers
-- `services/` - Business logic (upload, file, metadata, scanner)
-- `entities/` - Database models (SeaORM)
-- `infrastructure/` - Storage, cache, queue implementations
-- `utils/` - Validation, auth, encryption helpers
+- `api/handlers/` — HTTP request handlers (auth, files, upload, captcha, users, settings, health)
+- `services/` — Business logic (file, upload, metadata, scanner, audit, facts, worker)
+- `entities/` — Database models (SeaORM)
+- `infrastructure/` — Storage, database, scanner adapters
+- `utils/` — Validation, auth, encryption helpers
 
 **Features:**
 - Chunked multipart uploads with resume capability
 - Content-based deduplication (SHA-256)
 - Background virus scanning queue
-- Metadata extraction (EXIF, ID3, etc.)
+- Metadata extraction (EXIF, ID3, PDF, Office)
 - Recursive folder operations
 - Download ticket generation
 
@@ -90,20 +92,22 @@
 - **Runtime:** Bun
 - **Styling:** Tailwind CSS + Glassmorphism
 - **Icons:** Lucide React
+- **Tables:** TanStack Table v8
 - **State:** React Context + Hooks
 
 **Key Components:**
-- `features/dashboard/` - Main file manager interface
-- `lib/` - Reusable file manager library
-- `services/` - API client (upload, file operations)
-- `components/` - Modals, toasts, context menus
+- `features/dashboard/` — Main file manager interface
+- `features/auth/` — Login, register, OIDC
+- `lib/` — Reusable file manager library
+- `services/` — API client (upload, file operations)
+- `components/` — Modals, toasts, context menus
 
 **Features:**
 - Drag-and-drop file upload
 - Real-time upload progress with parallel chunks
 - Copy/Cut/Paste with keyboard shortcuts
 - Bulk selection and operations
-- File preview modals
+- File preview modals (images, PDF, archives)
 - Archive content inspection
 - Responsive grid/list views
 
@@ -114,7 +118,7 @@
 ### Prerequisites
 - [Rust](https://rustup.rs/) 1.84+
 - [Bun](https://bun.sh/) 1.1+
-- PostgreSQL 14+
+- PostgreSQL 14+ (or SQLite for development)
 - MinIO or AWS S3
 - Redis (optional, for caching)
 - ClamAV (optional, for scanning)
@@ -130,7 +134,7 @@ cd rust-file-backend
 2. **Backend Setup**
 ```bash
 cd api
-cp .env.example .env
+cp ../.env.sample .env
 # Edit .env with your database and S3 credentials
 
 # Run migrations
@@ -177,60 +181,66 @@ docker build -t rfb-api:latest ./api
 docker build --build-arg VITE_API_URL=https://your-api-domain.com -t rfb-web:latest ./web
 ```
 
-### Docker Compose
+### Production Notes
 
-```bash
-docker-compose up -d
-```
-
-The compose file includes:
-- API server
-- Background worker
-- PostgreSQL
-- Redis
-- MinIO (S3-compatible storage)
+The compose stack includes:
+- **API server** — Axum HTTP service
+- **Background worker** — Virus scanning, cleanup, facts updates
+- **PostgreSQL** — Primary database
+- **Redis** — Caching layer
+- **MinIO** — S3-compatible object storage
 
 ---
 
 ## 📡 API Reference
 
 ### Authentication
-- `POST /register` - Create new user account
-- `POST /login` - Authenticate and receive JWT
-- `GET /auth/oidc/login` - OIDC authentication flow
-- `GET /auth/oidc/callback` - OIDC callback handler
+- `POST /register` — Create new user (CAPTCHA-protected)
+- `POST /login` — Authenticate and receive JWT
+- `POST /captcha` — Generate CAPTCHA challenge
+- `GET /auth/oidc/login` — OIDC authentication flow
+- `GET /auth/oidc/callback` — OIDC callback handler
 
 ### File Operations
-- `POST /upload` - Single file upload
-- `POST /files/upload/init` - Initialize chunked upload
-- `PUT /files/upload/:id/chunk/:num` - Upload chunk
-- `POST /files/upload/:id/complete` - Finalize upload
-- `GET /files` - List files (with pagination)
-- `GET /files/:id` - Download file
-- `POST /files/:id/ticket` - Generate download ticket
-- `GET /download/:ticket` - Download via ticket
-- `DELETE /files/:id` - Delete file/folder
-- `PUT /files/:id/rename` - Rename or move item
+- `POST /upload` — Single file upload
+- `POST /files/upload/init` — Initialize chunked upload
+- `GET /files/upload/sessions` — List pending upload sessions
+- `PUT /files/upload/:id/chunk/:num` — Upload chunk
+- `POST /files/upload/:id/complete` — Finalize upload
+- `DELETE /files/upload/:id` — Abort chunked upload
+- `GET /files` — List files (with pagination & search)
+- `GET /files/:id` — Download file
+- `POST /files/:id/ticket` — Generate download ticket
+- `GET /download/:ticket` — Download via ticket
+- `DELETE /files/:id` — Delete file/folder
+- `PUT /files/:id/rename` — Rename or move item
 
 ### Bulk Operations
-- `POST /files/bulk-delete` - Delete multiple items
-- `POST /files/bulk-move` - Move multiple items
-- `POST /files/bulk-copy` - Copy multiple items (with recursion)
+- `POST /files/bulk-delete` — Delete multiple items
+- `POST /files/bulk-move` — Move multiple items
+- `POST /files/bulk-copy` — Copy multiple items (with recursion)
 
 ### Folders
-- `POST /folders` - Create new folder
-- `GET /files/:id/path` - Get folder breadcrumb path
+- `POST /folders` — Create new folder
+- `GET /files/:id/path` — Get folder breadcrumb path
 
 ### Advanced
-- `POST /pre-check` - Check if file exists (deduplication)
-- `POST /files/link` - Link existing storage file
-- `GET /files/:id/zip-contents` - Preview archive contents
+- `POST /pre-check` — Check if file exists (deduplication)
+- `POST /files/link` — Link existing storage file
+- `GET /files/:id/zip-contents` — Preview archive contents
 
 ### User & Settings
-- `GET /users/me` - Get user profile
-- `PUT /users/me` - Update profile
-- `GET /settings` - Get user preferences
-- `PUT /settings` - Update preferences
+- `GET /users/me` — Get user profile
+- `PUT /users/me` — Update profile
+- `GET /users/avatar/:user_id` — Get public avatar image
+- `POST /users/me/avatar` — Upload personal avatar
+- `GET /users/me/facts` — Get storage statistics
+- `GET /settings` — Get user preferences
+- `PUT /settings` — Update preferences
+
+### System
+- `GET /health` — Health check (DB, storage, version)
+- `GET /system/validation-rules` — Get file validation rules
 
 Full API documentation available at `/swagger-ui` endpoint.
 
@@ -238,7 +248,7 @@ Full API documentation available at `/swagger-ui` endpoint.
 
 ## 📦 Postman Collection
 
-Import `postman_collection.json` for ready-to-use API requests with:
+Import `api/postman_collection.json` for ready-to-use API requests with:
 - Pre-configured authentication
 - Example payloads
 - Environment variables
@@ -304,15 +314,25 @@ All code follows:
 DATABASE_URL=postgresql://user:pass@localhost/rfb
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-secret-key
+# OIDC (optional)
+OIDC_ISSUER_URL=https://accounts.google.com
+OIDC_CLIENT_ID=your-client-id
+OIDC_CLIENT_SECRET=your-client-secret
+OIDC_REDIRECT_URL=http://localhost:3000/auth/oidc/callback
+OIDC_SKIP_DISCOVERY=false
 S3_ENDPOINT=http://localhost:9000
 S3_BUCKET=file-storage
 S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin
 CHUNK_SIZE=10485760
-MAX_FILE_SIZE=10737418240
+MAX_FILE_SIZE=1073741824
 CLAMAV_HOST=localhost
 CLAMAV_PORT=3310
+ENABLE_VIRUS_SCAN=true
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
+
+See `.env.sample` in the project root for a complete reference.
 
 ### Frontend Environment Variables
 ```env

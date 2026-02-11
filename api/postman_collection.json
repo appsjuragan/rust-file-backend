@@ -1,8 +1,8 @@
 {
 	"info": {
 		"name": "Rust File Backend API",
-		"description": "Enterprise File Storage API - v0.1.0-beta.7",
-		"version": "0.1.0-beta.7",
+		"description": "Enterprise File Storage API - v1.0.8-beta",
+		"version": "1.0.8",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -38,965 +38,966 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/register",
-							"host": [
-								"{{baseUrl}}"
+							"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"captcha_id\": \"sample_captcha_id\",\n  \"captcha_answer\": 0\n}"
+						}
+					},
+					"url": {
+						"raw": "{{baseUrl}}/register",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"register"
+						]
+					}
+				}
+			},
+			{
+				"name": "Login",
+				"event": [
+					{
+						"listen": "test",
+						"script": {
+							"exec": [
+								"var jsonData = pm.response.json();",
+								"pm.collectionVariables.set('token', jsonData.token);"
 							],
-							"path": [
-								"register"
-							]
+							"type": "text/javascript"
 						}
 					}
-				},
-				{
-					"name": "Login",
-					"event": [
+				],
+				"request": {
+					"method": "POST",
+					"header": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = pm.response.json();",
-									"pm.collectionVariables.set('token', jsonData.token);"
-								],
-								"type": "text/javascript"
-							}
+							"key": "Content-Type",
+							"value": "application/json"
 						}
 					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"captcha_id\": \"sample_captcha_id\",\n  \"captcha_answer\": 0\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/login",
+						"host": [
+							"{{baseUrl}}"
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/login",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"login"
-							]
-						}
-					}
-				},
-				{
-					"name": "OIDC Login",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/auth/oidc/login",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"oidc",
-								"login"
-							]
-						}
-					}
-				},
-				{
-					"name": "OIDC Callback",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/auth/oidc/callback?code=CODE&state=STATE",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"oidc",
-								"callback"
-							],
-							"query": [
-								{
-									"key": "code",
-									"value": "CODE",
-									"description": "Auth code from provider"
-								},
-								{
-									"key": "state",
-									"value": "STATE",
-									"description": "State param for CSRF protection"
-								}
-							]
-						}
+						"path": [
+							"login"
+						]
 					}
 				}
-			]
-		},
-		{
-			"name": "Files",
-			"item": [
-				{
-					"name": "Multipart Upload",
-					"item": [
-						{
-							"name": "Init Upload",
-							"event": [
+			},
+			{
+				"name": "OIDC Login",
+				"request": {
+					"method": "GET",
+					"url": {
+						"raw": "{{baseUrl}}/auth/oidc/login",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"auth",
+							"oidc",
+							"login"
+						]
+					}
+				}
+			},
+			{
+				"name": "OIDC Callback",
+				"request": {
+					"method": "GET",
+					"url": {
+						"raw": "{{baseUrl}}/auth/oidc/callback?code=CODE&state=STATE",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"auth",
+							"oidc",
+							"callback"
+						],
+						"query": [
+							{
+								"key": "code",
+								"value": "CODE",
+								"description": "Auth code from provider"
+							},
+							{
+								"key": "state",
+								"value": "STATE",
+								"description": "State param for CSRF protection"
+							}
+						]
+					}
+				}
+			}
+		]
+	},
+	{
+		"name": "Files",
+		"item": [
+			{
+				"name": "Multipart Upload",
+				"item": [
+					{
+						"name": "Init Upload",
+						"event": [
+							{
+								"listen": "test",
+								"script": {
+									"exec": [
+										"var jsonData = pm.response.json();",
+										"pm.collectionVariables.set('upload_id', jsonData.upload_id);"
+									],
+									"type": "text/javascript"
+								}
+							}
+						],
+						"request": {
+							"method": "POST",
+							"header": [
 								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = pm.response.json();",
-											"pm.collectionVariables.set('upload_id', jsonData.upload_id);"
-										],
-										"type": "text/javascript"
-									}
+									"key": "Authorization",
+									"value": "Bearer {{token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
 								}
 							],
-							"request": {
-								"method": "POST",
-								"header": [
+							"body": {
+								"mode": "raw",
+								"raw": "{\n  \"file_name\": \"large.iso\",\n  \"file_type\": \"application/octet-stream\",\n  \"total_size\": 104857600\n}"
+							},
+							"url": {
+								"raw": "{{baseUrl}}/files/upload/init",
+								"host": [
+									"{{baseUrl}}"
+								],
+								"path": [
+									"files",
+									"upload",
+									"init"
+								]
+							}
+						}
+					},
+					{
+						"name": "Upload Chunk",
+						"request": {
+							"method": "PUT",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/octet-stream"
+								}
+							],
+							"body": {
+								"mode": "file",
+								"file": {}
+							},
+							"url": {
+								"raw": "{{baseUrl}}/files/upload/:upload_id/chunk/:part_number",
+								"host": [
+									"{{baseUrl}}"
+								],
+								"path": [
+									"files",
+									"upload",
+									":upload_id",
+									"chunk",
+									":part_number"
+								],
+								"variable": [
 									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
+										"key": "upload_id",
+										"value": "{{upload_id}}"
 									},
 									{
-										"key": "Content-Type",
-										"value": "application/json"
+										"key": "part_number",
+										"value": "1"
 									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"file_name\": \"large.iso\",\n  \"file_type\": \"application/octet-stream\",\n  \"total_size\": 104857600\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/files/upload/init",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"files",
-										"upload",
-										"init"
-									]
-								}
+								]
 							}
+						}
+					},
+					{
+						"name": "Complete Upload",
+						"request": {
+							"method": "POST",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n  \"parent_id\": null\n}"
+							},
+							"url": {
+								"raw": "{{baseUrl}}/files/upload/:upload_id/complete",
+								"host": [
+									"{{baseUrl}}"
+								],
+								"path": [
+									"files",
+									"upload",
+									":upload_id",
+									"complete"
+								],
+								"variable": [
+									{
+										"key": "upload_id",
+										"value": "{{upload_id}}"
+									}
+								]
+							}
+						}
+					},
+					{
+						"name": "Abort Upload",
+						"request": {
+							"method": "DELETE",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{token}}"
+								}
+							],
+							"url": {
+								"raw": "{{baseUrl}}/files/upload/:upload_id",
+								"host": [
+									"{{baseUrl}}"
+								],
+								"path": [
+									"files",
+									"upload",
+									":upload_id"
+								],
+								"variable": [
+									{
+										"key": "upload_id",
+										"value": "{{upload_id}}"
+									}
+								]
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Upload File (Simple)",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"body": {
+						"mode": "formdata",
+						"formdata": [
+							{
+								"key": "file",
+								"type": "file",
+								"src": ""
+							},
+							{
+								"key": "parent_id",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							},
+							{
+								"key": "expiration_hours",
+								"value": "24",
+								"type": "text",
+								"disabled": true
+							}
+						]
+					},
+					"url": {
+						"raw": "{{baseUrl}}/upload",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"upload"
+						]
+					}
+				}
+			},
+			{
+				"name": "Pre-Check Deduplication",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						},
 						{
-							"name": "Upload Chunk",
-							"request": {
-								"method": "PUT",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									},
-									{
-										"key": "Content-Type",
-										"value": "application/octet-stream"
-									}
-								],
-								"body": {
-									"mode": "file",
-									"file": {}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/files/upload/:upload_id/chunk/:part_number",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"files",
-										"upload",
-										":upload_id",
-										"chunk",
-										":part_number"
-									],
-									"variable": [
-										{
-											"key": "upload_id",
-											"value": "{{upload_id}}"
-										},
-										{
-											"key": "part_number",
-											"value": "1"
-										}
-									]
-								}
-							}
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"full_hash\": \"sha256-hash-of-file-32-chars-min\",\n  \"size\": 1024000\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/pre-check",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"pre-check"
+						]
+					}
+				}
+			},
+			{
+				"name": "Link File (Skip Upload)",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						},
 						{
-							"name": "Complete Upload",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									},
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"parent_id\": null\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/files/upload/:upload_id/complete",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"files",
-										"upload",
-										":upload_id",
-										"complete"
-									],
-									"variable": [
-										{
-											"key": "upload_id",
-											"value": "{{upload_id}}"
-										}
-									]
-								}
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"storage_file_id\": \"existing-storage-file-id\",\n  \"filename\": \"linked-file.pdf\",\n  \"parent_id\": null\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/files/link",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							"link"
+						]
+					}
+				}
+			},
+			{
+				"name": "List Files",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files?parent_id=&search=&limit=50&offset=0",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files"
+						],
+						"query": [
+							{
+								"key": "parent_id",
+								"value": "",
+								"description": "Filter by parent folder ID"
+							},
+							{
+								"key": "search",
+								"value": "",
+								"description": "Search by filename"
+							},
+							{
+								"key": "similarity",
+								"value": "true",
+								"description": "Enable fuzzy search",
+								"disabled": true
+							},
+							{
+								"key": "limit",
+								"value": "50",
+								"description": "Maximum results"
+							},
+							{
+								"key": "offset",
+								"value": "0",
+								"description": "Pagination offset"
 							}
+						]
+					}
+				}
+			},
+			{
+				"name": "Download File",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files/:fileId",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							":fileId"
+						],
+						"variable": [
+							{
+								"key": "fileId",
+								"value": ""
+							}
+						]
+					}
+				}
+			},
+			{
+				"name": "Delete File/Folder",
+				"request": {
+					"method": "DELETE",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files/:id",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							":id"
+						],
+						"variable": [
+							{
+								"key": "id",
+								"value": ""
+							}
+						]
+					}
+				}
+			},
+			{
+				"name": "Rename File/Folder",
+				"request": {
+					"method": "PUT",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						},
 						{
-							"name": "Abort Upload",
-							"request": {
-								"method": "DELETE",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/files/upload/:upload_id",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"files",
-										"upload",
-										":upload_id"
-									],
-									"variable": [
-										{
-											"key": "upload_id",
-											"value": "{{upload_id}}"
-										}
-									]
-								}
-							}
+							"key": "Content-Type",
+							"value": "application/json"
 						}
-					]
-				},
-				{
-					"name": "Upload File (Simple)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"name\": \"new-filename.pdf\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/files/:id/rename",
+						"host": [
+							"{{baseUrl}}"
 						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "file",
-									"type": "file",
-									"src": ""
-								},
-								{
-									"key": "parent_id",
-									"value": "",
-									"type": "text",
-									"disabled": true
-								},
-								{
-									"key": "expiration_hours",
-									"value": "24",
-									"type": "text",
-									"disabled": true
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/upload",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"upload"
-							]
-						}
-					}
-				},
-				{
-					"name": "Pre-Check Deduplication",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
+						"path": [
+							"files",
+							":id",
+							"rename"
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"full_hash\": \"sha256-hash-of-file-32-chars-min\",\n  \"size\": 1024000\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/pre-check",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"pre-check"
-							]
-						}
-					}
-				},
-				{
-					"name": "Link File (Skip Upload)",
-					"request": {
-						"method": "POST",
-						"header": [
+						"variable": [
 							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
+								"key": "id",
+								"value": ""
 							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"storage_file_id\": \"existing-storage-file-id\",\n  \"filename\": \"linked-file.pdf\",\n  \"parent_id\": null\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/files/link",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								"link"
-							]
-						}
-					}
-				},
-				{
-					"name": "List Files",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files?parent_id=&search=&limit=50&offset=0",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files"
-							],
-							"query": [
-								{
-									"key": "parent_id",
-									"value": "",
-									"description": "Filter by parent folder ID"
-								},
-								{
-									"key": "search",
-									"value": "",
-									"description": "Search by filename"
-								},
-								{
-									"key": "similarity",
-									"value": "true",
-									"description": "Enable fuzzy search",
-									"disabled": true
-								},
-								{
-									"key": "limit",
-									"value": "50",
-									"description": "Maximum results"
-								},
-								{
-									"key": "offset",
-									"value": "0",
-									"description": "Pagination offset"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Download File",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files/:fileId",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":fileId"
-							],
-							"variable": [
-								{
-									"key": "fileId",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Delete File/Folder",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files/:id",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Rename File/Folder",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"new-filename.pdf\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/files/:id/rename",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":id",
-								"rename"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Folder Path (Breadcrumb)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files/:id/path",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":id",
-								"path"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Create Folder",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"New Folder\",\n  \"parent_id\": null\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/folders",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"folders"
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Archive Contents",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files/:id/zip-contents",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":id",
-								"zip-contents"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Bulk Delete",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"]\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/files/bulk-delete",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								"bulk-delete"
-							]
-						}
-					}
-				},
-				{
-					"name": "Bulk Move",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"],\n  \"parent_id\": \"destination-folder-id\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/files/bulk-move",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								"bulk-move"
-							]
-						}
-					}
-				},
-				{
-					"name": "Bulk Copy",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"],\n  \"parent_id\": \"destination-folder-id\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/files/bulk-copy",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								"bulk-copy"
-							]
-						}
-					}
-				},
-				{
-					"name": "Generate Download Ticket",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/files/:fileId/ticket",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"files",
-								":fileId",
-								"ticket"
-							],
-							"variable": [
-								{
-									"key": "fileId",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Download via Ticket (Public)",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/download/:ticket",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"download",
-								":ticket"
-							],
-							"variable": [
-								{
-									"key": "ticket",
-									"value": ""
-								}
-							]
-						}
+						]
 					}
 				}
-			]
-		},
-		{
-			"name": "Users",
-			"item": [
-				{
-					"name": "Get Profile",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/users/me",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"me"
-							]
+			},
+			{
+				"name": "Get Folder Path (Breadcrumb)",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						}
-					}
-				},
-				{
-					"name": "Update Profile",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files/:id/path",
+						"host": [
+							"{{baseUrl}}"
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\",\n  \"password\": \"newpassword123\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/users/me",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"me"
-							]
-						}
-					}
-				},
-				{
-					"name": "Upload Avatar",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
+						"path": [
+							"files",
+							":id",
+							"path"
 						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "file",
-									"type": "file",
-									"src": ""
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/users/me/avatar",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"me",
-								"avatar"
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Avatar",
-					"request": {
-						"method": "GET",
-						"header": [
+						"variable": [
 							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
+								"key": "id",
+								"value": ""
 							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/users/me/avatar",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"me",
-								"avatar"
-							]
-						}
-					}
-				},
-				{
-					"name": "Get User Facts (Stats)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/users/me/facts",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"me",
-								"facts"
-							]
-						}
+						]
 					}
 				}
-			]
-		},
-		{
-			"name": "Settings",
-			"item": [
-				{
-					"name": "Get Settings",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/settings",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"settings"
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Settings",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"theme\": \"dark\",\n  \"view_style\": \"grid\"\n}"
+			},
+			{
+				"name": "Create Folder",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						},
-						"url": {
-							"raw": "{{baseUrl}}/settings",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"settings"
-							]
+						{
+							"key": "Content-Type",
+							"value": "application/json"
 						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"name\": \"New Folder\",\n  \"parent_id\": null\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/folders",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"folders"
+						]
 					}
 				}
-			]
-		},
-		{
-			"name": "System",
-			"item": [
-				{
-					"name": "Health Check",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/health",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"health"
-							]
+			},
+			{
+				"name": "Get Archive Contents",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
 						}
-					}
-				},
-				{
-					"name": "Get Validation Rules",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/system/validation-rules",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"system",
-								"validation-rules"
-							]
-						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files/:id/zip-contents",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							":id",
+							"zip-contents"
+						],
+						"variable": [
+							{
+								"key": "id",
+								"value": ""
+							}
+						]
 					}
 				}
-			]
-		}
-	]
+			},
+			{
+				"name": "Bulk Delete",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"]\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/files/bulk-delete",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							"bulk-delete"
+						]
+					}
+				}
+			},
+			{
+				"name": "Bulk Move",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"],\n  \"parent_id\": \"destination-folder-id\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/files/bulk-move",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							"bulk-move"
+						]
+					}
+				}
+			},
+			{
+				"name": "Bulk Copy",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"item_ids\": [\"file-id-1\", \"file-id-2\"],\n  \"parent_id\": \"destination-folder-id\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/files/bulk-copy",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							"bulk-copy"
+						]
+					}
+				}
+			},
+			{
+				"name": "Generate Download Ticket",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/files/:fileId/ticket",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"files",
+							":fileId",
+							"ticket"
+						],
+						"variable": [
+							{
+								"key": "fileId",
+								"value": ""
+							}
+						]
+					}
+				}
+			},
+			{
+				"name": "Download via Ticket (Public)",
+				"request": {
+					"method": "GET",
+					"url": {
+						"raw": "{{baseUrl}}/download/:ticket",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"download",
+							":ticket"
+						],
+						"variable": [
+							{
+								"key": "ticket",
+								"value": ""
+							}
+						]
+					}
+				}
+			}
+		]
+	},
+	{
+		"name": "Users",
+		"item": [
+			{
+				"name": "Get Profile",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/users/me",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"users",
+							"me"
+						]
+					}
+				}
+			},
+			{
+				"name": "Update Profile",
+				"request": {
+					"method": "PUT",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\",\n  \"password\": \"newpassword123\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/users/me",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"users",
+							"me"
+						]
+					}
+				}
+			},
+			{
+				"name": "Upload Avatar",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"body": {
+						"mode": "formdata",
+						"formdata": [
+							{
+								"key": "file",
+								"type": "file",
+								"src": ""
+							}
+						]
+					},
+					"url": {
+						"raw": "{{baseUrl}}/users/me/avatar",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"users",
+							"me",
+							"avatar"
+						]
+					}
+				}
+			},
+			{
+				"name": "Get Avatar",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/users/me/avatar",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"users",
+							"me",
+							"avatar"
+						]
+					}
+				}
+			},
+			{
+				"name": "Get User Facts (Stats)",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/users/me/facts",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"users",
+							"me",
+							"facts"
+						]
+					}
+				}
+			}
+		]
+	},
+	{
+		"name": "Settings",
+		"item": [
+			{
+				"name": "Get Settings",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						}
+					],
+					"url": {
+						"raw": "{{baseUrl}}/settings",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"settings"
+						]
+					}
+				}
+			},
+			{
+				"name": "Update Settings",
+				"request": {
+					"method": "PUT",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n  \"theme\": \"dark\",\n  \"view_style\": \"grid\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/settings",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"settings"
+						]
+					}
+				}
+			}
+		]
+	},
+	{
+		"name": "System",
+		"item": [
+			{
+				"name": "Health Check",
+				"request": {
+					"method": "GET",
+					"url": {
+						"raw": "{{baseUrl}}/health",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"health"
+						]
+					}
+				}
+			},
+			{
+				"name": "Get Validation Rules",
+				"request": {
+					"method": "GET",
+					"url": {
+						"raw": "{{baseUrl}}/system/validation-rules",
+						"host": [
+							"{{baseUrl}}"
+						],
+						"path": [
+							"system",
+							"validation-rules"
+						]
+					}
+				}
+			}
+		]
+	}
+]
 }

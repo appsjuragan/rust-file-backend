@@ -7,11 +7,11 @@ The backend API is a high-performance Rust service built with **Axum**, **SeaORM
 ## 🛠 Technology Stack
 
 - **Web Framework:** Axum 0.7 (built on hyper, tokio, tower)
-- **ORM:** SeaORM (async, type-safe database access)
+- **ORM:** SeaORM 1.1 (async, type-safe database access)
 - **Runtime:** Tokio (async/await)
 - **Storage:** AWS SDK for Rust (S3-compatible)
-- **Database:** PostgreSQL 14+ (SQLite supported)
-- **Security:** JWT, Argon2, ClamAV
+- **Database:** PostgreSQL 14+ (SQLite supported for development)
+- **Security:** JWT, Argon2, ClamAV, CAPTCHA
 - **Documentation:** Utoipa (OpenAPI/Swagger)
 
 ---
@@ -24,7 +24,7 @@ The backend runs in two independent modes for horizontal scalability:
 
 #### 1. **API Mode** (`--mode api`)
 Handles all HTTP requests:
-- User authentication (JWT + OIDC)
+- User authentication (JWT + OIDC + CAPTCHA)
 - File upload/download/management
 - Metadata extraction and search
 - Real-time file operations
@@ -32,11 +32,14 @@ Handles all HTTP requests:
 
 #### 2. **Worker Mode** (`--mode worker`)
 Processes background tasks:
-- Multipart upload finalization
 - Virus scanning with ClamAV
 - File expiration and cleanup
-- Metadata indexing
+- User storage facts recalculation
+- Staging file cleanup
 - Storage lifecycle management
+
+#### 3. **Combined Mode** (`--mode all`)
+Runs both API and Worker in a single process (default).
 
 ### Directory Structure
 
@@ -45,28 +48,41 @@ api/
 ├── src/
 │   ├── api/
 │   │   ├── handlers/          # HTTP route handlers
-│   │   │   ├── auth.rs        # Authentication endpoints
-│   │   │   ├── files.rs       # File operations
+│   │   │   ├── auth.rs        # Authentication (register, login, OIDC)
+│   │   │   ├── captcha.rs     # CAPTCHA generation & validation
+│   │   │   ├── files.rs       # File operations (CRUD, bulk, archive)
+│   │   │   ├── health.rs      # Health check & validation rules
 │   │   │   ├── upload.rs      # Chunked upload handlers
-│   │   │   └── users.rs       # User management
+│   │   │   ├── users.rs       # User profile & avatar
+│   │   │   └── user_settings.rs # User preferences
 │   │   ├── middleware/        # Auth, logging, rate limiting
-│   │   └── error.rs           # Error handling
+│   │   └── error.rs           # Unified error handling
 │   ├── services/              # Business logic layer
-│   │   ├── file_service.rs    # File operations
-│   │   ├── upload_service.rs  # Chunked upload logic
-│   │   ├── scanner.rs         # Virus scanning
-│   │   ├── metadata.rs        # EXIF/ID3 extraction
-│   │   └── storage_lifecycle.rs
+│   │   ├── file_service.rs    # Core file operations
+│   │   ├── upload_service.rs  # Chunked upload orchestration
+│   │   ├── scanner.rs         # Virus scanning (ClamAV/NoOp)
+│   │   ├── metadata.rs        # EXIF/ID3/PDF extraction
+│   │   ├── facts_service.rs   # Per-user storage statistics
+│   │   ├── audit.rs           # Security event tracking
+│   │   ├── storage.rs         # Storage service abstractions
+│   │   ├── storage_lifecycle.rs # Cleanup & expiration
+│   │   ├── expiration.rs      # File TTL management
+│   │   └── worker.rs          # Background worker loop
 │   ├── entities/              # Database models (SeaORM)
-│   ├── infrastructure/        # Storage, cache, queue
+│   ├── infrastructure/        # Adapters (DB, S3, Scanner)
+│   │   ├── database.rs        # Database setup & migrations
+│   │   ├── storage.rs         # S3/MinIO adapter
+│   │   ├── scanner.rs         # Scanner factory
+│   │   └── seed.rs            # Initial data seeding
 │   ├── utils/                 # Validation, auth helpers
+│   ├── models/                # Shared request/response models
 │   ├── config.rs              # Configuration management
-│   ├── lib.rs                 # Application setup
-│   └── main.rs                # Entry point
-├── migrations/                # Database migrations
-├── tests/                     # Integration tests
+│   ├── lib.rs                 # Application setup & router
+│   └── main.rs                # Entry point & CLI
 ├── Cargo.toml                 # Dependencies
-└── Dockerfile                 # Production container
+├── Dockerfile                 # Production container
+├── ARCHITECTURE.md            # Detailed architecture docs
+└── RELEASE_NOTES.md           # Version history
 ```
 
 ---
@@ -81,6 +97,8 @@ api/
 ### 2. **File Validation**
 - Magic byte verification (file type vs extension)
 - MIME type detection
+- Entropy analysis (packed binary detection)
+- Script injection scanning (XSS prevention)
 - Path traversal protection
 - Filename sanitization
 
@@ -93,12 +111,14 @@ api/
 - JWT token-based auth
 - Argon2 password hashing (OWASP recommended)
 - OIDC support (OAuth2/OpenID Connect)
+- CAPTCHA-protected registration
 - Per-user file isolation
 
 ### 5. **Rate Limiting & Abuse Prevention**
 - Request throttling
-- Upload size limits
-- Concurrent connection limits
+- Upload size limits (configurable)
+- Concurrent connection management
+- CAPTCHA cooldown periods
 
 ---
 
@@ -109,7 +129,6 @@ api/
 - Rust 1.84+ ([Install](https://rustup.rs/))
 - PostgreSQL 14+ or SQLite
 - MinIO or AWS S3
-- Redis (optional, for caching)
 - ClamAV (optional, for scanning)
 
 ### Installation
@@ -121,7 +140,7 @@ cd api
 
 2. **Configure environment:**
 ```bash
-cp .env.example .env
+cp ../.env.sample .env
 # Edit .env with your settings
 ```
 
@@ -160,40 +179,38 @@ cargo watch -x 'run -- --mode worker'
 # Database
 DATABASE_URL=postgresql://user:pass@localhost/rfb
 
-# Redis (optional)
-REDIS_URL=redis://localhost:6379
-
 # JWT Authentication
 JWT_SECRET=your-secret-key-min-32-chars
-JWT_EXPIRATION_HOURS=24
 
 # S3 Storage
-S3_ENDPOINT=http://localhost:9000
-S3_BUCKET=file-storage
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-S3_REGION=us-east-1
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_BUCKET=file-storage
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_REGION=us-east-1
 
-# Upload Configuration
-CHUNK_SIZE=10485760          # 10MB chunks
-MAX_FILE_SIZE=10737418240    # 10GB max file
-MAX_CONCURRENT_UPLOADS=100
+# Security & Upload Configuration
+MAX_FILE_SIZE=1073741824       # 1GB
+CHUNK_SIZE=10485760            # 10MB chunks
+UPLOADS_PER_HOUR=250
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 # ClamAV (optional)
+ENABLE_VIRUS_SCAN=true
+VIRUS_SCANNER_TYPE=clamav
 CLAMAV_HOST=localhost
 CLAMAV_PORT=3310
-ENABLE_VIRUS_SCAN=true
 
 # OIDC (optional)
 OIDC_ISSUER_URL=https://accounts.google.com
 OIDC_CLIENT_ID=your-client-id
 OIDC_CLIENT_SECRET=your-client-secret
-OIDC_REDIRECT_URI=http://localhost:3000/auth/oidc/callback
+OIDC_REDIRECT_URL=http://localhost:3000/auth/oidc/callback
+OIDC_SKIP_DISCOVERY=false
 
 # Server
 HOST=0.0.0.0
 PORT=3000
-WORKERS=4
 ```
 
 ---
@@ -201,43 +218,48 @@ WORKERS=4
 ## 📡 API Endpoints
 
 ### Authentication
-- `POST /register` - Create account
-- `POST /login` - Login with credentials
-- `GET /auth/oidc/login` - OIDC login
-- `GET /auth/oidc/callback` - OIDC callback
+- `POST /register` — Create account (CAPTCHA-protected)
+- `POST /login` — Login with credentials
+- `POST /captcha` — Generate CAPTCHA challenge
+- `GET /auth/oidc/login` — OIDC login
+- `GET /auth/oidc/callback` — OIDC callback
 
 ### File Operations
-- `POST /upload` - Single file upload
-- `POST /files/upload/init` - Init chunked upload
-- `PUT /files/upload/:id/chunk/:num` - Upload chunk
-- `POST /files/upload/:id/complete` - Complete upload
-- `DELETE /files/upload/:id` - Abort upload
-- `GET /files` - List files (paginated)
-- `GET /files/:id` - Download file
-- `DELETE /files/:id` - Delete file/folder
-- `PUT /files/:id/rename` - Rename/move item
+- `POST /upload` — Single file upload
+- `POST /files/upload/init` — Init chunked upload
+- `GET /files/upload/sessions` — List pending sessions
+- `PUT /files/upload/:id/chunk/:num` — Upload chunk
+- `POST /files/upload/:id/complete` — Complete upload
+- `DELETE /files/upload/:id` — Abort upload
+- `GET /files` — List files (paginated, searchable)
+- `GET /files/:id` — Download file
+- `DELETE /files/:id` — Delete file/folder
+- `PUT /files/:id/rename` — Rename/move item
 
 ### Bulk Operations
-- `POST /files/bulk-delete` - Delete multiple
-- `POST /files/bulk-move` - Move multiple
-- `POST /files/bulk-copy` - Copy multiple (recursive)
+- `POST /files/bulk-delete` — Delete multiple
+- `POST /files/bulk-move` — Move multiple
+- `POST /files/bulk-copy` — Copy multiple (recursive)
 
 ### Advanced
-- `POST /pre-check` - Check file existence (dedup)
-- `POST /files/link` - Link existing storage file
-- `GET /files/:id/zip-contents` - Preview archive
-- `POST /files/:id/ticket` - Generate download ticket
-- `GET /download/:ticket` - Download via ticket
+- `POST /pre-check` — Check file existence (dedup)
+- `POST /files/link` — Link existing storage file
+- `GET /files/:id/zip-contents` — Preview archive
+- `POST /files/:id/ticket` — Generate download ticket
+- `GET /download/:ticket` — Download via ticket
 
 ### User & Settings
-- `GET /users/me` - Get profile
-- `PUT /users/me` - Update profile
-- `GET /settings` - Get preferences
-- `PUT /settings` - Update preferences
+- `GET /users/me` — Get profile
+- `PUT /users/me` — Update profile
+- `GET /users/avatar/:user_id` — Get public avatar image
+- `POST /users/me/avatar` — Upload personal avatar
+- `GET /users/me/facts` — Storage statistics
+- `GET /settings` — Get preferences
+- `PUT /settings` — Update preferences
 
 ### System
-- `GET /health` - Health check
-- `GET /system/validation-rules` - Get validation rules
+- `GET /health` — Health check
+- `GET /system/validation-rules` — Get validation config
 
 **Full API documentation:** `http://localhost:3000/swagger-ui`
 
@@ -273,9 +295,11 @@ docker build -t rfb-api:latest .
 ```bash
 docker run -p 3000:3000 \
   -e DATABASE_URL=postgresql://... \
-  -e S3_ENDPOINT=http://minio:9000 \
+  -e MINIO_ENDPOINT=http://minio:9000 \
   rfb-api:latest
 ```
+
+The container runs as a **non-root user** (`appuser`, UID 10001) and includes a healthcheck.
 
 ---
 
@@ -325,4 +349,4 @@ curl http://localhost:3000/api-docs/openapi.json > openapi.json
 
 ## 📜 License
 
-MIT License - See LICENSE file for details.
+MIT License — See LICENSE file for details.

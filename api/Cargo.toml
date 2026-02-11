@@ -1,6 +1,6 @@
 [package]
 name = "rust-file-backend"
-version = "0.1.0-beta.6"
+version = "1.0.8"
 edition = "2024"
 default-run = "rust-file-backend"
 

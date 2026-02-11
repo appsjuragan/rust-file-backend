@@ -1,9 +1,0 @@
-/target
-.env
-backend.db
-backend.db-shm
-backend.db-wal
-file_storage.db
-/scripts/oidc_clients.json
-/scripts/oidc_users.json
-/scripts/test_metadata/

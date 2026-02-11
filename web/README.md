@@ -1,4 +1,4 @@
-# 🌐 RFB Web Frontend
+# 🌐 RFB Web Frontend (v1.0.8)
 
 The frontend is a modern React application built with **Vite**, **TypeScript**, and **Tailwind CSS**. It provides an intuitive, glassmorphic interface for file management with advanced features like drag-and-drop, chunked uploads, and bulk operations.
 

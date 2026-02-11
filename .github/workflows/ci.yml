@@ -10,18 +10,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  backend:
+    name: Backend CI
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        override: true
         components: rustfmt, clippy
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        working-directory: api
 
     - name: Check formatting
       run: cargo fmt -- --check
@@ -31,3 +38,31 @@ jobs:
 
     - name: Run tests
       run: cargo test --verbose
+
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: bun install --frozen-lockfile
+
+    - name: Lint
+      run: bun run lint
+      continue-on-error: true
+
+    - name: Build
+      run: bun run build
+      env:
+        VITE_API_URL: /api
+        VITE_CHUNK_SIZE: 10485760

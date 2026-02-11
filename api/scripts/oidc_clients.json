@@ -1,0 +1,20 @@
+[
+  {
+    "ClientId": "foo",
+    "ClientSecrets": [
+      "bar"
+    ],
+    "RedirectUris": [
+      "http://localhost:3000/auth/oidc/callback"
+    ],
+    "AllowedScopes": [
+      "openid",
+      "profile",
+      "email"
+    ],
+    "AllowedGrantTypes": [
+      "authorization_code"
+    ],
+    "RequirePkce": false
+  }
+]

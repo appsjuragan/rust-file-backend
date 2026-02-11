@@ -1,0 +1,32 @@
+[
+    {
+        "SubjectId": "1",
+        "Username": "testuser",
+        "Password": "password123",
+        "Claims": [
+            {
+                "Type": "email",
+                "Value": "testuser@example.com"
+            },
+            {
+                "Type": "name",
+                "Value": "Test User"
+            }
+        ]
+    },
+    {
+        "SubjectId": "2",
+        "Username": "testuser@example.com",
+        "Password": "password123",
+        "Claims": [
+            {
+                "Type": "email",
+                "Value": "testuser@example.com"
+            },
+            {
+                "Type": "name",
+                "Value": "Test User"
+            }
+        ]
+    }
+]

@@ -1,17 +1,31 @@
-
-# Root gitignore
+# --- Root ---
 .idea
 .vscode
 .agent/
-/node_modules
-/target
+.env
+.env.local
+node_modules/
+target/
+dist/
 
-# Subdirectory ignores
-/api/target
-/api/.env
-/web/node_modules
-/web/dist
-/web/.env
+# --- Artifacts ---
 *.db
 *.db-journal
 *.log
+*.tmp
+*.bak
+dump.rdb
+
+# --- Subdirectory Ignores ---
+/api/target/
+/api/.env
+/api/data/
+/web/node_modules/
+/web/dist/
+/web/.env
+/web/.env.local
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+desktop.ini

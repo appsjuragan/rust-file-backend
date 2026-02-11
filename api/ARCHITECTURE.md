@@ -18,8 +18,9 @@ Every request passes through a multi-stage security and observability pipeline b
 
 | Zone | Component | Responsibility |
 | :--- | :--- | :--- |
+| **Zone 0: Bot Protection** | `CAPTCHA` | **New**: Protects registration and sensitive endpoints from automated bot attacks. |
 | **Zone 1: Perimeter** | `CORS` / `Rate Limit` | Protects against unauthorized origins and DoS attacks. Configurable via `ALLOWED_ORIGINS`. |
-| **Zone 2: Input Validation** | `Advanced Validation` | **New**: Entropy analysis (packed binary detection), Script Injection checks (XSS protection), MIME type verification, and Magic Byte analysis. |
+| **Zone 2: Input Validation** | `Advanced Validation` | Entropy analysis (packed binary detection), Script Injection checks (XSS protection), MIME type verification, and Magic Byte analysis. |
 | **Zone 3: AuthN** | `JWT Middleware` | Validates identity tokens and extracts `Claims`. Supports both local JWT and OIDC. Verified against DB. |
 | **Zone 4: Observability** | `Tracing` / `Metrics` | Injects `Request-ID` and records latency/throughput metrics using `tracing`. |
 | **Zone 5: AuthZ** | `Ownership Check` | Ensures users can only access or modify their own files/folders. |
@@ -35,7 +36,8 @@ graph TD
     end
 
     subgraph "Security & Observability Pipeline"
-        Handlers --> RL[Rate Limiter]
+        Handlers --> CAP[CAPTCHA Validation]
+        CAP --> RL[Rate Limiter]
         RL --> IV[Input Validation]
         IV --> AN[AuthN - JWT/OIDC]
         AN --> TR[Tracing/Metrics]
@@ -118,13 +120,19 @@ Tracks security-relevant events:
 - File uploads, deletions, and shared link generation.
 - OIDC authentication events.
 
+### CAPTCHA Service (`src/api/handlers/captcha.rs`)
+Provides bot protection:
+- **Challenge Generation**: Creates base64-encoded image challenges with encrypted text.
+- **Validation**: Verifies user input against active challenges with expiration logic.
+- **Cooldowns**: Implements per-IP cooldowns for failed attempts to mitigate brute-force attacks.
+
 ---
 
 ## 5. Security Hardening Measures
 
 ### Container Security
 - **Non-Root User**: The Docker container runs as `appuser` (UID 10001) to follow the Principle of Least Privilege.
-- **Minimal Base Image**: Uses `alpine` or `distroless` (implied by binary portability).
+- **Minimal Base Image**: Uses `alpine 3.20` for a smaller attack surface.
 
 ### Advanced Input Validation (`src/utils/validation.rs`)
 - **Entropy Analysis**: Calculates Shannon entropy of file headers to detect packed/encrypted executables masking as text/images (Trigger > 7.9).
@@ -134,7 +142,7 @@ Tracks security-relevant events:
 
 ### Header Security
 - **CORS**: Configurable `Access-Control-Allow-Origin`.
-- **HSTS / Content-Security-Policy**: (Recommended for production deployment via reverse proxy or middleware).
+- **HSTS / Content-Security-Policy**: (Recommended for production deployment via reverse proxy).
 
 ---
 
@@ -142,12 +150,16 @@ Tracks security-relevant events:
 
 ### Storage (`src/infrastructure/storage.rs`)
 - **S3 Compatible**: Works with AWS S3, MinIO, Cloudflare R2.
-- **Multipart Uploads**: Handles large files by splitting them into 10MB chunks.
+- **Multipart Uploads**: Handles large files by splitting them into chunks (default 10MB).
 - **Streaming**: Never loads entire file into memory; pipes `AsyncRead` -> `S3 Stream`.
+
+### Cache & Queue (`src/infrastructure/cache.rs` - planned/internal)
+- **Redis**: Used for rate limiting tokens, CAPTCHA sessions, and temporary facts caching.
+- **Connection Pool**: Managed via `bb8` or `fred` (depending on implementation state).
 
 ### Database
 - **SeaORM**: Async ORM for type-safe interactions.
-- **Migrations**: Managed via `migration` crate (not shown in source tree but standard).
+- **Migrations**: Managed via `migration` crate (run via `--mode migrate`).
 - **Connection Pooling**: Built-in via `sqlx`.
 
 ---
@@ -185,3 +197,15 @@ User B uploads same file (hash: abc123)
 3.  **Unidirectional Dependencies**: Dependencies always point inward. Infrastructure depends on Ports; Ports depend on Domain. Domain depends on nothing.
 4.  **Streaming First**: All file operations must use `AsyncRead`/`AsyncWrite` to maintain a constant memory footprint regardless of file size.
 5.  **Soft Deletion**: Files are never immediately purged. Reference counting ensures shared storage is cleaned up only when all references are removed.
+
+---
+
+## 9. Deployment & Release (v1.0.8)
+
+### Release Checklist:
+1.  **Version Check**: Ensure `Cargo.toml` and `package.json` reflect `1.0.8`.
+2.  **Migrations**: Verify all `migration` files are committed.
+3.  **Security Audit**: Run `cargo audit` and `bun audit`.
+4.  **Static Analysis**: Ensure `cargo clippy` and `bun run lint` pass.
+5.  **Documentation**: Update `RELEASE_NOTES.md` and OpenAPI spec.
+6.  **Environment**: Update `.env.sample` with any new variables (e.g., CAPTCHA config).
