@@ -59,8 +59,9 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     }
 
     if (captcha) {
-        const minutes = Math.floor(captchaExpiry / 60);
-        const seconds = (captchaExpiry % 60).toString().padStart(2, "0");
+        const safeExpiry = isNaN(captchaExpiry) ? 0 : captchaExpiry;
+        const minutes = Math.floor(safeExpiry / 60);
+        const seconds = (safeExpiry % 60).toString().padStart(2, "0");
 
         return (
             <div className="captcha-section">
@@ -80,7 +81,18 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
                                 onClick={onRefresh}
                                 title="Get new challenge"
                             >
-                                🔄
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
+                                </svg>
                             </button>
                         </div>
                     </div>

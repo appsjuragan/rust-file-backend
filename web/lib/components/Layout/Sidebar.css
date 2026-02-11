@@ -10,12 +10,11 @@
     }
 
     .rfm-sidebar-item {
-        @apply flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-slate-600 font-semibold mb-1;
+        @apply flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-slate-600 font-semibold mb-1 border border-transparent;
     }
 
     .rfm-sidebar-item:hover {
         @apply bg-slate-50 shadow-sm text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700;
-        transform: translateX(4px);
     }
 
     .rfm-sidebar-item.active {

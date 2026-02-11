@@ -1,4 +1,5 @@
 import { request, getAuthToken } from "./httpClient";
+import { getChunkData } from "./uploadDb";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 const DEFAULT_CHUNK_SIZE = 7 * 1024 * 1024; // 7MB
@@ -61,7 +62,7 @@ export const uploadService = {
     },
 
     // Chunked upload for large files
-    uploadFileChunked: async (file: File, parentId?: string, onProgress?: (percent: number) => void) => {
+    uploadFileChunked: async (file: File, parentId?: string, onProgress?: (percent: number) => void, hash?: string) => {
         // Use module-level CHUNK_SIZE
         const file_name = file.name;
         const file_type = file.type || 'application/octet-stream';
@@ -157,11 +158,132 @@ export const uploadService = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                parent_id: parentId && parentId !== '0' ? parentId : null
+                parent_id: parentId && parentId !== '0' ? parentId : null,
+                hash
             }),
         });
 
         if (onProgress) onProgress(100);
         return completeRes;
+    },
+
+    // List pending upload sessions from backend
+    listPendingSessions: async () => {
+        return request('/files/upload/sessions');
+    },
+
+    // Resume a chunked upload using data from IndexedDB
+    resumeChunkedUpload: async (
+        uploadId: string,
+        totalSize: number,
+        chunkSize: number,
+        totalChunks: number,
+        uploadedParts: number[],
+        parentId?: string,
+        onProgress?: (percent: number) => void,
+        hash?: string,
+    ) => {
+        const uploadedSet = new Set(uploadedParts);
+        const remainingChunks: number[] = [];
+        for (let i = 1; i <= totalChunks; i++) {
+            if (!uploadedSet.has(i)) remainingChunks.push(i);
+        }
+
+        // Calculate initial progress based on already-uploaded chunks
+        const alreadyUploaded = uploadedParts.length;
+        const initialProgress = Math.round((alreadyUploaded / totalChunks) * 99);
+        if (onProgress) onProgress(initialProgress);
+
+        const CONCURRENCY = 3;
+        const MAX_RETRIES = 3;
+        const chunkProgress = new Map<number, number>();
+
+        // Pre-fill progress of already-uploaded chunks
+        for (const part of uploadedParts) {
+            const start = (part - 1) * chunkSize;
+            const end = Math.min(start + chunkSize, totalSize);
+            chunkProgress.set(part - 1, end - start);
+        }
+
+        const uploadChunk = async (partNumber: number, retryCount = 0) => {
+            const data = await getChunkData(uploadId, partNumber);
+            if (!data) {
+                throw new Error(`Missing chunk data for part ${partNumber} in IndexedDB`);
+            }
+
+            try {
+                return await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', `${BASE_URL}/files/upload/${uploadId}/chunk/${partNumber}`);
+
+                    const token = getAuthToken();
+                    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable && onProgress) {
+                            chunkProgress.set(partNumber - 1, e.loaded);
+                            const totalLoaded = Array.from(chunkProgress.values()).reduce((a, b) => a + b, 0);
+                            const percent = Math.min(Math.round((totalLoaded / totalSize) * 100), 99);
+                            onProgress(percent);
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            const start = (partNumber - 1) * chunkSize;
+                            const end = Math.min(start + chunkSize, totalSize);
+                            chunkProgress.set(partNumber - 1, end - start);
+                            resolve(null);
+                        } else {
+                            reject(new Error(`Chunk upload failed: ${xhr.status}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.onabort = () => reject(new Error('Upload aborted'));
+
+                    xhr.send(data);
+                });
+            } catch (error) {
+                if (retryCount < MAX_RETRIES) {
+                    console.warn(`[Resume] Retrying chunk ${partNumber} (attempt ${retryCount + 1})...`);
+                    await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 1000));
+                    return uploadChunk(partNumber, retryCount + 1);
+                }
+                throw error;
+            }
+        };
+
+        // Upload remaining chunks
+        const queue = [...remainingChunks];
+        const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(null).map(async () => {
+            while (queue.length > 0) {
+                const partNumber = queue.shift();
+                if (partNumber !== undefined) {
+                    await uploadChunk(partNumber);
+                }
+            }
+        });
+
+        await Promise.all(workers);
+
+        // Complete upload
+        const completeRes = await request(`/files/upload/${uploadId}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                parent_id: parentId && parentId !== '0' ? parentId : null,
+                hash
+            }),
+        });
+
+        if (onProgress) onProgress(100);
+        return completeRes;
+    },
+
+    // Abort an upload session
+    abortUpload: async (uploadId: string) => {
+        return request(`/files/upload/${uploadId}`, {
+            method: 'DELETE',
+        });
     }
 };

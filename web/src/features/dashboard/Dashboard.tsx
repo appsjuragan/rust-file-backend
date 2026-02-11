@@ -65,13 +65,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     useEffect(() => { currentFolderRef.current = currentFolder; }, [currentFolder]);
 
     // Data Fetching
+    const [chunkSize, setChunkSize] = useState<number>(7 * 1024 * 1024); // Default 7MB
+
+    // Data Fetching
     const fetchValidationRules = useCallback(async () => {
         if (validationRulesRef.current) return validationRulesRef.current;
         try {
-            const rules = await userService.getSettings();
-            validationRulesRef.current = {};
+            const rules = await fileService.getValidationRules();
+            validationRulesRef.current = rules;
+            if (rules && rules.chunk_size) {
+                setChunkSize(rules.chunk_size);
+                console.log(`[Dashboard] Configured chunk size: ${rules.chunk_size} bytes`);
+            }
+            return rules;
+        } catch (e) {
+            console.error("Failed to fetch validation rules", e);
             return {};
-        } catch (e) { return {}; }
+        }
     }, []);
 
     const fetchProfile = useCallback(async () => {
@@ -198,7 +208,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }, [searchQuery]);
 
     // Hooks Usage (must be after fetchFiles definition)
-    const { activeUploads, setActiveUploads, onUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(fetchFiles, fsRef);
+    const refreshAll = useCallback(async (parentId: string = "0", silent = false) => {
+        await Promise.all([
+            fetchFiles(parentId, silent),
+            fetchUserFacts()
+        ]);
+    }, [fetchFiles, fetchUserFacts]);
+
+    const { activeUploads, setActiveUploads, onUpload, cancelUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(refreshAll, fsRef, chunkSize);
 
     // Initial Load & Auth Effects
     useEffect(() => {
@@ -224,8 +241,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         const interval = setInterval(() => {
             const currentFs = fsRef.current;
             const activeScans = currentFs.filter(f => f.scanStatus === 'pending' || f.scanStatus === 'scanning');
+            // Also poll if there are infected files (to catch when they are auto-deleted)
+            const hasInfected = currentFs.some(f => f.scanStatus === 'infected');
 
-            if (activeScans.length > 0) {
+            if (activeScans.length > 0 || hasInfected) {
                 fetchFiles(currentFolderRef.current, true);
             }
 
@@ -337,13 +356,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     setCurrentFolder={setCurrentFolder}
                     currentFolder={currentFolder}
                     onUpload={onUpload}
-                    onCreateFolder={async (n: string) => { await fileService.createFolder(n, currentFolder === "0" ? undefined : currentFolder); fetchFiles(currentFolder); }}
-                    onDelete={async (id: string) => { await fileService.deleteItem(id); fetchFiles(currentFolder); }}
-                    onBulkDelete={async (ids: string[]) => { await fileService.bulkDeleteItem(ids); fetchFiles(currentFolder); }}
-                    onRename={async (id: string, n: string) => { await fileService.renameItem(id, n); fetchFiles(currentFolder); }}
-                    onMove={async (id: string, pid: string) => { await fileService.renameItem(id, undefined, pid); fetchFiles(currentFolder); }}
-                    onBulkMove={async (ids: string[], pid: string) => { await fileService.bulkMove(ids, pid); fetchFiles(currentFolder); }}
-                    onBulkCopy={async (ids: string[], pid: string) => { await fileService.bulkCopy(ids, pid); fetchFiles(currentFolder); }}
+                    onCancelUpload={cancelUpload}
+                    onCreateFolder={async (n: string) => { await fileService.createFolder(n, currentFolder === "0" ? undefined : currentFolder); refreshAll(currentFolder); }}
+                    onDelete={async (id: string) => { await fileService.deleteItem(id); refreshAll(currentFolder); }}
+                    onBulkDelete={async (ids: string[]) => { await fileService.bulkDeleteItem(ids); refreshAll(currentFolder); }}
+                    onRename={async (id: string, n: string) => { await fileService.renameItem(id, n); refreshAll(currentFolder); }}
+                    onMove={async (id: string, pid: string) => { await fileService.renameItem(id, undefined, pid); refreshAll(currentFolder); }}
+                    onBulkMove={async (ids: string[], pid: string) => { await fileService.bulkMove(ids, pid); refreshAll(currentFolder); }}
+                    onBulkCopy={async (ids: string[], pid: string) => { await fileService.bulkCopy(ids, pid); refreshAll(currentFolder); }}
                     activeUploads={activeUploads}
                     setActiveUploads={setActiveUploads}
                     userFacts={userFacts}

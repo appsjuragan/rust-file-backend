@@ -27,21 +27,21 @@ jobs:
 - parameters:
     reportDescription: ''
     reportDir: /zap/wrk/
-    reportFile: PENTEST_scan/new/zap_report.html
+    reportFile: OWASP_scanning/zap_report.html
     reportTitle: ZAP Scanning Report
     template: traditional-html
   type: report
 - parameters:
     reportDescription: ''
     reportDir: /zap/wrk/
-    reportFile: PENTEST_scan/new/zap_report.md
+    reportFile: OWASP_scanning/zap_report.md
     reportTitle: ZAP Scanning Report
     template: traditional-md
   type: report
 - parameters:
     reportDescription: ''
     reportDir: /zap/wrk/
-    reportFile: PENTEST_scan/new/zap_report.json
+    reportFile: OWASP_scanning/zap_report.json
     reportTitle: ZAP Scanning Report
     template: traditional-json
   type: report

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { flexRender, Table } from '@tanstack/react-table';
 import { FileType } from "../../types";
 import SvgIcon from '../Icons/SvgIcon';
@@ -34,6 +34,8 @@ export const FileTable: React.FC<FileTableProps> = ({
     currentFolderFiles,
     columnsCount
 }) => {
+    const [lastTap, setLastTap] = useState<{ time: number, id: string | null } | null>(null);
+
     return (
         <table className="w-full">
             <thead>
@@ -58,18 +60,30 @@ export const FileTable: React.FC<FileTableProps> = ({
                 {table.getRowModel().rows.map(row => {
                     const isSelected = selectedIds.includes(row.original.id);
                     const isPending = row.original.scanStatus === 'pending' || row.original.scanStatus === 'scanning';
+                    const isInfected = row.original.scanStatus === 'infected';
                     return (
                         <tr
                             key={row.id}
                             data-id={row.original.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, row.original)}
-                            onDragOver={(e) => handleDragOver(e, row.original)}
+                            draggable={!isInfected}
+                            onDragStart={(e) => !isInfected && handleDragStart(e, row.original)}
+                            onDragOver={(e) => !isInfected && handleDragOver(e, row.original)}
                             onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDropOnFolder(e, row.original)}
+                            onDrop={(e) => !isInfected && handleDropOnFolder(e, row.original)}
                             onClick={(e) => handleItemClick(row.original, e)}
-                            onDoubleClick={() => handleDoubleClick(row.original)}
-                            className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? 'rfm-pending' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""} ${highlightedId === row.original.id ? "rfm-highlighted" : ""}`}
+                            onDoubleClick={() => !isInfected && handleDoubleClick(row.original)}
+                            onTouchEnd={() => {
+                                const now = Date.now();
+                                if (lastTap && lastTap.id === row.original.id && now - lastTap.time < 300) {
+                                    if (!isInfected) {
+                                        handleDoubleClick(row.original);
+                                    }
+                                    setLastTap(null); // Reset after double tap
+                                } else {
+                                    setLastTap({ time: now, id: row.original.id });
+                                }
+                            }}
+                            className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? 'rfm-pending' : ''} ${isInfected ? 'rfm-suspicious opacity-60 grayscale' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""} ${highlightedId === row.original.id ? "rfm-highlighted" : ""}`}
                             onContextMenu={(e) => {
                                 e.stopPropagation();
                                 handleContextMenu(e, row.original);

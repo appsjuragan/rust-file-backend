@@ -166,8 +166,7 @@ pub async fn login(
         .verify_password(payload.password.as_bytes(), &parsed_hash)
         .map_err(|_| AppError::Unauthorized("Invalid credentials".to_string()))?;
 
-    let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-    let token_str = create_jwt(&user.id, &secret).map_err(|e| AppError::Internal(e.to_string()))?;
+    let token_str = create_jwt(&user.id, &state.config.jwt_secret).map_err(|e| AppError::Internal(e.to_string()))?;
 
     // Store token in DB for expiration/revocation tracking
     let token_id = Uuid::new_v4().to_string();

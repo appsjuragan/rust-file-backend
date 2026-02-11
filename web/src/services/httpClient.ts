@@ -8,7 +8,18 @@ interface RequestOptions extends RequestInit {
     headers?: Record<string, string>;
 }
 
+// Global callback for request events
+let onRequestCallback: (() => void) | null = null;
+
+export const setOnRequestCallback = (callback: (() => void) | null) => {
+    onRequestCallback = callback;
+};
+
 export async function request(endpoint: string, options: RequestOptions = {}) {
+    // Notify that a request is occurring
+    if (onRequestCallback) {
+        onRequestCallback();
+    }
     const token = getAuthToken();
     const headers = { ...options.headers };
 
@@ -27,15 +38,28 @@ export async function request(endpoint: string, options: RequestOptions = {}) {
     }
 
     const contentType = res.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") !== -1) {
+    const isJson = contentType && contentType.indexOf("application/json") !== -1;
+
+    if (isJson) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || data.message || "Request failed");
         return data;
     } else {
+        // If it's not JSON but we expected success, handle non-JSON success/error
         if (!res.ok) {
             const text = await res.text();
             throw new Error(text || "Request failed");
         }
+
+        // For GET requests that are not JSON, they might be files or unexpected HTML (like Nginx fallback)
+        if (options.method === 'GET' || !options.method) {
+            // Check if it looks like HTML (Nginx try_files fallback)
+            const text = await res.clone().text();
+            if (text.trim().toLowerCase().startsWith('<!doctype html')) {
+                throw new Error("Received HTML instead of JSON. The API endpoint might be misconfigured.");
+            }
+        }
+
         return res; // Return response for blobs/non-json
     }
 }

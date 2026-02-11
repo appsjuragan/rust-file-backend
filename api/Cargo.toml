@@ -34,32 +34,41 @@ tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
 log = "0.4"
 infer = "0.15"
-image = { version = "0.24", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
-async-recursion = "1.0"
-kamadak-exif = "0.6.1"
-lofty = "0.22.4"
-lopdf = "0.39.0"
-quick-xml = "0.39.0"
+# Archive Preview Dependencies
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 sevenz-rust = "0.6.1"
 tar = "0.4"
 flate2 = "1.0"
-thiserror = "2.0.18"
+unrar = "0.5.8"
+
+# Metadata Extraction Dependencies
+kamadak-exif = "0.6.1"
+lofty = "0.22.4"
+lopdf = "0.39.0"
+quick-xml = "0.39.0"
+image = { version = "0.24", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+
+async-recursion = "1.0"
 serde_urlencoded = "0.7.1"
 percent-encoding = "2.3"
-unrar = "0.5.8"
+
+thiserror = "2.0.18"
 openidconnect = { version = "4.0.1", features = ["reqwest", "rustls-tls"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-chacha20poly1305 = "0.10.1"
+
 rand = "0.8.5"
 base64 = "0.22.1"
-async-stream = "0.3.6"
+
 bytes = "1.11.0"
 tempfile = "3.24.0"
 validator = { version = "0.20.0", features = ["derive"] }
 clap = { version = "4.0", features = ["derive"] }
 dashmap = "6.1.0"
+
+# Optimize dependencies in debug builds to make hashing/crypto fast
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 opt-level = "z"     # Optimize for size

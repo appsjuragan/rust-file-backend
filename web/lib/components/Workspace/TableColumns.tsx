@@ -12,6 +12,28 @@ export const getColumns = () => [
         cell: info => {
             const isPending = info.row.original.scanStatus === 'pending' || info.row.original.scanStatus === 'scanning';
             const isScanning = info.row.original.scanStatus === 'scanning';
+            const isInfected = info.row.original.scanStatus === 'infected';
+
+            if (isInfected) {
+                const expiresAt = info.row.original.expiresAt;
+                let timeLeft = 'soon';
+                if (expiresAt) {
+                    const diff = new Date(expiresAt).getTime() - Date.now();
+                    const minutes = Math.ceil(diff / 60000);
+                    if (minutes > 0) timeLeft = `${minutes}min`;
+                }
+
+                return (
+                    <div className="rfm-workspace-list-icon-td">
+                        <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon text-gray-500" />
+                        <p className="line-through opacity-70 mr-2">{info.getValue()}</p>
+                        <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#423628] text-[#cfa87d] border border-[#6b563f] whitespace-nowrap">
+                            ! Suspicious: {timeLeft}
+                        </span>
+                    </div>
+                );
+            }
+
             return (
                 <div className={`rfm-workspace-list-icon-td ${isPending ? 'rfm-pending' : ''}`}>
                     <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon" />

@@ -50,13 +50,22 @@ export function useCaptcha(active: boolean): UseCaptchaReturn {
         setFetchError(null);
         try {
             const data = await authService.getCaptcha();
+
+            // Validate data structure
+            if (!data || typeof data.expires_in !== 'number' || !data.captcha_id) {
+                console.error("Invalid CAPTCHA data received:", data);
+                throw new Error("Invalid CAPTCHA format from server");
+            }
+
             setCaptcha(data);
             setCaptchaExpiry(data.expires_in);
             setCooldownSeconds(0);
         } catch (err: any) {
+            console.error("CAPTCHA fetch error:", err);
             const match = err.message?.match(/wait (\d+) seconds/);
             if (match) {
-                setCooldownSeconds(parseInt(match[1], 10));
+                const seconds = parseInt(match[1], 10);
+                setCooldownSeconds(isNaN(seconds) ? 60 : seconds);
                 setCaptcha(null);
             } else {
                 setFetchError(err.message || "Failed to load CAPTCHA");

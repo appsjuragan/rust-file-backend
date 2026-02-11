@@ -1,5 +1,5 @@
 use crate::api::error::AppError;
-use crate::services::upload_service::{InitUploadRequest, InitUploadResponse, UploadPartResponse, CompleteUploadRequest, FileResponse};
+use crate::services::upload_service::{InitUploadRequest, InitUploadResponse, UploadPartResponse, CompleteUploadRequest, FileResponse, PendingSessionResponse};
 use crate::utils::auth::Claims;
 use axum::{
     extract::{Path, State},
@@ -28,6 +28,26 @@ pub async fn init_upload_handler(
     // let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
     let res: InitUploadResponse = state.upload_service.init_upload(claims.sub, req).await.map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
     Ok(Json(res))
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/upload/sessions",
+    responses(
+        (status = 200, description = "Pending upload sessions", body = Vec<PendingSessionResponse>),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn list_pending_sessions_handler(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+) -> Result<Json<Vec<PendingSessionResponse>>, AppError> {
+    let sessions = state.upload_service.list_pending_sessions(claims.sub).await
+        .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
+    Ok(Json(sessions))
 }
 
 #[utoipa::path(

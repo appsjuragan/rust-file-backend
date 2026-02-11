@@ -13,7 +13,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, RelationTrait, Set, sea_query::Expr,
+    QueryOrder, QuerySelect, RelationTrait, Set, sea_query::{Expr, Func},
 };
 use serde::{Deserialize, Serialize};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
@@ -469,7 +469,18 @@ pub async fn list_files(
             let pattern = search.replace('*', "%").replace('?', "_");
             cond = cond.add(user_files::Column::Filename.like(pattern));
         } else {
-            cond = cond.add(user_files::Column::Filename.contains(search.clone()));
+            // Case-insensitive search using ILIKE (Postgres) or LOWER LIKE (SQLite)
+            if state.db.get_database_backend() == sea_orm::DatabaseBackend::Postgres {
+                cond = cond.add(
+                    Expr::col(user_files::Column::Filename)
+                        .binary(sea_orm::sea_query::BinOper::Custom("ILIKE"), Expr::val(format!("%{}%", search))),
+                );
+            } else {
+                cond = cond.add(
+                    Expr::expr(Func::lower(Expr::col(user_files::Column::Filename)))
+                        .like(format!("%{}%", search.to_lowercase())),
+                );
+            }
         }
     }
 

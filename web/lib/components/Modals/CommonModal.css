@@ -42,7 +42,7 @@
     }
 
     .rfm-modal-body {
-        @apply flex flex-col flex-1 min-h-0 p-5 overflow-hidden;
+        @apply flex flex-col flex-1 min-h-0 p-5 overflow-y-auto;
     }
 
     /* Preview Modal Content Sizing */
@@ -136,5 +136,97 @@
 
     .rfm-modal-icon:active {
         @apply scale-95 opacity-80 !important;
+    }
+
+    /* ==================== Responsive Modals ==================== */
+
+    /* Tablet */
+    @media (max-width: 1024px) {
+        .rfm-modal-container {
+            @apply w-[90vw] max-w-[450px];
+        }
+
+        .rfm-preview-modal {
+            @apply w-[95vw] max-w-[800px] h-[70vh];
+        }
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+        .rfm-modal-container {
+            @apply w-[calc(100vw-1rem)] max-w-none left-2 top-[5%];
+            height: auto !important;
+            max-height: 90vh;
+        }
+
+        .rfm-modal-body {
+            @apply p-3;
+        }
+
+        .rfm-preview-modal {
+            @apply fixed inset-0 w-full h-full max-w-none max-h-none rounded-none top-0 left-0 m-0 border-0 !important;
+            transform: none !important;
+            z-index: 2000;
+        }
+
+        .rfm-preview-modal .rfm-modal-header {
+            @apply absolute top-0 left-0 right-0 z-20 border-0 bg-gradient-to-b from-black/80 to-transparent pt-4 pb-12 px-4;
+            box-shadow: none;
+        }
+
+        .rfm-preview-modal .rfm-modal-title {
+            @apply text-white text-sm font-medium opacity-90;
+        }
+
+        .rfm-preview-modal .rfm-modal-body {
+            @apply h-full p-0 bg-black flex items-center justify-center pt-0;
+        }
+
+        .rfm-preview-modal .rfm-modal-icon {
+            @apply bg-white/20 hover:bg-white/30 rounded-full w-9 h-9 backdrop-blur-sm self-start mt-0.5 !important;
+        }
+
+        .rfm-preview-modal .rfm-modal-icon svg {
+            fill: white !important;
+            @apply w-5 h-5;
+        }
+
+        .rfm-preview-image {
+            @apply max-h-screen w-auto max-w-full shadow-none rounded-none;
+        }
+
+        .rfm-preview-video {
+            @apply max-h-screen w-full max-w-full rounded-none;
+        }
+
+        /* Adjust padding for non-media content to clear the absolute header */
+        .rfm-zip-preview,
+        .rfm-preview-full,
+        .rfm-preview-no-support {
+            padding-top: 70px !important;
+        }
+
+        .rfm-zip-list {
+            @apply px-4 pb-8;
+        }
+
+        .rfm-preview-textarea {
+            @apply px-4 pb-8 h-full box-border;
+        }
+    }
+
+    /* Small phones */
+    @media (max-width: 480px) {
+        .rfm-modal-container {
+            @apply left-1 w-[calc(100vw-0.5rem)];
+        }
+
+        .rfm-modal-header {
+            @apply px-3 py-2;
+        }
+
+        .rfm-modal-body {
+            @apply p-2;
+        }
     }
 }

@@ -97,6 +97,10 @@
         @apply w-full flex gap-4 justify-between items-center mb-4 shrink-0;
     }
 
+    .rfm-mobile-actions {
+        @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
+    }
+
     .rfm-header-container {
         @apply flex justify-center items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600 p-0.5;
     }
@@ -128,24 +132,21 @@
     }
 
     .rfm-highlighted {
-        @apply ring-4 ring-yellow-400 dark:ring-yellow-500 !important;
-        animation: rfm-highlight-pulse 2s infinite;
+        @apply bg-indigo-50 dark:bg-indigo-900/30 ring-2 ring-indigo-400 dark:ring-indigo-500 rounded-lg !important;
+        animation: rfm-highlight-fade 3s ease-out forwards;
     }
 
-    @keyframes rfm-highlight-pulse {
+    @keyframes rfm-highlight-fade {
         0% {
-            box-shadow: 0 0 0 4px #facc15;
-            transform: scale(1);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
         }
 
-        50% {
-            box-shadow: 0 0 0 6px #ca8a04;
-            transform: scale(1.02);
+        60% {
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
         }
 
         100% {
-            box-shadow: 0 0 0 4px #facc15;
-            transform: scale(1);
+            box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
         }
     }
 
@@ -220,5 +221,96 @@
 
     .rfm-breadcrumb-separator {
         @apply text-slate-300 select-none dark:text-slate-600;
+    }
+
+    /* ==================== Responsive Workspace ==================== */
+
+    /* Tablet */
+    @media (max-width: 1024px) {
+        .rfm-workspace {
+            @apply p-2;
+        }
+
+        .rfm-icons-grid {
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            @apply gap-2 p-2 pt-0;
+        }
+
+        .rfm-workspace-header {
+            @apply gap-2 mb-2;
+        }
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+        .rfm-workspace {
+            @apply p-2;
+            min-height: 200px;
+        }
+
+        .rfm-workspace-header {
+            @apply gap-2 mb-2 flex-wrap;
+        }
+
+        .rfm-mobile-actions {
+            @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
+        }
+
+        .rfm-folder-path-container {
+            @apply gap-2 flex-1 min-w-0;
+        }
+
+        .rfm-folder-path-svg {
+            @apply w-7 h-7 p-1;
+        }
+
+        .rfm-breadcrumbs {
+            @apply text-xs gap-1;
+        }
+
+        .rfm-workspace-list-th {
+            @apply px-2 py-1 text-xs;
+        }
+
+        .rfm-workspace-list-align-txt {
+            @apply px-2 py-1 text-xs;
+        }
+
+        .rfm-workspace-list-icon-td {
+            @apply gap-2 py-1;
+        }
+
+        .rfm-workspace-list-icon {
+            @apply w-4 h-4;
+        }
+
+        .rfm-icons-grid {
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            @apply gap-2 p-1 pt-0;
+        }
+
+        /* Hide Type and Last Modified columns on mobile */
+        table.w-full th:nth-child(3),
+        table.w-full td:nth-child(3),
+        table.w-full th:nth-child(4),
+        table.w-full td:nth-child(4) {
+            display: none;
+        }
+    }
+
+    /* Small phones */
+    @media (max-width: 480px) {
+        .rfm-workspace {
+            @apply p-1.5;
+        }
+
+        .rfm-breadcrumbs {
+            @apply text-[11px];
+        }
+
+        .rfm-icons-grid {
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            @apply gap-1.5;
+        }
     }
 }

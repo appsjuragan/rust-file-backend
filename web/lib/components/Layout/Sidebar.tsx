@@ -140,7 +140,7 @@ const StorageStats = ({ userFacts }: { userFacts: any }) => {
                     {hoveredCategory === cat.id && (
                         <g className="rfm-pie-text-group">
                             <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">100%</text>
-                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label}s</text>
+                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label === "Others" ? cat.label : `${cat.label}s`}</text>
                         </g>
                     )}
                 </svg>
@@ -183,7 +183,7 @@ const StorageStats = ({ userFacts }: { userFacts: any }) => {
                     return (
                         <g className="rfm-pie-text-group">
                             <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">{percentage}%</text>
-                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label}s</text>
+                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label === "Others" ? cat.label : `${cat.label}s`}</text>
                         </g>
                     );
                 })()}

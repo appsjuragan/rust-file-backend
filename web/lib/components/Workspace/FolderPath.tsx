@@ -8,7 +8,7 @@ import { ViewStyle } from "../../types";
 import SvgIcon from "../Icons/SvgIcon";
 
 const FolderPath = () => {
-  const { fs, currentFolder, setCurrentFolder, viewStyle, setViewStyle } = useFileManager();
+  const { fs, currentFolder, setCurrentFolder, viewStyle, setViewStyle, openUpload, setNewFolderModalVisible } = useFileManager();
 
   const goUp = () => {
     const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder);
@@ -76,6 +76,22 @@ const FolderPath = () => {
         </div>
       </div>
       <div className="rfm-header-container">
+        <div className="rfm-mobile-actions">
+          <div
+            className="rfm-header-icon"
+            onClick={openUpload}
+            title="Upload Files"
+          >
+            <SvgIcon svgType="upload" />
+          </div>
+          <div
+            className="rfm-header-icon"
+            onClick={() => setNewFolderModalVisible && setNewFolderModalVisible(true)}
+            title="New Folder"
+          >
+            <SvgIcon svgType="plus" />
+          </div>
+        </div>
         <div
           className={`rfm-header-icon ${viewStyle === ViewStyle.List ? "rfm-header-icon--selected" : ""}`}
           onClick={() => setViewStyle(ViewStyle.List)}

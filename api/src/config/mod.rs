@@ -125,7 +125,7 @@ impl SecurityConfig {
             allowed_origins: env::var("ALLOWED_ORIGINS")
                 .ok()
                 .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
-                .unwrap_or_else(|| vec!["*".to_string()]),
+                .unwrap_or(default.allowed_origins),
         }
     }
 
@@ -229,5 +229,14 @@ mod tests {
         assert!(config.enable_virus_scan);
         assert_eq!(config.virus_scanner_type, "clamav");
         assert_eq!(config.uploads_per_hour, 250);
+    }
+
+    #[test]
+    fn test_from_env_cors_fallback() {
+        unsafe { env::remove_var("ALLOWED_ORIGINS") };
+        let config = SecurityConfig::from_env();
+        let default_config = SecurityConfig::default();
+        assert_eq!(config.allowed_origins, default_config.allowed_origins);
+        assert!(!config.allowed_origins.contains(&"*".to_string()));
     }
 }

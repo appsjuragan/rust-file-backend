@@ -54,6 +54,7 @@ const Workspace = () => {
     setOpenUpload,
     setPreviewFile,
     setPreviewVisible,
+    resetUploadToastCountdown,
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -201,6 +202,9 @@ const Workspace = () => {
   const handleItemClick = (file: FileType, e: React.MouseEvent) => {
     e.stopPropagation();
     setContextMenu(null);
+
+    // Call reset countdown on any item click as well
+    if (resetUploadToastCountdown) resetUploadToastCountdown();
 
     if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(file.id)) {
@@ -385,6 +389,7 @@ const Workspace = () => {
       onClick={() => {
         setContextMenu(null);
         setSelectedIds([]);
+        if (resetUploadToastCountdown) resetUploadToastCountdown();
       }}
       onMouseDown={handleMouseDown}
     >

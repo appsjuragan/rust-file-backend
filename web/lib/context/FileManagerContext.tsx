@@ -10,6 +10,7 @@ interface ProviderInterface {
   onDoubleClick?: (id: string) => Promise<void>;
   onRefresh?: (id: string) => Promise<void>;
   onUpload?: (files: { file: File, path: string }[], folderId: string) => Promise<void>;
+  onCancelUpload?: (id: string) => Promise<void>;
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
   onMove?: (id: string, newParentId: string) => Promise<void>;
@@ -85,6 +86,8 @@ interface ProviderInterface {
   onLoadMore?: () => Promise<void>;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  resetUploadToastCountdown?: () => void;
+  resetSignal?: number;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

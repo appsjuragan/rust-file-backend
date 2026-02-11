@@ -5,6 +5,7 @@ export type UploadStatus = {
   status: 'queued' | 'hashing' | 'uploading' | 'processing' | 'completed' | 'error';
   error?: string;
   size?: number;
+  uploadId?: string;
 };
 
 // Be careful: even a folder is a file!
@@ -20,7 +21,15 @@ export type FileType = {
   mimeType?: string;
   hash?: string;
   extraMetadata?: any;
+  expiresAt?: string;
 };
 
 export type FileSystemType = FileType[];
 
+
+export type ValidationRules = {
+  allowed_mimes: string[];
+  blocked_extensions: string[];
+  max_file_size: number;
+  chunk_size: number;
+};

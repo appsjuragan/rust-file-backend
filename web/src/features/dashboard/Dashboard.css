@@ -264,3 +264,93 @@
         transform: rotate(360deg);
     }
 }
+
+/* ==================== Responsive Dashboard ==================== */
+
+/* Tablet */
+@media (max-width: 768px) {
+    .search-suggestions-dropdown {
+        max-height: 300px;
+        border-radius: 0.75rem;
+    }
+
+    .suggestion-item {
+        padding: 0.6rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .suggestion-name {
+        font-size: 0.85rem;
+    }
+
+    .suggestion-path {
+        font-size: 0.75rem;
+    }
+
+    .rfm-profile-modal {
+        max-width: calc(100vw - 2rem) !important;
+    }
+
+    .rfm-profile-avatar-section {
+        gap: 1rem;
+    }
+
+    .rfm-profile-avatar-large {
+        width: 60px;
+        height: 60px;
+    }
+
+    .rfm-modal-actions {
+        flex-direction: column;
+    }
+
+    .rfm-modal-actions.right {
+        flex-direction: row;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .search-suggestions-dropdown {
+        max-height: 250px;
+    }
+
+    .suggestion-item {
+        padding: 0.5rem;
+        gap: 0.4rem;
+    }
+
+    .suggestion-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        font-size: 1rem;
+    }
+
+    .suggestion-name {
+        font-size: 0.8rem;
+    }
+
+    .rfm-profile-avatar-large {
+        width: 50px;
+        height: 50px;
+    }
+
+    .rfm-profile-header-text h3 {
+        font-size: 1rem;
+    }
+
+    .rfm-form-group label {
+        font-size: 0.75rem;
+    }
+
+    .rfm-input {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .rfm-btn-primary,
+    .rfm-btn-secondary {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+}

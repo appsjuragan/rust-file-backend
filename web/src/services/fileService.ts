@@ -90,4 +90,6 @@ export const fileService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_ids: ids, parent_id: newParentId === '0' ? null : newParentId }),
     }),
+
+    getValidationRules: () => request('/system/validation-rules'),
 };

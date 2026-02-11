@@ -27,8 +27,16 @@ const CommonModal: React.FC<IModalProps> = ({
   const nodeRef = useRef<HTMLDivElement>(null);
   const [positionStyle, setPositionStyle] = useState<React.CSSProperties>({});
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   useEffect(() => {
-    if (isVisible && clickPosition) {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (isVisible && clickPosition && !isMobile) {
       // Calculate position to keep modal within viewport
       // Default size is 400x300, but might be different
       const width = 400;
@@ -55,11 +63,11 @@ const CommonModal: React.FC<IModalProps> = ({
         left: `${left}px`,
         position: 'fixed' // Ensure fixed positioning when using coordinates
       });
-    } else if (isVisible && !clickPosition) {
-      // Reset to default CSS positioning if no click position
+    } else if (isVisible && (!clickPosition || isMobile)) {
+      // Reset to default CSS positioning if no click position or is mobile
       setPositionStyle({});
     }
-  }, [isVisible, clickPosition]);
+  }, [isVisible, clickPosition, isMobile]);
 
   if (!isVisible) {
     return <></>;
@@ -71,6 +79,7 @@ const CommonModal: React.FC<IModalProps> = ({
       bounds="body"
       handle=".rfm-modal-header"
       cancel=".rfm-modal-icon"
+      disabled={isMobile}
     >
       <div
         ref={nodeRef}

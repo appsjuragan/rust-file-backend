@@ -149,6 +149,10 @@ pub fn create_app(state: AppState) -> Router {
             )),
         )
         .route(
+            "/files/upload/sessions",
+            get(api::handlers::upload::list_pending_sessions_handler),
+        )
+        .route(
             "/files/upload/init",
             post(api::handlers::upload::init_upload_handler),
         )
@@ -236,12 +240,21 @@ pub fn create_app(state: AppState) -> Router {
                 axum::http::header::AUTHORIZATION,
                 axum::http::header::CONTENT_TYPE,
                 axum::http::header::ACCEPT,
+                axum::http::header::ORIGIN,
+                axum::http::header::USER_AGENT,
+                axum::http::header::CACHE_CONTROL,
+                axum::http::header::PRAGMA,
+                axum::http::header::IF_NONE_MATCH,
+                axum::http::header::IF_MODIFIED_SINCE,
                 axum::http::header::HeaderName::from_static("x-request-id"),
+                axum::http::header::HeaderName::from_static("x-requested-with"),
             ])
             .expose_headers([
                 axum::http::header::CONTENT_LENGTH,
                 axum::http::header::CONTENT_TYPE,
                 axum::http::header::CONTENT_DISPOSITION,
+                axum::http::header::ETAG,
+                axum::http::header::LAST_MODIFIED,
                 axum::http::header::HeaderName::from_static("x-request-id"),
             ])
             .allow_credentials(true)

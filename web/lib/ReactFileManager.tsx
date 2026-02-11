@@ -18,6 +18,8 @@ import {
 // Types
 import type { FileSystemType, FileType } from "./types";
 import { ViewStyle, UploadStatus } from "./types";
+// HTTP Client
+import { setOnRequestCallback } from "../src/services/httpClient";
 
 export interface IFileManagerProps {
   fs: FileSystemType;
@@ -32,6 +34,7 @@ export interface IFileManagerProps {
   onBulkDelete?: (ids: string[]) => Promise<void>;
   onBulkMove?: (ids: string[], newParentId: string) => Promise<void>;
   onBulkCopy?: (ids: string[], newParentId: string) => Promise<void>;
+  onCancelUpload?: (id: string) => Promise<void>;
   currentFolder?: string;
   setCurrentFolder?: (id: string) => void;
   activeUploads?: UploadStatus[];
@@ -57,6 +60,7 @@ export const ReactFileManager = ({
   onBulkDelete,
   onBulkMove,
   onBulkCopy,
+  onCancelUpload,
   currentFolder: propCurrentFolder,
   setCurrentFolder: propSetCurrentFolder,
   activeUploads: propActiveUploads,
@@ -108,6 +112,21 @@ export const ReactFileManager = ({
   }, []);
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [resetSignal, setResetSignal] = useState(0);
+
+  const resetUploadToastCountdown = useCallback(() => {
+    setResetSignal(s => s + 1);
+  }, []);
+
+  // Register the reset callback with the HTTP client
+  useEffect(() => {
+    setOnRequestCallback(resetUploadToastCountdown);
+
+    return () => {
+      setOnRequestCallback(null);
+    };
+  }, [resetUploadToastCountdown]);
+
   const [dialogState, setDialogState] = useState<{
     isVisible: boolean;
     title: string;
@@ -161,6 +180,7 @@ export const ReactFileManager = ({
     onDoubleClick: onDoubleClick,
     onRefresh: onRefresh,
     onUpload: onUpload,
+    onCancelUpload,
     onCreateFolder: onCreateFolder,
     onDelete: onDelete,
     onMove: onMove,
@@ -210,13 +230,15 @@ export const ReactFileManager = ({
     onLoadMore,
     hasMore,
     isLoadingMore,
+    resetUploadToastCountdown,
+    resetSignal, // Exporting signal to let the toast consume it
   }), [
     fs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
-    onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, uploadedFileData,
+    onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
     activeUploads, selectedIds, clipboardIds, isCut, newFolderModalVisible, previewVisible,
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
-    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads
+    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal
   ]);
 
   return (

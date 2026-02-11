@@ -42,6 +42,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             title="Edit Profile"
             onClose={onClose}
             className="rfm-profile-modal"
+            autoHeight={true}
         >
             <div className="rfm-profile-content">
                 <div className="rfm-profile-avatar-section">

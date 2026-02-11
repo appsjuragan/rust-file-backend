@@ -53,6 +53,8 @@ pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Res
         ("application/x-rar-compressed", "Archives"),
         ("application/x-7z-compressed", "Archives"),
         ("application/x-tar", "Archives"),
+        ("text/plain", "Text"),
+        ("text/markdown", "Text"),
     ];
 
     for (mime, cat) in mimes {
