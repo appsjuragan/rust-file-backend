@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "Rust File Backend API",
-		"description": "Enterprise File Storage API - v1.0.8-beta",
+		"description": "Enterprise File Storage API - v1.0.8",
 		"version": "1.0.8",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},

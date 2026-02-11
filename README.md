@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.8--beta-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.0.8-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 

@@ -1,4 +1,4 @@
-# 🦀 Rust File Backend API
+# 🦀 Rust File Backend API (v1.0.8)
 
 The backend API is a high-performance Rust service built with **Axum**, **SeaORM**, and **Tokio**. It provides secure file management with deduplication, chunked uploads, virus scanning, and S3-compatible storage.
 
