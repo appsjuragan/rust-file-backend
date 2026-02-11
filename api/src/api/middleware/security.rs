@@ -22,13 +22,13 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
     // Prevent clickjacking
     headers.insert(
         header::X_FRAME_OPTIONS,
-        header::HeaderValue::from_static("DENY"),
+        header::HeaderValue::from_static("SAMEORIGIN"),
     );
 
     // Content Security Policy for API (OWASP recommendation)
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        header::HeaderValue::from_static("default-src 'none'; frame-ancestors 'none';"),
+        header::HeaderValue::from_static("default-src 'none'; frame-ancestors 'self';"),
     );
 
     // Referrer Policy
@@ -46,7 +46,7 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
     // Prevent Flash/PDF from accessing content
     headers.insert(
         header::HeaderName::from_static("x-permitted-cross-domain-policies"),
-        header::HeaderValue::from_static("none"),
+        header::HeaderValue::from_static("master-only"),
     );
 
     // Prevent MIME sniffing
