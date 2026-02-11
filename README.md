@@ -271,9 +271,6 @@ bun test
 
 ### Security Scanning
 ```bash
-# OWASP ZAP scan
-docker run -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:3000 -c zap.yaml
-
 # Dependency audit
 cargo audit
 ```
