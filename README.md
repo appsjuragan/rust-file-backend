@@ -181,6 +181,18 @@ docker build -t rfb-api:latest ./api
 docker build --build-arg VITE_API_URL=https://your-api-domain.com -t rfb-web:latest ./web
 ```
 
+### Pre-built Images (GHCR)
+
+Official images are available on **GitHub Container Registry**:
+
+```bash
+# Pull Backend (v7-beta)
+docker pull ghcr.io/appsjuragan/rust-file-backend-api:v7-beta
+
+# Pull Frontend (v7-beta)
+docker pull ghcr.io/appsjuragan/rust-file-backend-web:v7-beta
+```
+
 ### Production Notes
 
 The compose stack includes:

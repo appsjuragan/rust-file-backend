@@ -291,6 +291,11 @@ cargo tarpaulin --out Html
 docker build -t rfb-api:latest .
 ```
 
+### Pre-built Image (GHCR)
+```bash
+docker pull ghcr.io/appsjuragan/rust-file-backend-api:v7-beta
+```
+
 ### Run Container
 ```bash
 docker run -p 3000:3000 \
