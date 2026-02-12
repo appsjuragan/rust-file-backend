@@ -10,7 +10,23 @@
     }
 
     .rfm-sidebar-item {
-        @apply flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-slate-600 font-semibold mb-1 border border-transparent;
+        @apply flex items-center gap-2 px-2 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-slate-600 font-semibold mb-1 border border-transparent;
+    }
+
+    .rfm-sidebar-chevron {
+        @apply w-4 h-4 flex items-center justify-center flex-shrink-0 rounded transition-colors;
+    }
+
+    .rfm-sidebar-chevron:hover {
+        @apply bg-slate-200 dark:bg-slate-700;
+    }
+
+    .rfm-chevron-icon {
+        @apply w-3 h-3 text-slate-400 dark:text-slate-500;
+    }
+
+    .rfm-chevron-spacer {
+        @apply pointer-events-none;
     }
 
     .rfm-sidebar-item:hover {

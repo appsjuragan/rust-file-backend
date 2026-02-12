@@ -2,8 +2,8 @@
 
     /* Context Menu */
     .rfm-context-menu {
-        @apply fixed bg-white border border-slate-200 rounded-lg z-[2000] py-0.5 min-w-[180px] overflow-hidden dark:bg-slate-900 dark:border-slate-800;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 15px rgba(0, 0, 0, 0.05);
+        @apply fixed bg-white border border-slate-200 rounded-lg z-[9500] py-0.5 min-w-[180px] overflow-hidden dark:bg-slate-900 dark:border-slate-800;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
     }
 
     .rfm-context-menu-item {

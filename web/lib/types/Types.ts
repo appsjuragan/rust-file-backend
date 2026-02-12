@@ -33,3 +33,9 @@ export type ValidationRules = {
   max_file_size: number;
   chunk_size: number;
 };
+
+export type FolderNode = {
+  id: string;
+  filename: string;
+  parent_id: string | null;
+};

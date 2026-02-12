@@ -91,5 +91,7 @@ export const fileService = {
         body: JSON.stringify({ item_ids: ids, parent_id: newParentId === '0' ? null : newParentId }),
     }),
 
+    listFolderTree: () => request('/folders/tree'),
+
     getValidationRules: () => request('/system/validation-rules'),
 };

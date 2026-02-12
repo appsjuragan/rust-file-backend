@@ -47,6 +47,13 @@ pub struct FileMetadataResponse {
     pub hash: Option<String>,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct FolderTreeEntry {
+    pub id: String,
+    pub filename: String,
+    pub parent_id: Option<String>,
+}
+
 
 #[derive(Deserialize, ToSchema, Validate)]
 
@@ -1574,4 +1581,42 @@ async fn serve_file_stream(
     );
 
     Ok(response)
+}
+
+#[utoipa::path(
+    get,
+    path = "/folders/tree",
+    responses(
+        (status = 200, description = "All folders for navigation tree", body = Vec<FolderTreeEntry>),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn folder_tree(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+) -> Result<Json<Vec<FolderTreeEntry>>, AppError> {
+    let folders = UserFiles::find()
+        .filter(
+            Condition::all()
+                .add(user_files::Column::UserId.eq(&claims.sub))
+                .add(user_files::Column::IsFolder.eq(true))
+                .add(user_files::Column::DeletedAt.is_null()),
+        )
+        .order_by_asc(user_files::Column::Filename)
+        .all(&state.db)
+        .await?;
+
+    let result: Vec<FolderTreeEntry> = folders
+        .into_iter()
+        .map(|f| FolderTreeEntry {
+            id: f.id,
+            filename: f.filename,
+            parent_id: f.parent_id,
+        })
+        .collect();
+
+    Ok(Json(result))
 }

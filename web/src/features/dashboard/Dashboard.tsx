@@ -3,7 +3,7 @@ import { ReactFileManager, AvatarCropModal } from "../../../lib";
 import { fileService } from "../../services/fileService";
 import { userService } from "../../services/userService";
 import { formatFriendlyError } from "../../utils/errorFormatter";
-import type { FileSystemType, FileType } from "../../../lib/types";
+import type { FileSystemType, FileType, FolderNode } from "../../../lib/types";
 import "./Dashboard.css";
 
 // Components
@@ -38,6 +38,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // Pagination State
     const [hasMoreFiles, setHasMoreFiles] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [folderTree, setFolderTree] = useState<FolderNode[]>([]);
 
     // UI State
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -113,6 +114,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             const facts = await userService.getUserFacts();
             setUserFacts(facts);
         } catch (err) { console.error("Failed to fetch user facts", err); }
+    }, []);
+
+    const fetchFolderTree = useCallback(async () => {
+        try {
+            const data = await fileService.listFolderTree();
+            setFolderTree(data);
+        } catch (err) { console.error("Failed to fetch folder tree", err); }
     }, []);
 
     const fetchFiles = useCallback(async (parentId: string = "0", silent = false, offset = 0) => {
@@ -211,9 +219,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const refreshAll = useCallback(async (parentId: string = "0", silent = false) => {
         await Promise.all([
             fetchFiles(parentId, silent),
-            fetchUserFacts()
+            fetchUserFacts(),
+            fetchFolderTree()
         ]);
-    }, [fetchFiles, fetchUserFacts]);
+    }, [fetchFiles, fetchUserFacts, fetchFolderTree]);
 
     const { activeUploads, setActiveUploads, onUpload, cancelUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(refreshAll, fsRef, chunkSize);
 
@@ -228,7 +237,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         fetchUserFacts();
         fetchValidationRules();
         fetchFiles(currentFolder);
-    }, [currentFolder, fetchProfile, fetchUserFacts, fetchFiles, fetchValidationRules]);
+        fetchFolderTree();
+    }, [currentFolder, fetchProfile, fetchUserFacts, fetchFiles, fetchValidationRules, fetchFolderTree]);
 
     // Polling & Updates
     useEffect(() => {
@@ -375,6 +385,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     isLoadingMore={loadingMore}
                     highlightedId={highlightedId}
                     setHighlightedId={setHighlightedId}
+                    folderTree={folderTree}
+                    refreshFolderTree={fetchFolderTree}
                 />
             </main>
 

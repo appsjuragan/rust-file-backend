@@ -2,7 +2,7 @@
 
     /* CommonModal */
     .rfm-modal-centered-wrapper {
-        @apply absolute inset-0 flex items-center justify-center pointer-events-none z-[999];
+        @apply absolute inset-0 flex items-center justify-center pointer-events-none z-[9000];
     }
 
     .rfm-modal--centered {
@@ -10,7 +10,7 @@
     }
 
     .rfm-modal-container {
-        @apply absolute rounded-2xl bg-slate-50 z-[999] border border-slate-200 top-[10%] left-[10%] w-[450px] h-[350px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
+        @apply absolute rounded-2xl bg-slate-50 z-[9000] border border-slate-200 top-[10%] left-[10%] w-[450px] h-[350px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         resize: both;
     }
@@ -166,7 +166,7 @@
         .rfm-preview-modal {
             @apply fixed inset-0 w-full h-full max-w-none max-h-none rounded-none top-0 left-0 m-0 border-0 !important;
             transform: none !important;
-            z-index: 2000;
+            z-index: 9000;
         }
 
         .rfm-preview-modal .rfm-modal-header {

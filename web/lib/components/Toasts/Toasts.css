@@ -2,7 +2,7 @@
 
     /* Operation Toast */
     .rfm-operation-toast {
-        @apply fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-[5000] flex items-center border border-slate-700/50;
+        @apply fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-[10000] flex items-center border border-slate-700/50;
         animation: rfm-toast-in 0.3s ease-out;
     }
 
@@ -24,7 +24,7 @@
 
     /* Upload Toast & Progress */
     .rfm-upload-toast {
-        @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[1000] transition-all duration-300 dark:bg-slate-900 dark:border-slate-800;
+        @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[10000] transition-all duration-300 dark:bg-slate-900 dark:border-slate-800;
     }
 
     .rfm-upload-toast--minimized {

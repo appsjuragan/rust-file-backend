@@ -16,7 +16,7 @@ import {
   DialogModal
 } from "./components";
 // Types
-import type { FileSystemType, FileType } from "./types";
+import type { FileSystemType, FileType, FolderNode } from "./types";
 import { ViewStyle, UploadStatus } from "./types";
 // HTTP Client
 import { setOnRequestCallback } from "../src/services/httpClient";
@@ -45,6 +45,8 @@ export interface IFileManagerProps {
   onLoadMore?: () => Promise<void>;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  folderTree?: FolderNode[];
+  refreshFolderTree?: () => Promise<void>;
 }
 
 export const ReactFileManager = ({
@@ -71,6 +73,8 @@ export const ReactFileManager = ({
   onLoadMore,
   hasMore,
   isLoadingMore,
+  folderTree: propFolderTree,
+  refreshFolderTree,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -113,6 +117,7 @@ export const ReactFileManager = ({
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [resetSignal, setResetSignal] = useState(0);
+  const folderTree = propFolderTree ?? [];
 
   const resetUploadToastCountdown = useCallback(() => {
     setResetSignal(s => s + 1);
@@ -232,13 +237,16 @@ export const ReactFileManager = ({
     isLoadingMore,
     resetUploadToastCountdown,
     resetSignal, // Exporting signal to let the toast consume it
+    folderTree,
+    refreshFolderTree,
   }), [
     fs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
     onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
     activeUploads, selectedIds, clipboardIds, isCut, newFolderModalVisible, previewVisible,
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
-    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal
+    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
+    folderTree, refreshFolderTree
   ]);
 
   return (

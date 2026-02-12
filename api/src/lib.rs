@@ -45,6 +45,7 @@ use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
         api::handlers::files::bulk_copy,
         api::handlers::files::generate_download_ticket,
         api::handlers::files::download_file_with_ticket,
+        api::handlers::files::folder_tree,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
         api::handlers::health::get_validation_rules,
@@ -77,6 +78,7 @@ use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
             api::handlers::files::BulkMoveRequest,
             api::handlers::files::BulkMoveResponse,
             api::handlers::files::BulkCopyResponse,
+            api::handlers::files::FolderTreeEntry,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
@@ -187,6 +189,7 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route("/files", get(api::handlers::files::list_files))
         .route("/folders", post(api::handlers::files::create_folder))
+        .route("/folders/tree", get(api::handlers::files::folder_tree))
         .route("/files/bulk-delete", post(api::handlers::files::bulk_delete))
         .route("/files/bulk-move", post(api::handlers::files::bulk_move))
         .route("/files/bulk-copy", post(api::handlers::files::bulk_copy))

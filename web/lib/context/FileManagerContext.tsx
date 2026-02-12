@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, ViewStyle, FileType, UploadStatus } from "../types";
+import type { FileSystemType, ViewStyle, FileType, UploadStatus, FolderNode } from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
@@ -88,6 +88,8 @@ interface ProviderInterface {
   isLoadingMore?: boolean;
   resetUploadToastCountdown?: () => void;
   resetSignal?: number;
+  folderTree: FolderNode[];
+  refreshFolderTree?: () => Promise<void>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);
