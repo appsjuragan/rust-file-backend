@@ -140,6 +140,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/download/:ticket",
             get(api::handlers::files::download_file_with_ticket),
+        )
+        .route(
+            "/cloud/:provider/callback",
+            get(api::handlers::cloud_providers::provider_callback),
         );
 
     // Protected routes
@@ -209,6 +213,12 @@ pub fn create_app(state: AppState) -> Router {
             post(api::handlers::users::upload_avatar),
         )
         .route("/users/me/facts", get(api::handlers::users::get_user_facts))
+        .route("/cloud/providers", get(api::handlers::cloud_providers::list_providers))
+        .route("/cloud/:provider/connect", get(api::handlers::cloud_providers::connect_provider))
+        .route("/cloud/:provider/files", get(api::handlers::cloud_providers::list_cloud_files))
+        .route("/cloud/:provider/import", post(api::handlers::cloud_providers::import_file))
+        .route("/cloud/:provider/export", post(api::handlers::cloud_providers::export_file))
+        .route("/cloud/:provider/disconnect", axum::routing::delete(api::handlers::cloud_providers::disconnect_provider))
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

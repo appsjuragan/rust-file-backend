@@ -5,3 +5,4 @@ pub mod health;
 pub mod user_settings;
 pub mod users;
 pub mod upload;
+pub mod cloud_providers;
