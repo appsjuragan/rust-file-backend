@@ -15,3 +15,4 @@ pub mod allowed_mimes;
 pub mod blocked_extensions;
 pub mod magic_signatures;
 pub mod upload_sessions;
+pub mod cloud_provider_tokens;

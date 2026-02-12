@@ -12,3 +12,4 @@ pub use super::user_files::Entity as UserFiles;
 pub use super::user_settings::Entity as UserSettings;
 pub use super::users::Entity as Users;
 pub use super::upload_sessions::Entity as UploadSessions;
+pub use super::cloud_provider_tokens::Entity as CloudProviderTokens;

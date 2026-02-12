@@ -10,6 +10,7 @@ use crate::config::SecurityConfig;
 use crate::services::file_service::FileService;
 use crate::services::scanner::VirusScanner;
 use crate::services::storage::StorageService;
+use crate::services::cloud_provider_manager::CloudProviderManager;
 use axum::{
     Router,
     middleware::{from_fn, from_fn_with_state},
@@ -111,6 +112,7 @@ pub struct AppState {
     pub file_service: Arc<FileService>,
     pub upload_service: Arc<crate::services::upload_service::UploadService>,
     pub config: SecurityConfig,
+    pub cloud_provider_manager: Arc<CloudProviderManager>,
     pub download_tickets: Arc<DashMap<String, (String, DateTime<Utc>)>>,
     pub captchas: Arc<DashMap<String, CaptchaChallenge>>,
     pub cooldowns: Arc<DashMap<String, CooldownEntry>>,

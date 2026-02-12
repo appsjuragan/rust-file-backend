@@ -2,6 +2,8 @@ use clap::Parser;
 use dotenvy::dotenv;
 use rust_file_backend::infrastructure::{database, scanner, storage};
 use rust_file_backend::services::file_service::FileService;
+use rust_file_backend::services::cloud_provider_manager::CloudProviderManager;
+use rust_file_backend::services::cloud_providers::google_drive::GoogleDriveProvider;
 use rust_file_backend::{AppState, create_app};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -100,6 +102,22 @@ async fn main() -> anyhow::Result<()> {
         let captchas: Arc<DashMap<String, CaptchaChallenge>> = Arc::new(DashMap::new());
         let cooldowns: Arc<DashMap<String, CooldownEntry>> = Arc::new(DashMap::new());
 
+        let mut cloud_provider_manager = CloudProviderManager::new(db.clone());
+        
+        // Register Google Drive if credentials available
+        if let (Some(id), Some(secret), Some(url)) = (
+            &security_config.google_drive_client_id,
+            &security_config.google_drive_client_secret,
+            &security_config.google_drive_redirect_url
+        ) {
+            info!("☁️  Cloud Provider: Google Drive enabled");
+            cloud_provider_manager.register(Arc::new(GoogleDriveProvider::new(
+                id.clone(),
+                secret.clone(),
+                url.clone(),
+            )));
+        }
+
         let state = AppState {
             db: db.clone(),
             storage: storage_service.clone(),
@@ -107,6 +125,7 @@ async fn main() -> anyhow::Result<()> {
             file_service,
             upload_service,
             config: security_config.clone(),
+            cloud_provider_manager: Arc::new(cloud_provider_manager),
             download_tickets: Arc::new(DashMap::new()),
             captchas: captchas.clone(),
             cooldowns: cooldowns.clone(),

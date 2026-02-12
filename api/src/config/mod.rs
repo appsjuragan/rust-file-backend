@@ -43,6 +43,13 @@ pub struct SecurityConfig {
 
     /// Allowed CORS Origins (comma separated)
     pub allowed_origins: Vec<String>,
+
+    /// Google Drive Client ID
+    pub google_drive_client_id: Option<String>,
+    /// Google Drive Client Secret
+    pub google_drive_client_secret: Option<String>,
+    /// Google Drive Redirect URL
+    pub google_drive_redirect_url: Option<String>,
 }
 
 impl Default for SecurityConfig {
@@ -68,6 +75,9 @@ impl Default for SecurityConfig {
                 "http://localhost:5173".to_string(), // Vite default
                 "http://127.0.0.1:3000".to_string(),
             ],
+            google_drive_client_id: None,
+            google_drive_client_secret: None,
+            google_drive_redirect_url: None,
         }
     }
 }
@@ -126,6 +136,10 @@ impl SecurityConfig {
                 .ok()
                 .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or(default.allowed_origins),
+
+            google_drive_client_id: env::var("GOOGLE_DRIVE_CLIENT_ID").ok(),
+            google_drive_client_secret: env::var("GOOGLE_DRIVE_CLIENT_SECRET").ok(),
+            google_drive_redirect_url: env::var("GOOGLE_DRIVE_REDIRECT_URL").ok(),
         }
     }
 
@@ -152,6 +166,9 @@ impl SecurityConfig {
                 "http://localhost:5173".to_string(), // Vite default
                 "http://127.0.0.1:3000".to_string(),
             ],
+            google_drive_client_id: None,
+            google_drive_client_secret: None,
+            google_drive_redirect_url: None,
         }
     }
 
@@ -197,6 +214,10 @@ impl SecurityConfig {
                 .ok()
                 .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or_else(|| vec!["https://myfiles1.thepihouse.my.id".to_string()]), // Default to known prod domain if not set
+
+            google_drive_client_id: env::var("GOOGLE_DRIVE_CLIENT_ID").ok(),
+            google_drive_client_secret: env::var("GOOGLE_DRIVE_CLIENT_SECRET").ok(),
+            google_drive_redirect_url: env::var("GOOGLE_DRIVE_REDIRECT_URL").ok(),
         }
     }
 }

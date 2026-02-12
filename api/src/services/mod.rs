@@ -8,3 +8,5 @@ pub mod storage;
 pub mod storage_lifecycle;
 pub mod worker;
 pub mod upload_service;
+pub mod cloud_providers;
+pub mod cloud_provider_manager;
