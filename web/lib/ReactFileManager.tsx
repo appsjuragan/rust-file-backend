@@ -47,6 +47,8 @@ export interface IFileManagerProps {
   isLoadingMore?: boolean;
   folderTree?: FolderNode[];
   refreshFolderTree?: () => Promise<void>;
+  sidebarVisible?: boolean;
+  setSidebarVisible?: (visible: boolean) => void;
 }
 
 export const ReactFileManager = ({
@@ -75,6 +77,8 @@ export const ReactFileManager = ({
   isLoadingMore,
   folderTree: propFolderTree,
   refreshFolderTree,
+  sidebarVisible: propSidebarVisible,
+  setSidebarVisible: propSetSidebarVisible,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -103,6 +107,10 @@ export const ReactFileManager = ({
   const [renameVisible, setRenameVisible] = useState<boolean>(false);
   const [renameFile, setRenameFile] = useState<FileType | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
+  const [internalSidebarVisible, setInternalSidebarVisible] = useState<boolean>(() => window.innerWidth > 768);
+  const sidebarVisible = propSidebarVisible ?? internalSidebarVisible;
+  const setSidebarVisible = propSetSidebarVisible ?? setInternalSidebarVisible;
+
   const [openUploadDummy, setOpenUploadDummy] = useState<number>(0);
   const openUploadRef = useRef<(() => void) | null>(null);
 
@@ -239,6 +247,8 @@ export const ReactFileManager = ({
     resetSignal, // Exporting signal to let the toast consume it
     folderTree,
     refreshFolderTree,
+    sidebarVisible,
+    setSidebarVisible,
   }), [
     fs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
     onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
@@ -246,7 +256,7 @@ export const ReactFileManager = ({
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
     hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
-    folderTree, refreshFolderTree
+    folderTree, refreshFolderTree, sidebarVisible
   ]);
 
   return (
@@ -254,6 +264,21 @@ export const ReactFileManager = ({
 
       <div className="rfm-main-container">
         <div className="rfm-content-container">
+          {/* Mobile Overlay for Sidebar */}
+          {sidebarVisible && (
+            <div
+              className="rfm-sidebar-overlay"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(2px)',
+                zIndex: 3500,
+                display: 'none', // Managed by CSS media query
+              }}
+              onClick={() => setSidebarVisible(false)}
+            />
+          )}
           <Sidebar />
           <Workspace />
         </div>

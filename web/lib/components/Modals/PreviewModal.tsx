@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import CommonModal from "./CommonModal";
 import { fileService } from "../../../src/services/fileService";
+import SvgIcon from "../Icons/SvgIcon";
 
 interface IPreviewModalProps {
     isVisible: boolean;
@@ -189,13 +190,34 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
         return (
             <div className="rfm-preview-no-support">
-                Preview not available for this file type.
-                <br />
-                {secureUrl && (
-                    <a href={secureUrl} download={fileName} className="rfm-btn-primary mt-4 inline-block">
-                        Download File
-                    </a>
-                )}
+                <span className="text-sm font-medium mb-6 opacity-60 italic">Preview not available for this file type.</span>
+
+                <div className="rfm-preview-metadata-box">
+                    <div className="rfm-metadata-row">
+                        <span>File Name</span>
+                        <span title={fileName}>{fileName}</span>
+                    </div>
+                    <div className="rfm-metadata-row">
+                        <span>File Type</span>
+                        <span className="uppercase">{extension || 'Unknown'}</span>
+                    </div>
+                    <div className="rfm-metadata-row">
+                        <span>File Size</span>
+                        <span>{size ? formatSize(size) : 'Unknown'}</span>
+                    </div>
+                    {mimeType && (
+                        <div className="rfm-metadata-row">
+                            <span>MIME Type</span>
+                            <span>{mimeType}</span>
+                        </div>
+                    )}
+                    <div className="rfm-metadata-row">
+                        <span>Scan Status</span>
+                        <span className={`rfm-status-badge is-${scanStatus || 'unchecked'}`}>
+                            {scanStatus || 'unchecked'}
+                        </span>
+                    </div>
+                </div>
             </div>
         );
     };
@@ -203,6 +225,16 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     return (
         <CommonModal isVisible={isVisible} onClose={onClose} title={`Preview: ${fileName}`} className="rfm-preview-modal" clickPosition={clickPosition}>
             {renderPreview()}
+            {secureUrl && !loading && (
+                <a href={secureUrl} download={fileName} className="rfm-preview-float-download" title="Download File">
+                    {size && <span className="rfm-float-size-info">{formatSize(size)}</span>}
+                    <div className="rfm-float-download-divider"></div>
+                    <div className="rfm-float-download-btn-content">
+                        <SvgIcon svgType="download" />
+                        <span>Download</span>
+                    </div>
+                </a>
+            )}
         </CommonModal>
     );
 };

@@ -44,6 +44,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
     const [dropdownVisible, setDropdownVisible] = useState(false);
+    const [sidebarVisible, setSidebarVisible] = useState(() => window.innerWidth > 768);
 
     // Modals
     const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -96,13 +97,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
             setProfile({
                 id: data.id,
-                name: data.full_name,
+                name: data.name,
                 email: data.email,
                 avatarUrl: avatar
             });
 
             // Pre-fill edit fields
-            setEditName(data.full_name || "");
+            setEditName(data.name || "");
             setEditEmail(data.email || "");
 
             if (data.username) setUsername(data.username);
@@ -342,12 +343,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 dropdownVisible={dropdownVisible}
                 setDropdownVisible={setDropdownVisible}
                 setProfileModalVisible={setProfileModalVisible}
+                sidebarVisible={sidebarVisible}
+                setSidebarVisible={setSidebarVisible}
                 theme={theme}
                 toggleTheme={toggleTheme}
                 onLogout={onLogout}
                 searchSuggestions={searchSuggestions}
                 isSearching={isSearching}
                 onSearchResultClick={(file) => {
+                    if (window.innerWidth <= 768) setSidebarVisible(false);
                     if (file.isDir) {
                         setCurrentFolder(file.id);
                     } else {
@@ -387,6 +391,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     setHighlightedId={setHighlightedId}
                     folderTree={folderTree}
                     refreshFolderTree={fetchFolderTree}
+                    sidebarVisible={sidebarVisible}
+                    setSidebarVisible={setSidebarVisible}
                 />
             </main>
 

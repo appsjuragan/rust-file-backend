@@ -18,6 +18,8 @@ interface DashboardHeaderProps {
     searchSuggestions?: FileType[];
     isSearching?: boolean;
     onSearchResultClick?: (file: FileType) => void;
+    sidebarVisible: boolean;
+    setSidebarVisible: (visible: boolean) => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -34,6 +36,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     searchSuggestions = [],
     isSearching = false,
     onSearchResultClick,
+    sidebarVisible,
+    setSidebarVisible
 }) => {
     return (
         <header className="app-header">
@@ -91,7 +95,12 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </div>
             </div>
             <div className="user-info">
-                <div className="user-dropdown-container" onClick={() => setDropdownVisible(!dropdownVisible)}>
+                <div className="user-dropdown-container" onClick={() => {
+                    setDropdownVisible(!dropdownVisible);
+                    if (window.innerWidth <= 768 && !dropdownVisible) {
+                        setSidebarVisible(false);
+                    }
+                }}>
                     <span className="user-username-header">{profile.name || username}</span>
                     <div className="user-avatar-small" style={{ color: 'white' }}>
                         {profile.avatarUrl ? (
@@ -103,21 +112,25 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     <ChevronDown size={16} className={`dropdown-arrow ${dropdownVisible ? 'rotated' : ''}`} />
 
                     {dropdownVisible && (
-                        <div className="user-dropdown-menu" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                            <div className="dropdown-user-header">
-                                <strong>{profile.name || username}</strong>
-                                <small>{profile.email}</small>
+                        <div className="user-dropdown-menu">
+                            <div className="dropdown-user-header" onClick={() => setDropdownVisible(false)}>
+                                <div className="dropdown-username">@{username}</div>
+                                <div className="dropdown-email">{profile.email}</div>
+                                <div className="dropdown-fullname">{profile.name}</div>
                             </div>
-                            <div className="dropdown-divider" />
                             <div className="dropdown-item" onClick={() => { setProfileModalVisible(true); setDropdownVisible(false); }}>
                                 <User size={16} /> Profile
                             </div>
-                            <div className="dropdown-item" onClick={() => { toggleTheme(); setDropdownVisible(false); }}>
+                            <div className="dropdown-item" onClick={() => {
+                                toggleTheme();
+                                setDropdownVisible(false);
+                                if (window.innerWidth <= 768) setSidebarVisible(false);
+                            }}>
                                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                             </div>
                             <div className="dropdown-divider" />
-                            <div className="dropdown-item logout" onClick={onLogout}>
+                            <div className="dropdown-item logout" onClick={() => { onLogout(); setDropdownVisible(false); }}>
                                 <LogOut size={16} /> Logout
                             </div>
                         </div>

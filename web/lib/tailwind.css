@@ -66,16 +66,8 @@
     @apply flex flex-row flex-1 overflow-hidden;
   }
 
-  /* Responsive: Hide sidebar on mobile */
-  @media (max-width: 768px) {
-    .rfm-content-container {
-      flex-direction: column;
-    }
+  /* Removed legacy mobile sidebar hiding that conflicted with new implementation */
 
-    .rfm-sidebar {
-      display: none !important;
-    }
-  }
 
   /* Legacy Navbar Styles */
   .rfm-navbar {

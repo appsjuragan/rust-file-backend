@@ -2,7 +2,7 @@
 
     /* Workspace */
     .rfm-workspace {
-        @apply bg-slate-50 relative flex flex-col w-full h-full gap-4 p-3 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+        @apply bg-stone-50 relative flex flex-col w-full h-full gap-6 p-6 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
         min-height: 400px;
     }
 
@@ -11,7 +11,7 @@
     }
 
     .rfm-workspace-dropzone {
-        @apply bg-sky-100;
+        @apply bg-amber-50;
     }
 
     .rfm-workspace-file-listing {
@@ -29,7 +29,7 @@
     }
 
     .rfm-workspace-file-listing::-webkit-scrollbar-thumb {
-        @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+        @apply bg-stone-300 dark:bg-slate-700 rounded-full;
     }
 
     .rfm-empty-folder {
@@ -37,12 +37,12 @@
     }
 
     .rfm-empty-folder p {
-        @apply px-6 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500;
+        @apply px-6 py-2 bg-stone-100 border border-stone-200 rounded-lg text-stone-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500;
     }
 
     /* List View */
     .rfm-workspace-list-th {
-        @apply text-left last:text-right px-4 py-1.5 sticky top-0 bg-slate-100 z-10 dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 whitespace-nowrap;
+        @apply text-left last:text-right px-4 py-1.5 sticky top-0 bg-stone-100 z-10 dark:bg-gray-800 border-b border-stone-200 dark:border-gray-700 whitespace-nowrap;
     }
 
     .rfm-workspace-list-th-content {
@@ -58,7 +58,7 @@
     }
 
     .rfm-workspace-list-icon-row {
-        @apply cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 active:bg-gray-200 transition-all duration-200 select-none;
+        @apply cursor-pointer hover:bg-stone-100 dark:hover:bg-gray-600 active:bg-stone-200 transition-all duration-200 select-none;
     }
 
     .rfm-workspace-list-icon-row.rfm-selected {
@@ -81,7 +81,7 @@
     }
 
     .rfm-icons-grid .rfm-file-item {
-        @apply flex flex-col items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50;
+        @apply flex flex-col items-center p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-slate-700/50;
     }
 
     .rfm-icons-grid .rfm-file-item.rfm-selected {
@@ -94,7 +94,41 @@
 
     /* Workspace Header & Icons */
     .rfm-workspace-header {
-        @apply w-full flex gap-4 justify-between items-center mb-4 shrink-0;
+        @apply w-full flex flex-col gap-4 justify-start items-stretch mb-6 shrink-0;
+    }
+
+    .rfm-toolbar {
+        @apply flex items-center justify-between gap-6;
+    }
+
+    .rfm-toolbar-group {
+        @apply flex items-center gap-3;
+    }
+
+    .rfm-breadcrumb-bar {
+        @apply flex items-center bg-stone-100 dark:bg-slate-700/50 rounded-xl px-2 py-1.5 border border-stone-200 dark:border-slate-700 shadow-sm gap-2;
+    }
+
+    .rfm-toolbar-breadcrumbs {
+        @apply hidden;
+    }
+
+    @media (min-width: 769px) {
+        .rfm-toolbar-breadcrumbs {
+            @apply flex items-center flex-1 min-w-0 mx-4 bg-stone-100 dark:bg-slate-700/50 rounded-xl px-3 py-1 border border-stone-200 dark:border-slate-700 shadow-sm gap-2 transition-all duration-200;
+        }
+
+        .rfm-breadcrumb-bar {
+            @apply hidden;
+        }
+
+        .rfm-toolbar-breadcrumbs .rfm-breadcrumb-up-icon {
+            @apply pr-2 mr-0 border-r-0;
+        }
+    }
+
+    .rfm-breadcrumb-up-icon {
+        @apply w-8 h-8 flex items-center justify-center text-stone-500 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 p-1.5 rounded-lg transition-all duration-200 cursor-pointer border-r border-stone-200 dark:border-slate-600 pr-3 mr-1;
     }
 
     .rfm-mobile-actions {
@@ -102,15 +136,15 @@
     }
 
     .rfm-header-container {
-        @apply flex justify-center items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600 p-0.5;
+        @apply flex justify-center items-center gap-2 rounded-xl bg-stone-200 dark:bg-slate-700 p-1 shadow-inner;
     }
 
     .rfm-header-icon {
-        @apply w-6 h-6 transition-all duration-200 cursor-pointer p-0.5;
+        @apply w-9 h-9 transition-all duration-200 cursor-pointer p-1.5 flex items-center justify-center;
     }
 
     .rfm-header-icon--selected {
-        @apply bg-slate-700 dark:bg-sky-500 text-white rounded-md;
+        @apply bg-stone-700 dark:bg-sky-500 text-white rounded-md;
     }
 
     .rfm-header-sort-icon {
@@ -143,6 +177,24 @@
 
         60% {
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
+        }
+    }
+
+    .rfm-header-icon--pulse {
+        animation: rfm-icon-pulse 2s infinite;
+    }
+
+    @keyframes rfm-icon-pulse {
+        0% {
+            box-shadow: 0 0 0 0px rgba(99, 102, 241, 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
         }
 
         100% {
@@ -200,7 +252,13 @@
     }
 
     .rfm-folder-path-svg {
-        @apply w-8 h-8 flex items-center justify-center fill-white bg-slate-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0;
+        @apply w-8 h-8 flex items-center justify-center fill-white bg-stone-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-stone-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0 relative z-[4500];
+    }
+
+    @media (max-width: 768px) {
+        .rfm-folder-path-svg {
+            @apply z-[4500];
+        }
     }
 
     .rfm-folder-path-svg svg {
@@ -208,19 +266,19 @@
     }
 
     .rfm-breadcrumbs {
-        @apply flex items-center gap-2 text-sm text-slate-600 font-medium overflow-hidden;
+        @apply flex items-center gap-2 text-sm text-stone-600 font-medium overflow-hidden;
     }
 
     .rfm-breadcrumb-item {
-        @apply flex items-center cursor-pointer hover:text-sky-600 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400 whitespace-nowrap;
+        @apply flex items-center cursor-pointer hover:text-teal-700 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400 whitespace-nowrap;
     }
 
     .rfm-breadcrumb-item.active {
-        @apply text-slate-900 font-bold cursor-default dark:text-slate-100;
+        @apply text-stone-900 font-bold cursor-default dark:text-slate-100;
     }
 
     .rfm-breadcrumb-separator {
-        @apply text-slate-300 select-none dark:text-slate-600;
+        @apply text-stone-300 select-none dark:text-slate-600;
     }
 
     /* ==================== Responsive Workspace ==================== */
@@ -261,7 +319,19 @@
         }
 
         .rfm-folder-path-svg {
-            @apply w-7 h-7 p-1;
+            @apply w-10 h-10 p-2;
+        }
+
+        .rfm-header-container {
+            @apply gap-3 p-1.5 rounded-xl;
+        }
+
+        .rfm-header-icon {
+            @apply w-10 h-10 p-2;
+        }
+
+        .rfm-mobile-actions {
+            @apply gap-2 pr-4 border-r-2;
         }
 
         .rfm-breadcrumbs {
@@ -311,6 +381,16 @@
         .rfm-icons-grid {
             grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             @apply gap-1.5;
+        }
+    }
+
+    .rfm-sidebar-overlay {
+        display: none !important;
+    }
+
+    @media (max-width: 768px) {
+        .rfm-sidebar-overlay {
+            display: block !important;
         }
     }
 }

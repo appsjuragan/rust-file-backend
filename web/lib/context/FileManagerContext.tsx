@@ -90,6 +90,8 @@ interface ProviderInterface {
   resetSignal?: number;
   folderTree: FolderNode[];
   refreshFolderTree?: () => Promise<void>;
+  sidebarVisible: boolean;
+  setSidebarVisible: Dispatch<boolean>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

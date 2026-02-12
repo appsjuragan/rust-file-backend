@@ -19,16 +19,11 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
         header::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
     );
 
-    // Prevent clickjacking
-    headers.insert(
-        header::X_FRAME_OPTIONS,
-        header::HeaderValue::from_static("SAMEORIGIN"),
-    );
-
     // Content Security Policy for API (OWASP recommendation)
+    // frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; allows the frontend to frame the backend (e.g. for PDF previews)
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        header::HeaderValue::from_static("default-src 'none'; frame-ancestors 'self';"),
+        header::HeaderValue::from_static("default-src 'none'; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*;"),
     );
 
     // Referrer Policy

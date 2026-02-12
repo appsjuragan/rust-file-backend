@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ISvgIconProps extends React.AllHTMLAttributes<HTMLDivElement> {
-  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square";
+  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu";
 }
 
 const SvgIcon: React.FC<ISvgIconProps> = ({
@@ -10,6 +10,23 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
 }: ISvgIconProps) => {
   const svgContent = () => {
     switch (svgType) {
+      case "menu": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        );
+      }
+      case "copy": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        );
+      }
       case "home": {
         return (
           <svg className="w-full h-full" stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

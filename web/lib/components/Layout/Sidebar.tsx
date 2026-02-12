@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType, FolderNode } from "../../types";
@@ -37,7 +37,7 @@ interface FolderTreeItemProps {
 }
 
 const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onToggle }: FolderTreeItemProps) => {
-    const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving } = useFileManager();
+    const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, setSidebarVisible } = useFileManager();
     const [isDragOver, setIsDragOver] = useState(false);
 
     const children = childrenMap.get(node.id) ?? [];
@@ -92,6 +92,12 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
         if (hasChildren && !isExpanded) {
             onToggle(node.id);
         }
+
+        // Close sidebar on mobile after navigation
+        if (window.innerWidth <= 768 && setSidebarVisible) {
+            setSidebarVisible(false);
+        }
+
         if (onRefresh) {
             try {
                 await onRefresh(node.id);
@@ -106,19 +112,23 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
         onToggle(node.id);
     };
 
-    const handleContextMenu = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setCurrentFolder(node.id);
-        setContextMenu({ x: e.clientX, y: e.clientY, file: nodeToFileType(node) });
-    };
-
     return (
-        <div className="rfm-sidebar-tree-item">
+        <div className="rfm-folder-branch">
             <div
                 className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""} ${isDragOver ? "rfm-drag-over" : ""}`}
+                style={{ paddingLeft: `${Math.max(0.5, level * 0.75)}rem` }}
                 onClick={handleFolderClick}
-                onContextMenu={handleContextMenu}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentFolder(node.id);
+                    setContextMenu({ x: e.clientX, y: e.clientY, file: nodeToFileType(node) });
+                }}
+                draggable
+                onDragStart={(e) => {
+                    e.dataTransfer.setData("application/json", JSON.stringify([node.id]));
+                    e.dataTransfer.effectAllowed = "move";
+                }}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -133,9 +143,10 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
                 <SvgIcon svgType="folder" className="rfm-sidebar-icon" />
                 <span className="rfm-sidebar-item-text" data-text={node.filename}>{node.filename}</span>
             </div>
-            {hasChildren && isExpanded && (
-                <div className="rfm-sidebar-indent">
-                    {children.map((child) => (
+
+            {isExpanded && children.length > 0 && (
+                <div className="rfm-sidebar-subfolders">
+                    {children.map(child => (
                         <FolderTreeItem
                             key={child.id}
                             node={child}
@@ -150,144 +161,22 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
         </div>
     );
 });
-FolderTreeItem.displayName = "FolderTreeItem";
-
-const StorageStats = ({ userFacts }: { userFacts: any }) => {
-    const [isStatsMinimized, setIsStatsMinimized] = useState(localStorage.getItem("rfm-stats-minimized") === "true");
-    const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
-
-    const toggleMinimize = () => {
-        const newValue = !isStatsMinimized;
-        setIsStatsMinimized(newValue);
-        localStorage.setItem("rfm-stats-minimized", String(newValue));
-    };
-
-    const categories = [
-        { id: 'image', label: 'Image', value: userFacts.image_count, color: '#eab308' },
-        { id: 'video', label: 'Video', value: userFacts.video_count, color: '#ef4444' },
-        { id: 'audio', label: 'Audio', value: userFacts.audio_count, color: '#3b82f6' },
-        { id: 'document', label: 'Document', value: userFacts.document_count, color: '#22c55e' },
-        { id: 'others', label: 'Others', value: userFacts.others_count, color: '#64748b' },
-    ];
-
-    const total = categories.reduce((sum, cat) => sum + cat.value, 0);
-
-    const renderPie = () => {
-        if (total === 0) return <div className="rfm-facts-pie-empty"></div>;
-
-        const activeCategories = categories.filter(c => c.value > 0);
-        const radius = 42; // Reduced radius to prevent clipping
-
-        // If only one category, render a circle for better visual and avoid path bugs
-        if (activeCategories.length === 1) {
-            const cat = activeCategories[0]!;
-            return (
-                <svg viewBox="0 0 100 100" className="rfm-facts-pie-svg">
-                    <circle
-                        cx="50"
-                        cy="50"
-                        r={radius}
-                        fill={cat.color}
-                        className={`rfm-pie-segment ${hoveredCategory === cat.id ? 'active' : ''}`}
-                        onMouseEnter={() => setHoveredCategory(cat.id)}
-                        onMouseLeave={() => setHoveredCategory(null)}
-                    />
-                    {hoveredCategory === cat.id && (
-                        <g className="rfm-pie-text-group">
-                            <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">100%</text>
-                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label === "Others" ? cat.label : `${cat.label}s`}</text>
-                        </g>
-                    )}
-                </svg>
-            );
-        }
-
-        let currentAngle = -90;
-        return (
-            <svg viewBox="0 0 100 100" className="rfm-facts-pie-svg">
-                {categories.map(cat => {
-                    if (cat.value === 0) return null;
-                    const angle = (cat.value / total) * 360;
-                    const startAngle = currentAngle;
-                    const endAngle = currentAngle + angle;
-                    currentAngle += angle;
-
-                    const x1 = 50 + radius * Math.cos((Math.PI * startAngle) / 180);
-                    const y1 = 50 + radius * Math.sin((Math.PI * startAngle) / 180);
-                    const x2 = 50 + radius * Math.cos((Math.PI * endAngle) / 180);
-                    const y2 = 50 + radius * Math.sin((Math.PI * endAngle) / 180);
-
-                    const largeArcFlag = angle > 180 ? 1 : 0;
-                    const pathData = `M 50 50 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
-
-                    return (
-                        <path
-                            key={cat.id}
-                            d={pathData}
-                            fill={cat.color}
-                            className={`rfm-pie-segment ${hoveredCategory === cat.id ? 'active' : ''}`}
-                            onMouseEnter={() => setHoveredCategory(cat.id)}
-                            onMouseLeave={() => setHoveredCategory(null)}
-                        />
-                    );
-                })}
-                {hoveredCategory && (() => {
-                    const cat = categories.find(c => c.id === hoveredCategory);
-                    if (!cat) return null;
-                    const percentage = Math.round((cat.value / total) * 100);
-                    return (
-                        <g className="rfm-pie-text-group">
-                            <text x="50" y="48" textAnchor="middle" className="rfm-pie-percentage">{percentage}%</text>
-                            <text x="50" y="65" textAnchor="middle" className="rfm-pie-label">of {cat.label === "Others" ? cat.label : `${cat.label}s`}</text>
-                        </g>
-                    );
-                })()}
-            </svg>
-        );
-    };
-
-    return (
-        <div className={`rfm-sidebar-facts ${isStatsMinimized ? 'minimized' : ''}`}>
-            <div className="rfm-facts-header" onClick={toggleMinimize}>
-                <div className="rfm-facts-title">Storage usage</div>
-                <div className="rfm-facts-toggle-btn">
-                    <SvgIcon svgType={isStatsMinimized ? "arrow-up" : "arrow-down"} className="w-2.5 h-2.5" />
-                </div>
-            </div>
-            {isStatsMinimized ? (
-                <div className="rfm-facts-minimized-info" onClick={toggleMinimize}>
-                    {userFacts.total_files} files / {formatSize(userFacts.total_size)}
-                </div>
-            ) : (
-                <div className="rfm-facts-container">
-                    <div className="rfm-facts-content">
-                        <div className="rfm-fact-item">Files: {userFacts.total_files}</div>
-                        <div className="rfm-fact-item">Size: {formatSize(userFacts.total_size)}</div>
-                        <div className="rfm-fact-category-list">
-                            {categories.map(cat => (
-                                <div
-                                    key={cat.id}
-                                    className={`rfm-fact-sub-item ${hoveredCategory === cat.id ? 'highlighted' : ''}`}
-                                    onMouseEnter={() => setHoveredCategory(cat.id)}
-                                    onMouseLeave={() => setHoveredCategory(null)}
-                                >
-                                    <span className="dot" style={{ backgroundColor: cat.color }}></span>
-                                    {cat.label}: {cat.value}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="rfm-facts-pie-container">
-                        {renderPie()}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const Sidebar = () => {
-    const { currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, userFacts, folderTree } = useFileManager();
+    const {
+        currentFolder,
+        setCurrentFolder,
+        onRefresh,
+        setContextMenu,
+        onBulkMove,
+        onMove,
+        setSelectedIds,
+        setIsMoving,
+        userFacts,
+        folderTree,
+        sidebarVisible,
+        setSidebarVisible
+    } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set<string>());
 
@@ -307,7 +196,7 @@ const Sidebar = () => {
     }, [childrenMap]);
 
     // Auto-expand ancestors of current folder so the active item is always visible
-    useMemo(() => {
+    useEffect(() => {
         if (currentFolder && currentFolder !== "0") {
             const ancestors = new Set<string>();
             let current = idToNodeMap.get(currentFolder);
@@ -385,11 +274,33 @@ const Sidebar = () => {
 
     const handleRootClick = async () => {
         setCurrentFolder("0");
+        if (window.innerWidth <= 768 && setSidebarVisible) {
+            setSidebarVisible(false);
+        }
         if (onRefresh) await onRefresh("0");
     };
 
+    // Calculate facts for storage stats
+    const totalStorage = 5 * 1024 * 1024 * 1024; // 5GB baseline
+    const usedStorage = userFacts?.total_size || 0;
+    const storagePercentage = Math.min(100, Math.round((usedStorage / totalStorage) * 100));
+
+    // Manual mapping of categories from the flat metrics in the backend
+    const sortedCategories = useMemo(() => {
+        if (!userFacts) return [];
+        return [
+            { cat: 'Images', count: userFacts.image_count, label: 'images' },
+            { cat: 'Videos', count: userFacts.video_count, label: 'videos' },
+            { cat: 'Docs', count: userFacts.document_count, label: 'documents' },
+            { cat: 'Audio', count: userFacts.audio_count, label: 'audio' },
+            { cat: 'Other', count: userFacts.others_count, label: 'others' },
+        ].filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+    }, [userFacts]);
+
+    const [factsMinimized, setFactsMinimized] = useState(false);
+
     return (
-        <aside className="rfm-sidebar">
+        <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
             <div className="rfm-sidebar-list">
                 <div
                     className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""} ${isDragOverRoot ? "rfm-drag-over" : ""}`}
@@ -421,9 +332,85 @@ const Sidebar = () => {
                 </div>
             </div>
 
-            {userFacts && <StorageStats userFacts={userFacts} />}
+            {/* Storage Statistics */}
+            {userFacts && (
+                <div className={`rfm-sidebar-facts ${factsMinimized ? 'minimized' : ''}`}>
+                    <div className="rfm-facts-header" onClick={() => setFactsMinimized(!factsMinimized)}>
+                        <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+                            <SvgIcon svgType="info" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                            Storage Usage
+                        </div>
+                        <button className="rfm-facts-toggle-btn">
+                            <SvgIcon svgType={factsMinimized ? "plus" : "minus"} size={12} />
+                        </button>
+                    </div>
+
+                    {!factsMinimized ? (
+                        <div className="rfm-facts-container">
+                            <div className="rfm-facts-content">
+                                <div className="flex items-center gap-4 mb-3 mt-1">
+                                    <div className="rfm-facts-pie-container">
+                                        {usedStorage > 0 ? (
+                                            <svg className="rfm-facts-pie-svg" viewBox="0 0 32 32">
+                                                {/* Background Circle */}
+                                                <circle r="12" cx="16" cy="16" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-stone-200 dark:text-slate-700" />
+                                                {/* Progress Circle (Circumference = 2 * pi * 12 ~= 75.4) */}
+                                                <circle r="12" cx="16" cy="16" fill="transparent"
+                                                    stroke="#0d9488"
+                                                    strokeWidth="4"
+                                                    strokeDasharray={`${(storagePercentage / 100) * 75.4} 75.4`}
+                                                    strokeLinecap="round"
+                                                />
+                                                <text x="16" y="16" textAnchor="middle" dominantBaseline="central" className="rfm-pie-percentage">{storagePercentage}%</text>
+                                            </svg>
+                                        ) : (
+                                            <div className="rfm-facts-pie-empty" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="rfm-fact-item truncate">
+                                            {formatSize(usedStorage)} of {formatSize(totalStorage)}
+                                        </div>
+                                        <div className="text-[10px] text-stone-500 dark:text-slate-400 font-medium">
+                                            {formatSize(totalStorage - usedStorage)} free
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rfm-fact-category-list">
+                                    {sortedCategories.slice(0, 3).map((item) => (
+                                        <div key={item.label} className="rfm-fact-sub-item">
+                                            <span className="dot" style={{ backgroundColor: getCategoryColor(item.label) }} />
+                                            <span className="flex-1 truncate capitalize">{item.cat}</span>
+                                            <span className="font-semibold text-stone-700 dark:text-slate-300 text-[10px]">
+                                                {item.count} items
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rfm-facts-minimized-info" onClick={() => setFactsMinimized(false)}>
+                            {storagePercentage}% used • {formatSize(usedStorage)}
+                        </div>
+                    )}
+                </div>
+            )}
         </aside>
     );
+};
+
+// Helper for category colors
+const getCategoryColor = (cat: string): string => {
+    switch (cat.toLowerCase()) {
+        case 'images': return '#f43f5e';
+        case 'videos': return '#8b5cf6';
+        case 'documents': return '#0ea5e9';
+        case 'archives': return '#f59e0b';
+        case 'audio': return '#10b981';
+        default: return '#94a3b8';
+    }
 };
 
 export default Sidebar;

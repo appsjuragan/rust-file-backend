@@ -117,7 +117,7 @@
     font-size: 0.9rem;
     color: var(--text);
     white-space: nowrap;
-    max-width: 120px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -247,17 +247,25 @@
     background: rgba(var(--primary-rgb), 0.05);
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
 }
 
-.dropdown-user-header strong {
-    font-weight: 700;
+.dropdown-username {
+    font-weight: 800;
+    color: var(--primary);
+    font-size: 0.95rem;
+}
+
+.dropdown-fullname {
+    font-weight: 600;
     color: var(--text);
+    font-size: 0.85rem;
 }
 
-.dropdown-user-header small {
-    font-size: 0.8rem;
+.dropdown-email {
+    font-size: 0.75rem;
     color: var(--text-muted);
+    opacity: 0.8;
 }
 
 .dropdown-divider {
