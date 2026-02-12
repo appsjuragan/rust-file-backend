@@ -150,6 +150,10 @@ impl StorageService for MockStorageService {
             size: data.len() as i64,
         })
     }
+    async fn create_multipart_upload(&self, _key: &str) -> anyhow::Result<String> { Ok("mock_id".to_string()) }
+    async fn upload_part(&self, _key: &str, _uid: &str, _pn: i32, _data: Vec<u8>) -> anyhow::Result<String> { Ok("etag".to_string()) }
+    async fn complete_multipart_upload(&self, _key: &str, _uid: &str, _parts: Vec<(i32, String)>) -> anyhow::Result<()> { Ok(()) }
+    async fn abort_multipart_upload(&self, _key: &str, _uid: &str) -> anyhow::Result<()> { Ok(()) }
 }
 
 async fn setup_s3() -> Arc<dyn StorageService> {
@@ -170,13 +174,24 @@ async fn test_full_api_flow() {
         config.clone(),
     ));
 
+    let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
+        db.clone(),
+        storage_service.clone(),
+        config.clone(),
+        file_service.clone(),
+    ));
+
     let state = AppState {
         db: db.clone(),
         storage: storage_service.clone(),
         scanner: scanner_service.clone(),
         file_service: file_service.clone(),
+        upload_service,
         config: config.clone(),
         download_tickets: Arc::new(dashmap::DashMap::new()),
+        cloud_provider_manager: Arc::new(rust_file_backend::services::cloud_provider_manager::CloudProviderManager::new(db.clone())),
+        captchas: Arc::new(dashmap::DashMap::new()),
+        cooldowns: Arc::new(dashmap::DashMap::new()),
     };
 
     let app = create_app(state);

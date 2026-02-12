@@ -36,9 +36,10 @@ pub async fn setup_database() -> anyhow::Result<DatabaseConnection> {
 }
 
 pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
-    let db_url = env::var("DATABASE_URL")?;
-    
-    if db_url.starts_with("postgres://") {
+    let db_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string());
+    let backend = db.get_database_backend();
+
+    if backend == sea_orm::DatabaseBackend::Postgres {
         info!("🔄 Running SQLx migrations for PostgreSQL...");
         let pool = sqlx::PgPool::connect(&db_url).await?;
         sqlx::migrate!("./migrations").run(&pool).await?;

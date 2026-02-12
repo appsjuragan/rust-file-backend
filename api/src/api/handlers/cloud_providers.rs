@@ -37,6 +37,11 @@ pub struct ExportRequest {
     pub remote_parent_id: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct CloudListQuery {
+    pub folder_id: Option<String>,
+}
+
 /// List all available cloud providers and their connection status for the current user
 pub async fn list_providers(
     State(state): State<AppState>,
@@ -104,14 +109,14 @@ pub async fn list_cloud_files(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Path(provider_id): Path<String>,
-    Query(query): Query<Option<String>>,
+    Query(query): Query<CloudListQuery>,
 ) -> Result<Json<Vec<CloudFile>>, AppError> {
     let user_id = claims.sub;
     let access_token = state.cloud_provider_manager.get_valid_token(&user_id, &provider_id).await
         .map_err(|e| AppError::Unauthorized(e.to_string()))?;
 
     let provider = state.cloud_provider_manager.get(&provider_id).unwrap();
-    let files = provider.list_files(&access_token, query.as_deref()).await
+    let files = provider.list_files(&access_token, query.folder_id.as_deref()).await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(files))
