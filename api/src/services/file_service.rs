@@ -797,7 +797,20 @@ impl FileService {
                 .map_err(|e| AppError::Internal(e.to_string()))?
                 .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
 
-            self.copy_recursive(&txn, user_id, &item, new_parent_id.clone(), Some(format!("{} - Copy", item.filename))).await?;
+            let new_filename = if item.is_folder {
+                format!("{} - Copy", item.filename)
+            } else {
+                let path = std::path::Path::new(&item.filename);
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(&item.filename);
+                let extension = path.extension().and_then(|e| e.to_str());
+                
+                match extension {
+                    Some(ext) => format!("{} - Copy.{}", stem, ext),
+                    None => format!("{} - Copy", item.filename),
+                }
+            };
+
+            self.copy_recursive(&txn, user_id, &item, new_parent_id.clone(), Some(new_filename)).await?;
             copied_count += 1;
         }
 
