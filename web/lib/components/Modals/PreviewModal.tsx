@@ -30,6 +30,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     const [archiveEntries, setArchiveEntries] = useState<any[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [secureUrl, setSecureUrl] = useState<string | null>(null);
+    const [showDownloadButton, setShowDownloadButton] = useState(true);
     const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
     const isTextFile = (mimeType === "text/plain" || ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py"].includes(extension)) && (size || 0) < 100 * 1024;
@@ -40,8 +41,14 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             setTextContent(null);
             setArchiveEntries(null);
             setSecureUrl(null);
+            setShowDownloadButton(false);
             return;
         }
+
+        setShowDownloadButton(true);
+        const timer = setTimeout(() => {
+            setShowDownloadButton(false);
+        }, 8000);
 
         const loadContent = async () => {
             setLoading(true);
@@ -94,6 +101,8 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
         };
 
         loadContent();
+
+        return () => clearTimeout(timer);
     }, [isVisible, fileUrl, fileId, isTextFile, isArchiveFile]);
 
     const formatSize = (bytes: number) => {
@@ -183,7 +192,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
         if (extension === "pdf" && secureUrl) {
             return (
                 <div className="rfm-preview-content rfm-preview-full">
-                    <iframe src={secureUrl} className="rfm-preview-pdf" title={fileName} />
+                    <embed src={secureUrl} type="application/pdf" className="rfm-preview-pdf" />
                 </div>
             );
         }
@@ -226,7 +235,17 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
         <CommonModal isVisible={isVisible} onClose={onClose} title={`Preview: ${fileName}`} className="rfm-preview-modal" clickPosition={clickPosition}>
             {renderPreview()}
             {secureUrl && !loading && (
-                <a href={secureUrl} download={fileName} className="rfm-preview-float-download" title="Download File">
+                <a
+                    href={secureUrl}
+                    download={fileName}
+                    className="rfm-preview-float-download"
+                    title="Download File"
+                    style={{
+                        opacity: showDownloadButton ? 1 : 0,
+                        pointerEvents: showDownloadButton ? 'auto' : 'none',
+                        transform: `translateX(-50%) ${showDownloadButton ? 'scale(1)' : 'scale(0.9) translateY(20px)'}`,
+                    }}
+                >
                     {size && <span className="rfm-float-size-info">{formatSize(size)}</span>}
                     <div className="rfm-float-download-divider"></div>
                     <div className="rfm-float-download-btn-content">

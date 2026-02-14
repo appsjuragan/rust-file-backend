@@ -289,6 +289,28 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         else document.documentElement.classList.remove("dark");
     }, [theme]);
 
+    // Back button handling for Sidebar on Mobile
+    useEffect(() => {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && sidebarVisible) {
+            const stateId = `sidebar-${Math.random().toString(36).substr(2, 9)}`;
+            window.history.pushState({ sidebarId: stateId }, "");
+
+            const handlePopState = () => {
+                setSidebarVisible(false);
+            };
+
+            window.addEventListener("popstate", handlePopState);
+
+            return () => {
+                window.removeEventListener("popstate", handlePopState);
+                if (window.history.state?.sidebarId === stateId) {
+                    window.history.back();
+                }
+            };
+        }
+    }, [sidebarVisible]);
+
     // Handlers
     const toggleTheme = () => {
         const newTheme = theme === "light" ? "dark" : "light";

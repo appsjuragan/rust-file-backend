@@ -36,9 +36,32 @@ const CommonModal: React.FC<IModalProps> = ({
   }, []);
 
   useEffect(() => {
+    if (isVisible && isMobile) {
+      // Push state to history when modal opens on mobile
+      const stateId = `modal-${Math.random().toString(36).substr(2, 9)}`;
+      window.history.pushState({ modalId: stateId }, "");
+
+      const handlePopState = (e: PopStateEvent) => {
+        // Close modal when back button is pressed
+        onClose();
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        // If the modal is closed manually (not via back button), 
+        // we should remove the history entry we added if it's still there
+        if (window.history.state?.modalId === stateId) {
+          window.history.back();
+        }
+      };
+    }
+  }, [isVisible, isMobile, onClose]);
+
+  useEffect(() => {
     if (isVisible && clickPosition && !isMobile) {
       // Calculate position to keep modal within viewport
-      // Default size is 400x300, but might be different
       const width = 400;
       const height = 300;
       const padding = 20;
@@ -46,7 +69,6 @@ const CommonModal: React.FC<IModalProps> = ({
       let left = clickPosition.x;
       let top = clickPosition.y;
 
-      // Adjust if going off screen
       if (left + width > window.innerWidth) {
         left = window.innerWidth - width - padding;
       }
@@ -54,17 +76,15 @@ const CommonModal: React.FC<IModalProps> = ({
         top = window.innerHeight - height - padding;
       }
 
-      // Ensure not off-screen top/left
       left = Math.max(padding, left);
       top = Math.max(padding, top);
 
       setPositionStyle({
         top: `${top}px`,
         left: `${left}px`,
-        position: 'fixed' // Ensure fixed positioning when using coordinates
+        position: 'fixed'
       });
     } else if (isVisible && (!clickPosition || isMobile)) {
-      // Reset to default CSS positioning if no click position or is mobile
       setPositionStyle({});
     }
   }, [isVisible, clickPosition, isMobile]);
