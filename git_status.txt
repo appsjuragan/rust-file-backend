@@ -1,0 +1,39 @@
+ M .gitignore
+ M api/Cargo.lock
+ M api/Cargo.toml
+ D api/postman_collection.json
+ M api/src/api/handlers/files.rs
+ M api/src/api/handlers/users.rs
+ M api/src/services/storage_lifecycle.rs
+ M web/Dockerfile
+ M web/lib/ReactFileManager.tsx
+ M web/lib/components/ContextMenu/ContextMenu.css
+ M web/lib/components/ContextMenu/ContextMenu.tsx
+ M web/lib/components/Icons/FileIcon.tsx
+ M web/lib/components/Icons/SvgIcon.tsx
+ M web/lib/components/Layout/Sidebar.css
+ M web/lib/components/Layout/Sidebar.tsx
+ M web/lib/components/Modals/CommonModal.css
+ M web/lib/components/Modals/CommonModal.tsx
+ M web/lib/components/Modals/Forms.css
+ M web/lib/components/Modals/MetadataModal.tsx
+ M web/lib/components/Modals/PreviewModal.tsx
+ M web/lib/components/Workspace/FileGrid.tsx
+ M web/lib/components/Workspace/FileTable.tsx
+ M web/lib/components/Workspace/FolderPath.tsx
+ M web/lib/components/Workspace/Workspace.css
+ M web/lib/components/Workspace/Workspace.tsx
+ M web/lib/components/index.ts
+ M web/lib/context/FileManagerContext.tsx
+ M web/lib/types/Types.ts
+ M web/lib/types/index.ts
+ M web/src/App.tsx
+ M web/src/features/dashboard/Dashboard.tsx
+ M web/src/services/fileService.ts
+ M web/src/services/httpClient.ts
+?? api/admin_files.txt
+?? api/examples/check_admin_files.rs
+?? api/examples/check_db.rs
+?? api/examples/check_ini_sub.rs
+?? git_status.txt
+?? web/lib/components/Modals/NewTextFileModal.tsx
