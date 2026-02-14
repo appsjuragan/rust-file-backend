@@ -23,7 +23,7 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
     // frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; allows the frontend to frame the backend (e.g. for PDF previews)
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        header::HeaderValue::from_static("default-src 'none'; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*;"),
+        header::HeaderValue::from_static("default-src 'self' 'unsafe-inline' data: blob: *; frame-ancestors *;"),
     );
 
     // Referrer Policy

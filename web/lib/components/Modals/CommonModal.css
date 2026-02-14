@@ -28,6 +28,20 @@
         @apply absolute rounded-2xl bg-stone-50 z-[9000] border border-stone-200 top-[10%] left-[10%] w-[450px] h-[350px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         resize: both;
+        animation: rfm-modal-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        transform-origin: center center;
+    }
+
+    @keyframes rfm-modal-pop-in {
+        0% {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
     }
 
     /* Specific sizing for different modal types */

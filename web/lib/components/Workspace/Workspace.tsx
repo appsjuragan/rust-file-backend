@@ -15,11 +15,7 @@ import { FileGrid } from "./FileGrid";
 import { getColumns } from "./TableColumns";
 
 // Modals
-import NewFolderModal from "../Modals/NewFolderModal";
 import NewTextFileModal from "../Modals/NewTextFileModal";
-import RenameModal from "../Modals/RenameModal";
-import MetadataModal from "../Modals/MetadataModal";
-import PreviewModal from "../Modals/PreviewModal";
 
 import {
   flexRender,
@@ -85,6 +81,7 @@ const Workspace = () => {
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
   const [newTextFileModalVisible, setNewTextFileModalVisible] = useState(false);
+  const didDragSelectionRef = React.useRef(false);
 
   useEffect(() => {
     setLastSelectedId(null);
@@ -239,7 +236,7 @@ const Workspace = () => {
   }, [open, setOpenUpload]);
 
   const currentFolderFiles = useMemo(() => {
-    return fs.filter((f) => f.parentId === currentFolder);
+    return fs.filter((f) => (f.parentId || "0") === currentFolder && f.name !== "/");
   }, [fs, currentFolder]);
 
   const columns = useMemo(() => getColumns(), []);
@@ -307,25 +304,46 @@ const Workspace = () => {
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only left click
     if (e.button !== 0) return;
+
+    // Check if clicking on a file item or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest(".rfm-file-item") || target.closest("button") || target.closest("input")) {
+      return;
+    }
+
     const container = document.getElementById("react-file-manager-workspace");
     if (!container) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
 
-    const rect = container.getBoundingClientRect();
+    // Capture initial selection state for modifiers
+    // Standard behavior: Ctrl/Shift/Meta adds to selection or preserves it
+    const isAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
+    const initialSelectionIds = isAdditive ? new Set(selectedIds) : new Set<string>();
+
+    // Reset drag flag
+    didDragSelectionRef.current = false;
 
     const mouseMoveHandler = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault(); // Prevent text selection
+
       const currentX = moveEvent.clientX;
       const currentY = moveEvent.clientY;
+
+      // Check for significant movement to count as drag
+      if (!didDragSelectionRef.current && (Math.abs(currentX - startX) > 4 || Math.abs(currentY - startY) > 4)) {
+        didDragSelectionRef.current = true;
+      }
 
       setMarquee({
         x1: startX,
         y1: startY,
         x2: currentX,
-        y2: currentY,
+        y2: currentY
       });
 
       const marqueeRect = {
@@ -335,23 +353,27 @@ const Workspace = () => {
         bottom: Math.max(startY, currentY),
       };
 
+      // Query items dynamically to ensure we get correct positions (handles scrolling)
+      // While caching is faster, dynamic query is more robust for scrolling containers
       const items = container.querySelectorAll(".rfm-file-item");
-      const newSelectedIds: string[] = [];
+      const nextSelection = new Set(initialSelectionIds);
 
       items.forEach((item) => {
-        const itemRect = item.getBoundingClientRect();
+        const rect = item.getBoundingClientRect();
+
+        // Check intersection
         if (
-          itemRect.left < marqueeRect.right &&
-          itemRect.right > marqueeRect.left &&
-          itemRect.top < marqueeRect.bottom &&
-          itemRect.bottom > marqueeRect.top
+          rect.left < marqueeRect.right &&
+          rect.right > marqueeRect.left &&
+          rect.top < marqueeRect.bottom &&
+          rect.bottom > marqueeRect.top
         ) {
           const id = item.getAttribute("data-id");
-          if (id) newSelectedIds.push(id);
+          if (id) nextSelection.add(id);
         }
       });
 
-      setSelectedIds(newSelectedIds);
+      setSelectedIds(Array.from(nextSelection));
     };
 
     const mouseUpHandler = () => {
@@ -362,7 +384,7 @@ const Workspace = () => {
 
     document.addEventListener("mousemove", mouseMoveHandler);
     document.addEventListener("mouseup", mouseUpHandler);
-  };
+  }, [selectedIds, setSelectedIds]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
@@ -430,7 +452,12 @@ const Workspace = () => {
       className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""} ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
-      onClick={() => {
+      onClick={(e) => {
+        // If a drag selection occurred, do not clear the selection on mouse up/click
+        if (didDragSelectionRef.current) {
+          didDragSelectionRef.current = false;
+          return;
+        }
         setContextMenu(null);
         setSelectedIds([]);
         if (resetUploadToastCountdown) resetUploadToastCountdown();
@@ -625,7 +652,8 @@ const Workspace = () => {
 
             <div
               className="rfm-selection-action-btn"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setClipboardIds(selectedIds);
                 setIsCut(false);
                 setClipboardSourceFolder(currentFolder);
@@ -634,12 +662,13 @@ const Workspace = () => {
               }}
               title="Copy"
             >
-              <SvgIcon svgType="copy" />
+              <SvgIcon svgType="clipboard" />
             </div>
 
             <div
               className="rfm-selection-action-btn"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setClipboardIds(selectedIds);
                 setIsCut(true);
                 setClipboardSourceFolder(currentFolder);
@@ -654,21 +683,27 @@ const Workspace = () => {
             <div
               className="rfm-selection-action-btn"
               onClick={(e) => {
+                e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
+                const targetFile = selectedIds.length === 1
+                  ? (currentFolderFiles.find(f => f.id === selectedIds[0]) || fs.find(f => f.id === selectedIds[0]) || null)
+                  : null;
+
                 setContextMenu({
                   x: rect.left,
-                  y: rect.top - 10,
-                  file: currentFolderFiles.find(f => f.id === selectedIds[0]) || null
+                  y: rect.top - 8,
+                  file: targetFile
                 });
               }}
-              title="More"
+              title="More Actions"
             >
               <SvgIcon svgType="dots" />
             </div>
 
             <div
               className="rfm-selection-action-btn danger ml-auto"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setDialogState({
                   isVisible: true,
                   title: "Confirm Delete",
@@ -694,10 +729,6 @@ const Workspace = () => {
         )
       }
       {/* Modals */}
-      <NewFolderModal
-        isVisible={newFolderModalVisible}
-        onClose={() => setNewFolderModalVisible(false)}
-      />
 
       <NewTextFileModal
         isVisible={newTextFileModalVisible}
@@ -710,35 +741,6 @@ const Workspace = () => {
         }}
       />
 
-      <RenameModal
-        isVisible={renameVisible}
-        onClose={() => setRenameVisible(false)}
-        currentName={renameFile?.name || ""}
-        onRename={(newName) => {
-          if (onRename && renameFile) onRename(renameFile.id, newName);
-          setRenameVisible(false);
-        }}
-      />
-
-      <MetadataModal
-        isVisible={metadataVisible}
-        onClose={() => setMetadataVisible(false)}
-        file={metadataFile}
-      />
-
-      {
-        previewFile && (
-          <PreviewModal
-            isVisible={previewVisible}
-            onClose={() => setPreviewVisible(false)}
-            fileName={previewFile.name}
-            fileId={previewFile.id}
-            mimeType={previewFile.mimeType}
-            size={previewFile.size}
-            scanStatus={previewFile.scanStatus}
-          />
-        )
-      }
     </section >
 
   );
