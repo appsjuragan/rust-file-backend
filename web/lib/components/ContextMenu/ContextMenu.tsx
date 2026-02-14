@@ -65,6 +65,11 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [onClose]);
 
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
     // Back button handling for Mobile Context Menu
     useEffect(() => {
         if (isMobile) {
@@ -72,7 +77,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
             window.history.pushState({ contextId: stateId }, "");
 
             const handlePopState = () => {
-                onClose();
+                onCloseRef.current();
             };
 
             window.addEventListener("popstate", handlePopState);
@@ -84,7 +89,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                 }
             };
         }
-    }, [isMobile, onClose]);
+    }, [isMobile]);
 
     const handleOpen = () => {
         if (file) {

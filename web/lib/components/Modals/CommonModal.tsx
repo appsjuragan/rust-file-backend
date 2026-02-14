@@ -35,15 +35,20 @@ const CommonModal: React.FC<IModalProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (isVisible && isMobile) {
       // Push state to history when modal opens on mobile
       const stateId = `modal-${Math.random().toString(36).substr(2, 9)}`;
       window.history.pushState({ modalId: stateId }, "");
 
-      const handlePopState = (e: PopStateEvent) => {
+      const handlePopState = () => {
         // Close modal when back button is pressed
-        onClose();
+        onCloseRef.current();
       };
 
       window.addEventListener("popstate", handlePopState);
@@ -57,7 +62,7 @@ const CommonModal: React.FC<IModalProps> = ({
         }
       };
     }
-  }, [isVisible, isMobile, onClose]);
+  }, [isVisible, isMobile]);
 
   useEffect(() => {
     if (isVisible && clickPosition && !isMobile) {
