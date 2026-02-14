@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, ViewStyle, FileType, UploadStatus, FolderNode } from "../types";
+import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection } from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
@@ -19,6 +19,10 @@ interface ProviderInterface {
   setUploadedFileData: Dispatch<any>;
   viewStyle: ViewStyle,
   setViewStyle: Dispatch<ViewStyle>,
+  sortField: SortField;
+  setSortField: Dispatch<SortField>;
+  sortDirection: SortDirection;
+  setSortDirection: Dispatch<SortDirection>;
   activeUploads: UploadStatus[];
   setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
   selectedIds: string[];

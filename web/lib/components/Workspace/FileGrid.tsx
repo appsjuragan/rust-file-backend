@@ -30,7 +30,51 @@ export const FileGrid: React.FC<FileGridProps> = ({
     handleDropOnFolder,
     handleContextMenu
 }) => {
-    const [lastTap, setLastTap] = useState<{ time: number, id: string | null } | null>(null);
+    const longPressTimer = React.useRef<any>(null);
+    const [isLongPress, setIsLongPress] = useState(false);
+
+    const startLongPress = (f: FileType, e: React.PointerEvent) => {
+        setIsLongPress(false);
+        if (f.scanStatus === 'pending' || f.scanStatus === 'scanning') return;
+
+        longPressTimer.current = setTimeout(() => {
+            setIsLongPress(true);
+            handleItemClick(f, e as unknown as React.MouseEvent);
+            if (navigator.vibrate) navigator.vibrate(50);
+        }, 500);
+    };
+
+    const endLongPress = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const handleTap = (f: FileType, e: React.MouseEvent) => {
+        // If we just finished a long press, don't trigger a normal click
+        if (isLongPress) {
+            setIsLongPress(false);
+            return;
+        }
+
+        const isMobile = window.innerWidth <= 768;
+
+        if (isMobile) {
+            if (selectedIds.length > 0) {
+                // In selection mode: toggle selection
+                handleItemClick(f, e);
+            } else {
+                // Not in selection mode: open immediately
+                if (f.scanStatus !== 'infected') {
+                    handleDoubleClick(f);
+                }
+            }
+        } else {
+            // Desktop: default selection behavior
+            handleItemClick(f, e);
+        }
+    };
 
     return (
         <div className="rfm-icons-grid">
@@ -49,19 +93,11 @@ export const FileGrid: React.FC<FileGridProps> = ({
 
                 return (
                     <button
-                        onClick={(e) => handleItemClick(f, e)}
+                        onClick={(e) => handleTap(f, e)}
                         onDoubleClick={() => !isInfected && handleDoubleClick(f)}
-                        onTouchEnd={() => {
-                            const now = Date.now();
-                            if (lastTap && lastTap.id === f.id && now - lastTap.time < 300) {
-                                if (!isInfected) {
-                                    handleDoubleClick(f);
-                                }
-                                setLastTap(null); // Reset after double tap
-                            } else {
-                                setLastTap({ time: now, id: f.id });
-                            }
-                        }}
+                        onPointerDown={(e) => startLongPress(f, e)}
+                        onPointerUp={endLongPress}
+                        onPointerLeave={endLongPress}
                         key={key}
                         data-id={f.id}
                         draggable={!isInfected}

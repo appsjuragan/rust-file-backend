@@ -12,13 +12,13 @@
     /* Mobile Sidebar Drawer */
     @media (max-width: 768px) {
         .rfm-sidebar {
-            @apply fixed inset-y-0 left-0 z-[4000] w-80 shadow-2xl translate-x-0 opacity-100 border-r-0;
-            background-color: rgba(245, 245, 244, 0.98);
+            @apply fixed inset-y-0 left-0 z-[6000] w-80 shadow-2xl translate-x-0 opacity-100 border-r-0;
+            background-color: rgb(245, 245, 244);
             backdrop-filter: blur(10px);
         }
 
         .dark .rfm-sidebar {
-            background-color: rgba(15, 23, 42, 0.98);
+            background-color: rgb(15, 23, 42);
         }
 
         .rfm-sidebar.is-hidden {

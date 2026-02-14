@@ -89,6 +89,7 @@ const CommonModal: React.FC<IModalProps> = ({
           ...positionStyle
         }}
       >
+        {isMobile && <div className="rfm-modal-handle" onClick={onClose} />}
         <div className="rfm-modal-header">
           <h3 className="rfm-modal-title">{title}</h3>
           <X

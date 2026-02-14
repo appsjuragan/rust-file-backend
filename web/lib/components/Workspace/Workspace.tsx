@@ -14,6 +14,13 @@ import { FileTable } from "./FileTable";
 import { FileGrid } from "./FileGrid";
 import { getColumns } from "./TableColumns";
 
+// Modals
+import NewFolderModal from "../Modals/NewFolderModal";
+import NewTextFileModal from "../Modals/NewTextFileModal";
+import RenameModal from "../Modals/RenameModal";
+import MetadataModal from "../Modals/MetadataModal";
+import PreviewModal from "../Modals/PreviewModal";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -55,11 +62,27 @@ const Workspace = () => {
     setPreviewFile,
     setPreviewVisible,
     resetUploadToastCountdown,
+    newFolderModalVisible,
+    setNewFolderModalVisible,
+    renameVisible,
+    setRenameVisible,
+    renameFile,
+    metadataVisible,
+    setMetadataVisible,
+    metadataFile,
+    previewVisible,
+    previewFile,
+    onCreateFolder,
+    onRename,
+    openUpload: triggerOpenUpload,
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
+  const [newTextFileModalVisible, setNewTextFileModalVisible] = useState(false);
 
   useEffect(() => {
     setLastSelectedId(null);
@@ -459,7 +482,207 @@ const Workspace = () => {
           </div>
         )}
       </div>
-    </section>
+
+      {/* Floating Action Button for Mobile */}
+      {
+        !viewOnly && (
+          <>
+            {/* Backdrop for FAB Menu */}
+            {fabMenuOpen && (
+              <div
+                className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[4500]"
+                onClick={() => setFabMenuOpen(false)}
+              />
+            )}
+
+            <div className={`rfm-fab-menu ${fabMenuOpen ? 'active' : ''}`}>
+              <div className="rfm-fab-item" onClick={() => { setNewFolderModalVisible && setNewFolderModalVisible(true); setFabMenuOpen(false); }}>
+                <div className="rfm-fab-action">
+                  <span className="rfm-fab-action-label">New Folder</span>
+                  <div className="rfm-fab-action-icon">
+                    <SvgIcon svgType="folder" />
+                  </div>
+                </div>
+              </div>
+              <div className="rfm-fab-item" onClick={() => { setNewTextFileModalVisible && setNewTextFileModalVisible(true); setFabMenuOpen(false); }}>
+                <div className="rfm-fab-action">
+                  <span className="rfm-fab-action-label">New Text File</span>
+                  <div className="rfm-fab-action-icon">
+                    <SvgIcon svgType="edit" />
+                  </div>
+                </div>
+              </div>
+              <div className="rfm-fab-item" onClick={() => { photoInputRef.current?.click(); setFabMenuOpen(false); }}>
+                <div className="rfm-fab-action">
+                  <span className="rfm-fab-action-label">Take Photo</span>
+                  <div className="rfm-fab-action-icon">
+                    <SvgIcon svgType="camera" />
+                  </div>
+                </div>
+              </div>
+              <div className="rfm-fab-item" onClick={() => { triggerOpenUpload(); setFabMenuOpen(false); }}>
+                <div className="rfm-fab-action">
+                  <span className="rfm-fab-action-label">Upload Files</span>
+                  <div className="rfm-fab-action-icon">
+                    <SvgIcon svgType="upload" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`rfm-fab sm:hidden transition-transform duration-300 ${fabMenuOpen ? 'rotate-45 bg-rose-500 !shadow-rose-500/30' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setFabMenuOpen(!fabMenuOpen); }}
+            >
+              <SvgIcon svgType="plus" />
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              ref={photoInputRef}
+              className="hidden"
+              onChange={async (e) => {
+                if (e.target.files && e.target.files.length > 0 && onUpload) {
+                  const file = e.target.files[0];
+                  const timestamp = new Date().getTime();
+                  const fileName = `photo_${timestamp}.jpg`;
+                  const renamedFile = new File([file], fileName, { type: file.type });
+                  await onUpload([{ file: renamedFile, path: fileName }], currentFolder);
+                }
+              }}
+            />
+          </>
+        )
+      }
+
+      {/* Contextual Action Bar (Selection Mode) */}
+      {
+        selectedIds.length > 0 && (
+          <div className="rfm-selection-bar">
+            <div
+              className="rfm-selection-pill"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const allIds = currentFolderFiles.map(f => f.id);
+                const isAllSelected = allIds.length > 0 && allIds.every(id => selectedIds.includes(id));
+
+                if (isAllSelected) {
+                  setSelectedIds([]);
+                } else {
+                  setSelectedIds(allIds);
+                }
+              }}
+              title="Toggle Select All"
+            >
+              <div className={`rfm-selection-checkbox ${currentFolderFiles.length > 0 && currentFolderFiles.every(f => selectedIds.includes(f.id)) ? 'is-checked' : ''}`}>
+                <SvgIcon svgType={currentFolderFiles.length > 0 && currentFolderFiles.every(f => selectedIds.includes(f.id)) ? "check" : "square"} />
+              </div>
+              <div className="rfm-selection-info">
+                <span className="rfm-selection-count">{selectedIds.length}</span>
+                <span className="rfm-selection-label">Selected</span>
+              </div>
+            </div>
+
+            <div
+              className="rfm-selection-action-btn"
+              onClick={() => {
+                setClipboardIds(selectedIds);
+                setIsCut(false);
+              }}
+              title="Copy"
+            >
+              <SvgIcon svgType="copy" />
+            </div>
+
+            <div
+              className="rfm-selection-action-btn"
+              onClick={() => {
+                setClipboardIds(selectedIds);
+                setIsCut(true);
+              }}
+              title="Move"
+            >
+              <SvgIcon svgType="scissors" />
+            </div>
+
+            <div
+              className="rfm-selection-action-btn danger ml-auto"
+              onClick={() => {
+                setDialogState({
+                  isVisible: true,
+                  title: "Confirm Delete",
+                  message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+                  type: "confirm",
+                  onConfirm: async () => {
+                    if (onBulkDelete) {
+                      await onBulkDelete(selectedIds);
+                    } else if (onDelete) {
+                      for (const id of selectedIds) {
+                        await onDelete(id);
+                      }
+                    }
+                    setSelectedIds([]);
+                  }
+                });
+              }}
+              title="Delete"
+            >
+              <SvgIcon svgType="trash" />
+            </div>
+          </div>
+        )
+      }
+      {/* Modals */}
+      <NewFolderModal
+        isVisible={newFolderModalVisible}
+        onClose={() => setNewFolderModalVisible(false)}
+      />
+
+      <NewTextFileModal
+        isVisible={newTextFileModalVisible}
+        onClose={() => setNewTextFileModalVisible(false)}
+        onCreate={async (fileName, content) => {
+          const file = new File([content], fileName, { type: "text/plain" });
+          if (onUpload) {
+            await onUpload([{ file, path: fileName }], currentFolder);
+          }
+        }}
+      />
+
+      <RenameModal
+        isVisible={renameVisible}
+        onClose={() => setRenameVisible(false)}
+        currentName={renameFile?.name || ""}
+        onRename={(newName) => {
+          if (onRename && renameFile) onRename(renameFile.id, newName);
+          setRenameVisible(false);
+        }}
+      />
+
+      <MetadataModal
+        isVisible={metadataVisible}
+        onClose={() => setMetadataVisible(false)}
+        file={metadataFile}
+      />
+
+      {
+        previewFile && (
+          <PreviewModal
+            isVisible={previewVisible}
+            onClose={() => setPreviewVisible(false)}
+            fileName={previewFile.name}
+            fileId={previewFile.id}
+            mimeType={previewFile.mimeType}
+            size={previewFile.size}
+            scanStatus={previewFile.scanStatus}
+          />
+        )
+      }
+    </section >
+
   );
 };
 

@@ -17,7 +17,7 @@ import {
 } from "./components";
 // Types
 import type { FileSystemType, FileType, FolderNode } from "./types";
-import { ViewStyle, UploadStatus } from "./types";
+import { ViewStyle, UploadStatus, SortField, SortDirection } from "./types";
 // HTTP Client
 import { setOnRequestCallback } from "../src/services/httpClient";
 
@@ -111,6 +111,35 @@ export const ReactFileManager = ({
   const sidebarVisible = propSidebarVisible ?? internalSidebarVisible;
   const setSidebarVisible = propSetSidebarVisible ?? setInternalSidebarVisible;
 
+  const [sortField, setSortField] = useState<SortField>(SortField.Name);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(SortDirection.Asc);
+
+  const sortedFs = useMemo(() => {
+    return [...fs].sort((a, b) => {
+      // Folders always first
+      if (a.isDir && !b.isDir) return -1;
+      if (!a.isDir && b.isDir) return 1;
+
+      let comparison = 0;
+      switch (sortField) {
+        case SortField.Name:
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case SortField.Size:
+          comparison = (a.size || 0) - (b.size || 0);
+          break;
+        case SortField.Type:
+          comparison = (a.mimeType || "").localeCompare(b.mimeType || "");
+          break;
+        case SortField.Date:
+          comparison = (a.lastModified || 0) - (b.lastModified || 0);
+          break;
+      }
+
+      return sortDirection === SortDirection.Asc ? comparison : -comparison;
+    });
+  }, [fs, sortField, sortDirection]);
+
   const [openUploadDummy, setOpenUploadDummy] = useState<number>(0);
   const openUploadRef = useRef<(() => void) | null>(null);
 
@@ -184,9 +213,13 @@ export const ReactFileManager = ({
   }, [showAlert]);
 
   const contextValue = useMemo(() => ({
-    fs: fs,
+    fs: sortedFs,
     viewStyle: viewStyle,
     setViewStyle: setViewStyle,
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection,
     viewOnly: viewOnly,
     currentFolder: currentFolder,
     setCurrentFolder: setCurrentFolder,
@@ -250,13 +283,13 @@ export const ReactFileManager = ({
     sidebarVisible,
     setSidebarVisible,
   }), [
-    fs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
+    sortedFs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
     onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
     activeUploads, selectedIds, clipboardIds, isCut, newFolderModalVisible, previewVisible,
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
     hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
-    folderTree, refreshFolderTree, sidebarVisible
+    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection
   ]);
 
   return (
@@ -273,7 +306,7 @@ export const ReactFileManager = ({
                 inset: 0,
                 backgroundColor: 'rgba(0,0,0,0.4)',
                 backdropFilter: 'blur(2px)',
-                zIndex: 3500,
+                zIndex: 5900,
                 display: 'none', // Managed by CSS media query
               }}
               onClick={() => setSidebarVisible(false)}

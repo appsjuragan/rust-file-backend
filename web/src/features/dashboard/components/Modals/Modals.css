@@ -99,6 +99,41 @@
     color: var(--text-muted);
 }
 
+@media (max-width: 768px) {
+    .rfm-profile-modal {
+        max-width: none;
+    }
+
+    .rfm-profile-avatar-section {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+        padding-bottom: 2rem;
+    }
+
+    .rfm-profile-header-text {
+        text-align: center;
+    }
+
+    .rfm-modal-actions {
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+
+    .rfm-btn-primary,
+    .rfm-btn-secondary,
+    .rfm-btn-danger {
+        width: 100%;
+        padding: 0.9rem;
+        font-size: 1rem;
+    }
+
+    .rfm-modal-actions.right {
+        justify-content: flex-start;
+    }
+}
+
 .rfm-form-group {
     display: flex;
     flex-direction: column;

@@ -1,9 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 // Context
 import { useFileManager } from "../../context";
 // Types
 import type { FileType } from "../../types";
-import { ViewStyle } from "../../types";
+import { ViewStyle, SortField, SortDirection } from "../../types";
+import { ArrowDown, ArrowUp, ChevronDown, Check } from "lucide-react";
 // Components
 import SvgIcon from "../Icons/SvgIcon";
 
@@ -26,8 +27,32 @@ const FolderPath = () => {
     onBulkCopy,
     onRefresh,
     sidebarVisible,
-    setSidebarVisible
+    setSidebarVisible,
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection
   } = useFileManager();
+
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setSortMenuVisible(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const sortOptions = [
+    { value: SortField.Name, label: "Name" },
+    { value: SortField.Size, label: "Size" },
+    { value: SortField.Type, label: "Mime" },
+    { value: SortField.Date, label: "Date" },
+  ];
 
   const goUp = () => {
     const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder);
@@ -57,10 +82,6 @@ const FolderPath = () => {
     setCurrentFolder(id);
   };
 
-  const parentFolder = useMemo(() => {
-    return fs.find((f: FileType) => f.id === currentFolder)?.parentId || (currentFolder !== "0" ? "0" : null);
-  }, [fs, currentFolder]);
-
   const breadcrumbContent = (
     <>
       <div
@@ -78,17 +99,35 @@ const FolderPath = () => {
         >
           <span>Home</span>
         </div>
-        {breadcrumbs.map((crumb) => (
-          <React.Fragment key={crumb.id}>
+        {breadcrumbs.length > 3 ? (
+          <>
             <span className="rfm-breadcrumb-separator">/</span>
-            <span
-              className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
-              onClick={() => handleCrumbClick(crumb.id)}
-            >
-              {crumb.name}
-            </span>
-          </React.Fragment>
-        ))}
+            <span className="rfm-breadcrumb-item cursor-default hover:text-stone-600 dark:hover:text-slate-400">...</span>
+            {breadcrumbs.slice(-3).map((crumb) => (
+              <React.Fragment key={crumb.id}>
+                <span className="rfm-breadcrumb-separator">/</span>
+                <span
+                  className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
+                  onClick={() => handleCrumbClick(crumb.id)}
+                >
+                  {crumb.name}
+                </span>
+              </React.Fragment>
+            ))}
+          </>
+        ) : (
+          breadcrumbs.map((crumb) => (
+            <React.Fragment key={crumb.id}>
+              <span className="rfm-breadcrumb-separator">/</span>
+              <span
+                className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
+                onClick={() => handleCrumbClick(crumb.id)}
+              >
+                {crumb.name}
+              </span>
+            </React.Fragment>
+          ))
+        )}
       </div>
     </>
   );
@@ -113,99 +152,49 @@ const FolderPath = () => {
         </div>
 
         <div className="rfm-header-container">
-          {/* ... existing selection & actions ... */}
-          <div className="rfm-mobile-actions">
-            {fs.some(f => f.parentId === currentFolder) && (
-              <div
-                className={`rfm-header-icon ${selectedIds.length === fs.filter(f => f.parentId === currentFolder).length ? "rfm-header-icon--selected" : ""}`}
-                onClick={() => {
-                  const folderFiles = fs.filter(f => f.parentId === currentFolder);
-                  if (selectedIds.length === folderFiles.length) {
-                    setSelectedIds([]);
-                  } else {
-                    setSelectedIds(folderFiles.map(f => f.id));
-                  }
-                }}
-                title="Select All"
-              >
-                <SvgIcon svgType="square" />
+          <div
+            className="rfm-header-icon"
+            onClick={() => setViewStyle(viewStyle === ViewStyle.Icons ? ViewStyle.List : ViewStyle.Icons)}
+            title={viewStyle === ViewStyle.Icons ? "Switch to List View" : "Switch to Grid View"}
+          >
+            <SvgIcon svgType={viewStyle === ViewStyle.Icons ? "list" : "icons"} />
+          </div>
+
+          {/* Custom Sort Controls */}
+          <div className="rfm-sort-group" ref={sortRef}>
+            <div
+              className={`rfm-sort-trigger ${sortMenuVisible ? 'active' : ''}`}
+              onClick={() => setSortMenuVisible(!sortMenuVisible)}
+            >
+              <span>{sortOptions.find(o => o.value === sortField)?.label}</span>
+              <ChevronDown size={14} className={`rfm-sort-chevron ${sortMenuVisible ? 'open' : ''}`} />
+            </div>
+
+            {sortMenuVisible && (
+              <div className="rfm-sort-menu">
+                {sortOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    className={`rfm-sort-option ${sortField === option.value ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSortField(option.value);
+                      setSortMenuVisible(false);
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    {sortField === option.value && <Check size={14} className="text-teal-500" />}
+                  </div>
+                ))}
               </div>
             )}
 
-            {selectedIds.length > 0 && (
-              <>
-                <div
-                  className="rfm-header-icon"
-                  onClick={() => {
-                    setClipboardIds(selectedIds);
-                    setIsCut(false);
-                  }}
-                  title="Copy"
-                >
-                  <SvgIcon svgType="copy" />
-                </div>
-                <div
-                  className="rfm-header-icon"
-                  onClick={() => {
-                    setClipboardIds(selectedIds);
-                    setIsCut(true);
-                  }}
-                  title="Move (Cut)"
-                >
-                  <SvgIcon svgType="scissors" />
-                </div>
-              </>
-            )}
-
-            {clipboardIds.length > 0 && (
-              <div
-                className="rfm-header-icon rfm-header-icon--pulse"
-                onClick={async () => {
-                  if (isCut) {
-                    if (onBulkMove) await onBulkMove(clipboardIds, currentFolder);
-                    setClipboardIds([]);
-                    setIsCut(false);
-                  } else {
-                    if (onBulkCopy) await onBulkCopy(clipboardIds, currentFolder);
-                  }
-                  if (onRefresh) await onRefresh(currentFolder);
-                }}
-                title={`Paste ${clipboardIds.length} item(s)`}
-              >
-                <SvgIcon svgType="clipboard" />
-              </div>
-            )}
-          </div>
-
-          <div className="rfm-mobile-actions">
             <div
-              className="rfm-header-icon"
-              onClick={openUpload}
-              title="Upload Files"
+              className="rfm-sort-direction"
+              onClick={() => setSortDirection(sortDirection === SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc)}
+              title={sortDirection === SortDirection.Asc ? "Ascending" : "Descending"}
             >
-              <SvgIcon svgType="upload" />
+              {sortDirection === SortDirection.Asc ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
             </div>
-            <div
-              className="rfm-header-icon"
-              onClick={() => setNewFolderModalVisible && setNewFolderModalVisible(true)}
-              title="New Folder"
-            >
-              <SvgIcon svgType="plus" />
-            </div>
-          </div>
-          <div
-            className={`rfm-header-icon ${viewStyle === ViewStyle.List ? "rfm-header-icon--selected" : ""}`}
-            onClick={() => setViewStyle(ViewStyle.List)}
-            title="List View"
-          >
-            <SvgIcon svgType="list" />
-          </div>
-          <div
-            className={`rfm-header-icon ${viewStyle === ViewStyle.Icons ? "rfm-header-icon--selected" : ""}`}
-            onClick={() => setViewStyle(ViewStyle.Icons)}
-            title="Grid View"
-          >
-            <SvgIcon svgType="icons" />
           </div>
         </div>
       </div>
