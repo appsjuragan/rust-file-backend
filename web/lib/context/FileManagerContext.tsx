@@ -31,6 +31,8 @@ interface ProviderInterface {
   setClipboardIds: Dispatch<string[]>;
   isCut: boolean;
   setIsCut: Dispatch<boolean>;
+  clipboardSourceFolder: string | null;
+  setClipboardSourceFolder: Dispatch<string | null>;
   onBulkDelete?: (ids: string[]) => Promise<void>;
   onBulkMove?: (ids: string[], newParentId: string) => Promise<void>;
   onBulkCopy?: (ids: string[], newParentId: string) => Promise<void>;

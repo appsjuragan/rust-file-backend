@@ -107,6 +107,11 @@ export const FileGrid: React.FC<FileGridProps> = ({
                         onDrop={(e) => !isInfected && handleDropOnFolder(e, f)}
                         onContextMenu={(e) => {
                             if (isPending) return;
+                            const isMobile = window.innerWidth <= 768;
+                            if (isMobile) {
+                                e.preventDefault();
+                                return;
+                            }
                             e.stopPropagation();
                             handleContextMenu(e, f);
                         }}

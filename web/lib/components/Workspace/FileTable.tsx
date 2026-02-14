@@ -34,7 +34,47 @@ export const FileTable: React.FC<FileTableProps> = ({
     currentFolderFiles,
     columnsCount
 }) => {
-    const [lastTap, setLastTap] = useState<{ time: number, id: string | null } | null>(null);
+    const longPressTimer = React.useRef<any>(null);
+    const [isLongPress, setIsLongPress] = useState(false);
+
+    const startLongPress = (f: FileType, e: React.PointerEvent) => {
+        setIsLongPress(false);
+        if (f.scanStatus === 'pending' || f.scanStatus === 'scanning') return;
+
+        longPressTimer.current = setTimeout(() => {
+            setIsLongPress(true);
+            handleItemClick(f, e as unknown as React.MouseEvent);
+            if (navigator.vibrate) navigator.vibrate(50);
+        }, 500);
+    };
+
+    const endLongPress = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const handleTap = (f: FileType, e: React.MouseEvent) => {
+        if (isLongPress) {
+            setIsLongPress(false);
+            return;
+        }
+
+        const isMobile = window.innerWidth <= 768;
+
+        if (isMobile) {
+            if (selectedIds.length > 0) {
+                handleItemClick(f, e);
+            } else {
+                if (f.scanStatus !== 'infected') {
+                    handleDoubleClick(f);
+                }
+            }
+        } else {
+            handleItemClick(f, e);
+        }
+    };
 
     return (
         <table className="w-full">
@@ -70,21 +110,18 @@ export const FileTable: React.FC<FileTableProps> = ({
                             onDragOver={(e) => !isInfected && handleDragOver(e, row.original)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => !isInfected && handleDropOnFolder(e, row.original)}
-                            onClick={(e) => handleItemClick(row.original, e)}
+                            onClick={(e) => handleTap(row.original, e)}
                             onDoubleClick={() => !isInfected && handleDoubleClick(row.original)}
-                            onTouchEnd={() => {
-                                const now = Date.now();
-                                if (lastTap && lastTap.id === row.original.id && now - lastTap.time < 300) {
-                                    if (!isInfected) {
-                                        handleDoubleClick(row.original);
-                                    }
-                                    setLastTap(null); // Reset after double tap
-                                } else {
-                                    setLastTap({ time: now, id: row.original.id });
-                                }
-                            }}
+                            onPointerDown={(e) => startLongPress(row.original, e)}
+                            onPointerUp={endLongPress}
+                            onPointerLeave={endLongPress}
                             className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? 'rfm-pending' : ''} ${isInfected ? 'rfm-suspicious opacity-60 grayscale' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""} ${highlightedId === row.original.id ? "rfm-highlighted" : ""}`}
                             onContextMenu={(e) => {
+                                const isMobile = window.innerWidth <= 768;
+                                if (isMobile) {
+                                    e.preventDefault();
+                                    return;
+                                }
                                 e.stopPropagation();
                                 handleContextMenu(e, row.original);
                             }}
@@ -103,6 +140,11 @@ export const FileTable: React.FC<FileTableProps> = ({
                             <div
                                 className="rfm-empty-folder"
                                 onContextMenu={(e) => {
+                                    const isMobile = window.innerWidth <= 768;
+                                    if (isMobile) {
+                                        e.preventDefault();
+                                        return;
+                                    }
                                     e.stopPropagation();
                                     handleContextMenu(e, null);
                                 }}

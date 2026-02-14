@@ -1,9 +1,9 @@
-import React from "react";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 // Context
 import { useFileManager } from "../../context";
 // Components
 import SvgIcon from "./SvgIcon";
+import "./FileIcon.css";
 
 interface IFileIcon {
   id: string;
@@ -17,41 +17,35 @@ const FileIcon = (props: IFileIcon) => {
   const { setCurrentFolder, onRefresh, clipboardIds, isCut } = useFileManager();
   const isBeingCut = isCut && clipboardIds?.includes(props.id);
 
-  const handleClick = async () => {
-    if (props.onClick) {
-      props.onClick();
-      return;
-    }
-    if (props.isDir) {
-      setCurrentFolder(props.id);
-      if (onRefresh !== undefined) {
-        try {
-          await onRefresh(props.id);
-        } catch (e) {
-          throw new Error("Error during refresh");
-        }
-      }
-    }
-  };
-
   const fileExtension = useMemo((): string => {
-    if (!props.name.includes(".")) {
+    if (props.isDir || !props.name.includes(".")) {
       return "";
     }
 
     const nameArray = props.name.split(".");
-    return `.${nameArray[nameArray.length - 1]}`;
-  }, [props.id]);
+    const ext = nameArray[nameArray.length - 1].trim();
+
+    // Valid extensions for icon overlay: 2-4 chars, alphanumeric only
+    const isValidExt = /^[a-z0-9]{2,4}$/i.test(ext);
+
+    if (!isValidExt) {
+      return "";
+    }
+
+    return ext;
+  }, [props.name, props.isDir]);
 
   return (
-    <>
+    <div className={`rfm-file-icon-container ${isBeingCut ? 'opacity-40' : ''}`}>
       <SvgIcon
         svgType={props.isDir ? "folder" : "file"}
         className="rfm-file-icon-svg"
       />
-      <span className="rfm-file-icon-extension">{fileExtension}</span>
+      {!props.isDir && fileExtension && (
+        <span className="rfm-file-icon-extension">{fileExtension}</span>
+      )}
       <span className="rfm-file-icon-name">{props.name}</span>
-    </>
+    </div>
   );
 };
 

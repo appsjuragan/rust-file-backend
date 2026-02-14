@@ -75,6 +75,8 @@ const Workspace = () => {
     onCreateFolder,
     onRename,
     openUpload: triggerOpenUpload,
+    clipboardSourceFolder,
+    setClipboardSourceFolder,
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -159,6 +161,11 @@ const Workspace = () => {
 
   const handleContextMenu = (e: React.MouseEvent, file: FileType | null) => {
     e.preventDefault();
+    if (viewOnly) return;
+
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) return;
+
     if (file && !selectedIds.includes(file.id)) {
       setSelectedIds([file.id]);
     } else if (!file && selectedIds.length === 0) {
@@ -203,6 +210,28 @@ const Workspace = () => {
     noKeyboard: true
   });
 
+  const handlePaste = useCallback(async () => {
+    if (clipboardIds.length > 0) {
+      if (isCut) {
+        if (onBulkMove) {
+          await onBulkMove(clipboardIds, currentFolder);
+        } else if (onMove) {
+          for (const id of clipboardIds) {
+            await onMove(id, currentFolder);
+          }
+        }
+      } else {
+        if (onBulkCopy) {
+          await onBulkCopy(clipboardIds, currentFolder);
+        }
+      }
+      setClipboardIds([]);
+      setIsCut(false);
+      setClipboardSourceFolder(null);
+      if (onRefresh) await onRefresh(currentFolder);
+    }
+  }, [clipboardIds, isCut, onBulkMove, onMove, currentFolder, setClipboardIds, setIsCut, setClipboardSourceFolder, onBulkCopy, onRefresh]);
+
   useEffect(() => {
     if (setOpenUpload) {
       setOpenUpload(open);
@@ -229,6 +258,8 @@ const Workspace = () => {
     // Call reset countdown on any item click as well
     if (resetUploadToastCountdown) resetUploadToastCountdown();
 
+    const isMobile = window.innerWidth <= 768;
+
     if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(file.id)) {
         setSelectedIds(selectedIds.filter(id => id !== file.id));
@@ -248,6 +279,14 @@ const Workspace = () => {
         );
         setSelectedIds(Array.from(new Set([...selectedIds, ...rangeIds])));
       }
+    } else if (isMobile && selectedIds.length > 0) {
+      // Mobile-friendly multi-select: toggle selection if already in selection mode
+      if (selectedIds.includes(file.id)) {
+        setSelectedIds(selectedIds.filter(id => id !== file.id));
+      } else {
+        setSelectedIds([...selectedIds, file.id]);
+      }
+      setLastSelectedId(file.id);
     } else {
       setSelectedIds([file.id]);
       setLastSelectedId(file.id);
@@ -363,6 +402,7 @@ const Workspace = () => {
       if (selectedIds.length > 0) {
         setClipboardIds(selectedIds);
         setIsCut(false);
+        setClipboardSourceFolder(currentFolder);
       }
     }
 
@@ -370,33 +410,14 @@ const Workspace = () => {
       if (selectedIds.length > 0) {
         setClipboardIds(selectedIds);
         setIsCut(true);
+        setClipboardSourceFolder(currentFolder);
       }
     }
 
     if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
-      const handlePaste = async () => {
-        if (clipboardIds.length > 0) {
-          if (isCut) {
-            if (onBulkMove) {
-              await onBulkMove(clipboardIds, currentFolder);
-            } else if (onMove) {
-              for (const id of clipboardIds) {
-                await onMove(id, currentFolder);
-              }
-            }
-            setClipboardIds([]);
-            setIsCut(false);
-          } else {
-            if (onBulkCopy) {
-              await onBulkCopy(clipboardIds, currentFolder);
-            }
-          }
-          if (onRefresh) await onRefresh(currentFolder);
-        }
-      };
       handlePaste();
     }
-  }, [currentFolderFiles, selectedIds, onBulkDelete, onDelete, setSelectedIds, setContextMenu, setDialogState, setClipboardIds, setIsCut, currentFolder, onBulkMove, onMove, onBulkCopy, onRefresh]);
+  }, [currentFolderFiles, selectedIds, onBulkDelete, onDelete, setSelectedIds, setContextMenu, setDialogState, setClipboardIds, setIsCut, currentFolder, onBulkMove, onMove, onBulkCopy, onRefresh, handlePaste]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -537,6 +558,22 @@ const Workspace = () => {
               <SvgIcon svgType="plus" />
             </div>
 
+            {/* Quick Paste Button for Mobile */}
+            {clipboardIds.length > 0 && clipboardSourceFolder !== currentFolder && (
+              <div
+                className="rfm-fab sm:hidden rfm-fab-paste"
+                onClick={(e) => { e.stopPropagation(); handlePaste(); }}
+                title={`Paste ${clipboardIds.length} items`}
+              >
+                <div className="relative">
+                  <SvgIcon svgType="clipboard" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {clipboardIds.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <input
               type="file"
               accept="image/*"
@@ -591,6 +628,9 @@ const Workspace = () => {
               onClick={() => {
                 setClipboardIds(selectedIds);
                 setIsCut(false);
+                setClipboardSourceFolder(currentFolder);
+                setSelectedIds([]);
+                if (navigator.vibrate) navigator.vibrate(50);
               }}
               title="Copy"
             >
@@ -602,10 +642,28 @@ const Workspace = () => {
               onClick={() => {
                 setClipboardIds(selectedIds);
                 setIsCut(true);
+                setClipboardSourceFolder(currentFolder);
+                setSelectedIds([]);
+                if (navigator.vibrate) navigator.vibrate(50);
               }}
               title="Move"
             >
               <SvgIcon svgType="scissors" />
+            </div>
+
+            <div
+              className="rfm-selection-action-btn"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setContextMenu({
+                  x: rect.left,
+                  y: rect.top - 10,
+                  file: currentFolderFiles.find(f => f.id === selectedIds[0]) || null
+                });
+              }}
+              title="More"
+            >
+              <SvgIcon svgType="dots" />
             </div>
 
             <div

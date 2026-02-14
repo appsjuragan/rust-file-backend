@@ -98,6 +98,7 @@ export const ReactFileManager = ({
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [clipboardIds, setClipboardIds] = useState<string[]>([]);
+  const [clipboardSourceFolder, setClipboardSourceFolder] = useState<string | null>(null);
   const [isCut, setIsCut] = useState<boolean>(false);
   const [newFolderModalVisible, setNewFolderModalVisible] = useState<boolean>(false);
   const [previewVisible, setPreviewVisible] = useState<boolean>(false);
@@ -242,6 +243,8 @@ export const ReactFileManager = ({
     setSelectedIds,
     clipboardIds,
     setClipboardIds,
+    clipboardSourceFolder,
+    setClipboardSourceFolder,
     isCut,
     setIsCut,
     newFolderModalVisible,
@@ -285,7 +288,7 @@ export const ReactFileManager = ({
   }), [
     sortedFs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
     onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
-    activeUploads, selectedIds, clipboardIds, isCut, newFolderModalVisible, previewVisible,
+    activeUploads, selectedIds, clipboardIds, clipboardSourceFolder, isCut, newFolderModalVisible, previewVisible,
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
     hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,

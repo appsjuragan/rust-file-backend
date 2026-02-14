@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ISvgIconProps extends React.AllHTMLAttributes<HTMLDivElement> {
-  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera";
+  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera" | "dots";
 }
 
 const SvgIcon: React.FC<ISvgIconProps> = ({
@@ -224,6 +224,13 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
           <svg className="w-full h-full" stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
             <circle cx="12" cy="13" r="4" />
+          </svg>
+        );
+      }
+      case "dots": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path>
           </svg>
         );
       }

@@ -42,8 +42,17 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         currentFolder,
         onRefresh,
         setDialogState,
+        clipboardSourceFolder,
+        setClipboardSourceFolder,
     } = useFileManager();
     const menuRef = useRef<HTMLDivElement>(null);
+    const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -131,10 +140,14 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         if (selectedIds.length > 0) {
             setClipboardIds(selectedIds);
             setIsCut(false);
+            setClipboardSourceFolder(currentFolder);
         } else if (file) {
             setClipboardIds([file.id]);
             setIsCut(false);
+            setClipboardSourceFolder(currentFolder);
         }
+        setSelectedIds([]);
+        if (navigator.vibrate) navigator.vibrate(50);
         onClose();
     };
 
@@ -142,10 +155,14 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         if (selectedIds.length > 0) {
             setClipboardIds(selectedIds);
             setIsCut(true);
+            setClipboardSourceFolder(currentFolder);
         } else if (file) {
             setClipboardIds([file.id]);
             setIsCut(true);
+            setClipboardSourceFolder(currentFolder);
         }
+        setSelectedIds([]);
+        if (navigator.vibrate) navigator.vibrate(50);
         onClose();
     };
 
@@ -159,15 +176,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                         await onMove(id, currentFolder);
                     }
                 }
-                setClipboardIds([]);
-                setIsCut(false);
-            } else {
-                if (onBulkCopy) {
-                    await onBulkCopy(clipboardIds, currentFolder);
-                }
-                // Don't clear clipboard on copy
             }
-
+            setClipboardIds([]);
+            setIsCut(false);
+            setClipboardSourceFolder(null);
             if (onRefresh) await onRefresh(currentFolder);
         }
         onClose();
@@ -175,71 +187,103 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
 
     return (
-        <div
-            ref={menuRef}
-            className="rfm-context-menu"
-            style={{ top: y, left: x }}
-        >
-            {file && (
-                <>
-                    {(() => {
-                        const isScanBusy = file.scanStatus === 'pending' || file.scanStatus === 'scanning';
-                        return (
-                            <>
-                                {!file.isDir && (
-                                    <div
-                                        className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                        onClick={isScanBusy ? undefined : handleDownload}
-                                    >
-                                        <SvgIcon svgType="download" className="rfm-context-menu-icon" />
-                                        Download {isScanBusy && '(Checking...)'}
-                                    </div>
-                                )}
-                                <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
-                                    <SvgIcon svgType="info" className="rfm-context-menu-icon" />
-                                    View Meta Data
-                                </div>
-                                <div
-                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={isScanBusy ? undefined : handleRename}
-                                >
-                                    <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
-                                    Rename
-                                </div>
-                                <div
-                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={isScanBusy ? undefined : handleOpen}
-                                >
-                                    <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
-                                    Open (Preview)
-                                </div>
-                                <div
-                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={isScanBusy ? undefined : handleCopy}
-                                >
-                                    <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
-                                    Copy
-                                </div>
-                                <div
-                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={isScanBusy ? undefined : handleCut}
-                                >
-                                    <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
-                                    Cut
-                                </div>
-                                <div
-                                    className={`rfm-context-menu-item text-rose-500 ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={isScanBusy ? undefined : handleDelete}
-                                >
-                                    <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
-                                    Delete
-                                </div>
-                            </>
-                        );
-                    })()}
-                    {file.isDir && (
+        <>
+            {isMobile && (
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9400]"
+                    onClick={onClose}
+                />
+            )}
+            <div
+                ref={menuRef}
+                className={`rfm-context-menu ${isMobile ? 'is-mobile' : ''}`}
+                style={isMobile ? {} : { top: y, left: x }}
+            >
+                {isMobile && (
+                    <div className="rfm-context-menu-handle-wrapper">
+                        <div className="rfm-modal-handle" onClick={onClose} />
+                        <div className="rfm-context-menu-header">
+                            {selectedIds.length > 1
+                                ? `${selectedIds.length} items selected`
+                                : (file ? file.name : "Action Menu")}
+                        </div>
+                    </div>
+                )}
+                <div className="rfm-context-menu-body">
+                    {file && (
                         <>
-                            <div className="rfm-border-t my-1 border-slate-100" />
+                            {(() => {
+                                const isScanBusy = file.scanStatus === 'pending' || file.scanStatus === 'scanning';
+                                return (
+                                    <>
+                                        {!file.isDir && (
+                                            <div
+                                                className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                                onClick={isScanBusy ? undefined : handleDownload}
+                                            >
+                                                <SvgIcon svgType="download" className="rfm-context-menu-icon" />
+                                                Download {isScanBusy && '(Checking...)'}
+                                            </div>
+                                        )}
+                                        <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
+                                            <SvgIcon svgType="info" className="rfm-context-menu-icon" />
+                                            View Meta Data
+                                        </div>
+                                        <div
+                                            className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleRename}
+                                        >
+                                            <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                                            Rename
+                                        </div>
+                                        <div
+                                            className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleOpen}
+                                        >
+                                            <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
+                                            Open (Preview)
+                                        </div>
+                                        <div
+                                            className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleCopy}
+                                        >
+                                            <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                                            Copy
+                                        </div>
+                                        <div
+                                            className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleCut}
+                                        >
+                                            <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
+                                            Cut
+                                        </div>
+                                        <div
+                                            className={`rfm-context-menu-item text-rose-500 ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleDelete}
+                                        >
+                                            <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
+                                            Delete
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                            {file.isDir && (
+                                <>
+                                    <div className="rfm-border-t my-1 border-stone-200 dark:border-slate-800" />
+                                    <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
+                                        <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
+                                        New Folder
+                                    </div>
+                                    <div className="rfm-context-menu-item" onClick={() => { onUpload(); onClose(); }}>
+                                        <SvgIcon svgType="upload" className="rfm-context-menu-icon" />
+                                        Upload Files
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
+                    {!file && (
+                        <>
                             <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
                                 <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
                                 New Folder
@@ -250,28 +294,15 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                             </div>
                         </>
                     )}
-                </>
-            )}
-            {!file && (
-                <>
-                    <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
-                        <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
-                        New Folder
-                    </div>
-                    <div className="rfm-context-menu-item" onClick={() => { onUpload(); onClose(); }}>
-                        <SvgIcon svgType="upload" className="rfm-context-menu-icon" />
-                        Upload Files
-                    </div>
-                </>
-            )}
-            {clipboardIds.length > 0 && (
-                <div className="rfm-context-menu-item" onClick={handlePaste}>
-                    <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
-                    Paste ({clipboardIds.length} item{clipboardIds.length > 1 ? 's' : ''})
+                    {clipboardIds.length > 0 && clipboardSourceFolder !== currentFolder && (
+                        <div className="rfm-context-menu-item" onClick={handlePaste}>
+                            <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                            Paste ({clipboardIds.length} item{clipboardIds.length > 1 ? 's' : ''})
+                        </div>
+                    )}
                 </div>
-            )}
-
-        </div>
+            </div>
+        </>
     );
 };
 
