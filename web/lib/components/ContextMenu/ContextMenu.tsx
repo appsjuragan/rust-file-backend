@@ -84,13 +84,18 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
             const stateId = `context-menu-${Math.random().toString(36).substr(2, 9)}`;
             window.history.pushState({ contextId: stateId }, "");
 
-            const handlePopState = () => {
-                onCloseRef.current();
+            const handlePopState = (e: PopStateEvent) => {
+                if (e.state?.contextId !== stateId) {
+                    onCloseRef.current();
+                }
             };
 
-            window.addEventListener("popstate", handlePopState);
+            const timer = setTimeout(() => {
+                window.addEventListener("popstate", handlePopState);
+            }, 50);
 
             return () => {
+                clearTimeout(timer);
                 window.removeEventListener("popstate", handlePopState);
                 if (window.history.state?.contextId === stateId) {
                     window.history.back();

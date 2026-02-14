@@ -44,8 +44,15 @@ export const FileTable: React.FC<FileTableProps> = ({
         longPressTimer.current = setTimeout(() => {
             setIsLongPress(true);
             handleItemClick(f, e as unknown as React.MouseEvent);
-            if (navigator.vibrate) navigator.vibrate(50);
-        }, 500);
+            try {
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            } catch (err) {
+                // Ignore vibration errors as they are non-critical interventions
+                console.debug("Vibration blocked or not supported:", err);
+            }
+        }, 400);
     };
 
     const endLongPress = () => {

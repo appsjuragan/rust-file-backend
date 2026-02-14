@@ -301,15 +301,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             const stateId = `sidebar-${Math.random().toString(36).substr(2, 9)}`;
             window.history.pushState({ sidebarId: stateId }, "");
 
-            const handlePopState = () => {
-                if (sidebarVisibleRef.current) {
+            const handlePopState = (e: PopStateEvent) => {
+                if (sidebarVisibleRef.current && e.state?.sidebarId !== stateId) {
                     setSidebarVisible(false);
                 }
             };
 
-            window.addEventListener("popstate", handlePopState);
+            const timer = setTimeout(() => {
+                window.addEventListener("popstate", handlePopState);
+            }, 50);
 
             return () => {
+                clearTimeout(timer);
                 window.removeEventListener("popstate", handlePopState);
                 if (window.history.state?.sidebarId === stateId) {
                     window.history.back();
