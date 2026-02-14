@@ -290,6 +290,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }, [theme]);
 
     // Back button handling for Sidebar on Mobile
+    const sidebarVisibleRef = useRef(sidebarVisible);
+    useEffect(() => {
+        sidebarVisibleRef.current = sidebarVisible;
+    }, [sidebarVisible]);
+
     useEffect(() => {
         const isMobile = window.innerWidth <= 768;
         if (isMobile && sidebarVisible) {
@@ -297,7 +302,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             window.history.pushState({ sidebarId: stateId }, "");
 
             const handlePopState = () => {
-                setSidebarVisible(false);
+                if (sidebarVisibleRef.current) {
+                    setSidebarVisible(false);
+                }
             };
 
             window.addEventListener("popstate", handlePopState);

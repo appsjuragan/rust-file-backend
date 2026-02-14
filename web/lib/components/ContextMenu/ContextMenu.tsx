@@ -55,20 +55,28 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                onClose();
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [onClose]);
-
+    const mountTime = useRef(Date.now());
     const onCloseRef = useRef(onClose);
     useEffect(() => {
         onCloseRef.current = onClose;
     }, [onClose]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            // Ignore events within first 150ms of mount to prevent catching the same interaction
+            if (Date.now() - mountTime.current < 150) return;
+
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                onCloseRef.current();
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("touchstart", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("touchstart", handleClickOutside);
+        };
+    }, []);
 
     // Back button handling for Mobile Context Menu
     useEffect(() => {
