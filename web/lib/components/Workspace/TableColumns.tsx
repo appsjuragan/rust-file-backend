@@ -2,6 +2,7 @@ import React from 'react';
 import { createColumnHelper } from '@tanstack/react-table';
 import { FileType } from '../../types';
 import { formatSize, formatMimeType } from '../../utils/fileUtils';
+import FileIcon from '../Icons/FileIcon';
 import SvgIcon from '../Icons/SvgIcon';
 
 const columnHelper = createColumnHelper<FileType>();
@@ -25,8 +26,14 @@ export const getColumns = () => [
 
                 return (
                     <div className="rfm-workspace-list-icon-td">
-                        <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon text-gray-500" />
-                        <p className="line-through opacity-70 mr-2">{info.getValue()}</p>
+                        <FileIcon
+                            id={info.row.original.id}
+                            name={info.row.original.name}
+                            isDir={info.row.original.isDir}
+                            hideName={true}
+                            className="rfm-list-icon opacity-70"
+                        />
+                        <p className="line-through opacity-70 mr-2 line-clamp-2 break-all flex-1">{info.getValue()}</p>
                         <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#423628] text-[#cfa87d] border border-[#6b563f] whitespace-nowrap">
                             ! Suspicious: {timeLeft}
                         </span>
@@ -36,8 +43,14 @@ export const getColumns = () => [
 
             return (
                 <div className={`rfm-workspace-list-icon-td ${isPending ? 'rfm-pending' : ''}`}>
-                    <SvgIcon svgType={info.row.original.isDir ? "folder" : "file"} className="rfm-workspace-list-icon" />
-                    <p>{info.getValue()}</p>
+                    <FileIcon
+                        id={info.row.original.id}
+                        name={info.row.original.name}
+                        isDir={info.row.original.isDir}
+                        hideName={true}
+                        className="rfm-list-icon"
+                    />
+                    <p className="line-clamp-2 break-all flex-1">{info.getValue()}</p>
                     {isPending && (
                         <span className="rfm-scanning-badge">
                             {isScanning && <SvgIcon svgType="cog" className="rfm-spinner-small animate-spin inline-block mr-1" style={{ width: '12px', height: '12px' }} />}

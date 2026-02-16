@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ISvgIconProps extends React.AllHTMLAttributes<HTMLDivElement> {
-  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera" | "dots";
+  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera" | "dots" | "shield" | "rocket";
 }
 
 const SvgIcon: React.FC<ISvgIconProps> = ({
@@ -10,6 +10,13 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
 }: ISvgIconProps) => {
   const svgContent = () => {
     switch (svgType) {
+      case "shield": {
+        return (
+          <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        );
+      }
       case "menu": {
         return (
           <svg className="w-full h-full" stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -234,13 +241,23 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
           </svg>
         );
       }
+      case "rocket": {
+        return (
+          <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+            <path d="M9 12H4s.55-3.03 2-5c1.62-2.2 5-3 5-3" />
+            <path d="M12 15v5s3.03-.55 5-2c2.2-1.62 3-5 3-5" />
+          </svg>
+        );
+      }
       default: {
         return "";
       }
     }
   };
 
-  return <div {...props} className={`flex items-center justify-center ${props.className || ""}`}>{svgContent()}</div>;
+  return <div {...props} data-type={svgType} className={`flex items-center justify-center ${props.className || ""}`}>{svgContent()}</div>;
 };
 
 export default SvgIcon;

@@ -53,6 +53,12 @@
 
 .rfm-workspace-list-align-txt {
     @apply text-left last:text-right px-4 py-1;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.rfm-workspace-list-align-txt:not(:first-child) {
+    white-space: nowrap;
 }
 
 .rfm-workspace-list-icon-row {
@@ -64,7 +70,7 @@
 }
 
 .rfm-workspace-list-icon-td {
-    @apply flex gap-3 py-1 items-center;
+    @apply flex gap-4 py-0 items-center h-full;
 }
 
 .rfm-workspace-list-icon {
@@ -78,8 +84,8 @@
 }
 
 .rfm-icons-grid .rfm-file-item {
-    @apply flex flex-col items-center justify-center p-2 pt-4 pb-3 rounded-2xl hover:bg-stone-100 dark:hover:bg-slate-700/50 transition-all duration-300 cursor-pointer w-full box-border border-2 border-transparent;
-    min-height: 105px;
+    @apply flex flex-col items-center justify-start p-2 pt-3 pb-2 rounded-2xl hover:bg-stone-100 dark:hover:bg-slate-700/50 transition-all duration-300 cursor-pointer w-full box-border border-2 border-transparent;
+    min-height: 94px;
 }
 
 .rfm-icons-grid .rfm-file-item.rfm-selected {
@@ -94,6 +100,22 @@
 /* Workspace Header & Icons */
 .rfm-workspace-header {
     @apply w-full flex flex-col gap-1 justify-start items-stretch mb-2 shrink-0;
+}
+
+.is-breadcrumb-hidden {
+    @apply overflow-hidden opacity-0 mb-0 pointer-events-none;
+    max-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-width: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rfm-toolbar-breadcrumbs,
+.rfm-breadcrumb-bar {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .rfm-toolbar {
@@ -265,7 +287,7 @@
 }
 
 .rfm-breadcrumbs {
-    @apply flex items-center gap-2 text-sm text-stone-600 font-medium overflow-hidden;
+    @apply flex items-center gap-2 text-sm text-stone-600 font-medium overflow-hidden flex-1;
 }
 
 .rfm-breadcrumb-item {
@@ -274,6 +296,10 @@
 
 .rfm-breadcrumb-item.active {
     @apply text-stone-900 font-bold cursor-default dark:text-slate-100;
+}
+
+.rfm-breadcrumb-count {
+    @apply ml-auto px-3 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-[10px] uppercase font-black tracking-widest text-stone-400 dark:text-slate-500 border border-stone-200 dark:border-slate-700 select-none whitespace-nowrap;
 }
 
 .rfm-breadcrumb-separator {
@@ -399,11 +425,11 @@
     }
 
     .rfm-workspace-list-align-txt {
-        @apply px-3 py-3 text-[15px];
+        @apply px-3 py-1 text-[13.5px];
     }
 
     .rfm-workspace-list-icon-td {
-        @apply gap-3 py-3;
+        @apply gap-2 py-0;
     }
 
     .rfm-workspace-list-icon {
@@ -416,6 +442,15 @@
     }
 
     /* Hide Type and Last Modified columns on mobile */
+    table.w-full th:nth-child(2) {
+        @apply text-right px-4;
+    }
+
+    table.w-full td:nth-child(2) {
+        @apply text-right px-4 font-mono text-[11px] text-stone-500;
+        width: 80px;
+    }
+
     table.w-full th:nth-child(3),
     table.w-full td:nth-child(3),
     table.w-full th:nth-child(4),

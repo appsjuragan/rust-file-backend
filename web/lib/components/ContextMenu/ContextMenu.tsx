@@ -104,11 +104,21 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         }
     }, [isMobile]);
 
+    const triggerAction = (action: () => void) => {
+        onClose();
+        if (isMobile) {
+            setTimeout(action, 100);
+        } else {
+            action();
+        }
+    };
+
     const handleOpen = () => {
         if (file) {
-            onPreview(file);
+            triggerAction(() => onPreview(file));
+        } else {
+            onClose();
         }
-        onClose();
     };
 
     const handleDownload = async () => {
@@ -132,48 +142,53 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
     const handleViewMetadata = () => {
         if (file) {
-            onViewMetadata(file);
+            triggerAction(() => onViewMetadata(file));
+        } else {
+            onClose();
         }
-        onClose();
     };
 
     const handleRename = () => {
         if (file) {
-            onRename(file);
+            triggerAction(() => onRename(file));
+        } else {
+            onClose();
         }
-        onClose();
     };
 
     const handleDelete = async () => {
-        if (selectedIds.length > 0) {
-            setDialogState({
-                isVisible: true,
-                title: "Confirm Delete",
-                message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
-                type: "confirm",
-                onConfirm: async () => {
-                    if (onBulkDelete) {
-                        await onBulkDelete(selectedIds);
-                    } else if (onDelete) {
-                        for (const id of selectedIds) {
-                            await onDelete(id);
+        const action = () => {
+            if (selectedIds.length > 0) {
+                setDialogState({
+                    isVisible: true,
+                    title: "Confirm Delete",
+                    message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+                    type: "confirm",
+                    onConfirm: async () => {
+                        if (onBulkDelete) {
+                            await onBulkDelete(selectedIds);
+                        } else if (onDelete) {
+                            for (const id of selectedIds) {
+                                await onDelete(id);
+                            }
                         }
+                        setSelectedIds([]);
                     }
-                    setSelectedIds([]);
-                }
-            });
-        } else if (file && onDelete) {
-            setDialogState({
-                isVisible: true,
-                title: "Confirm Delete",
-                message: `Are you sure you want to delete ${file.name}?`,
-                type: "confirm",
-                onConfirm: async () => {
-                    await onDelete(file.id);
-                }
-            });
-        }
-        onClose();
+                });
+            } else if (file && onDelete) {
+                setDialogState({
+                    isVisible: true,
+                    title: "Confirm Delete",
+                    message: `Are you sure you want to delete ${file.name}?`,
+                    type: "confirm",
+                    onConfirm: async () => {
+                        await onDelete(file.id);
+                    }
+                });
+            }
+        };
+
+        triggerAction(action);
     };
 
     const handleCopy = () => {
@@ -333,11 +348,11 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {(!file || (file && file.isDir)) && (
                         <>
                             <div className="rfm-border-t my-1 border-stone-200 dark:border-slate-800" />
-                            <div className="rfm-context-menu-item" onClick={() => { onNewFolder(); onClose(); }}>
+                            <div className="rfm-context-menu-item" onClick={() => triggerAction(onNewFolder)}>
                                 <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
                                 New Folder
                             </div>
-                            <div className="rfm-context-menu-item" onClick={() => { onUpload(); onClose(); }}>
+                            <div className="rfm-context-menu-item" onClick={() => triggerAction(onUpload)}>
                                 <SvgIcon svgType="upload" className="rfm-context-menu-icon" />
                                 Upload Files
                             </div>

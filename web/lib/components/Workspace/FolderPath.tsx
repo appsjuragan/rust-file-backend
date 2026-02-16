@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Check } from "lucide-react";
 // Components
 import SvgIcon from "../Icons/SvgIcon";
 
-const FolderPath = () => {
+const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   const {
     fs,
     currentFolder,
@@ -31,11 +31,23 @@ const FolderPath = () => {
     sortField,
     setSortField,
     sortDirection,
-    setSortDirection
+    setSortDirection,
+    folderTree
   } = useFileManager();
 
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [menuClicked, setMenuClicked] = useState(() => {
+    return localStorage.getItem("rfm-menu-clicked") === "true";
+  });
   const sortRef = useRef<HTMLDivElement>(null);
+
+  const handleMenuClick = () => {
+    setSidebarVisible(!sidebarVisible);
+    if (!menuClicked) {
+      setMenuClicked(true);
+      localStorage.setItem("rfm-menu-clicked", "true");
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,37 +62,61 @@ const FolderPath = () => {
   const sortOptions = [
     { value: SortField.Name, label: "Name" },
     { value: SortField.Size, label: "Size" },
-    { value: SortField.Type, label: "Mime" },
+    { value: SortField.Type, label: "File Type" },
     { value: SortField.Date, label: "Date" },
   ];
 
   const goUp = () => {
-    const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder);
-    if (currentFolderInfo && currentFolderInfo.parentId) {
-      setCurrentFolder(currentFolderInfo.parentId);
+    const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder) ||
+      folderTree.find(f => f.id === currentFolder);
+
+    if (currentFolderInfo) {
+      const parentId = (currentFolderInfo as FileType).parentId || (currentFolderInfo as any).parent_id || "0";
+      setCurrentFolder(parentId);
+    } else if (currentFolder !== "0") {
+      // Last resort fallback
+      setCurrentFolder("0");
     }
   };
 
   const breadcrumbs = useMemo(() => {
-    const crumbs: FileType[] = [];
+    const crumbs: { id: string; name: string; parentId: string }[] = [];
     let currentId = currentFolder;
 
-    while (currentId !== "0") {
+    while (currentId !== "0" && currentId) {
       const folder = fs.find((f: FileType) => f.id === currentId);
       if (folder) {
-        crumbs.unshift(folder);
+        crumbs.unshift({
+          id: folder.id,
+          name: folder.name,
+          parentId: folder.parentId || "0"
+        });
         currentId = folder.parentId || "0";
       } else {
-        break;
+        const treeFolder = folderTree.find(f => f.id === currentId);
+        if (treeFolder) {
+          crumbs.unshift({
+            id: treeFolder.id,
+            name: treeFolder.filename,
+            parentId: treeFolder.parent_id || "0"
+          });
+          currentId = treeFolder.parent_id || "0";
+        } else {
+          break;
+        }
       }
     }
 
     return crumbs;
-  }, [fs, currentFolder]);
+  }, [fs, folderTree, currentFolder]);
 
   const handleCrumbClick = (id: string) => {
     setCurrentFolder(id);
   };
+
+  const itemCount = useMemo(() => {
+    return fs.filter((f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/").length;
+  }, [fs, currentFolder]);
 
   const breadcrumbContent = (
     <>
@@ -128,6 +164,9 @@ const FolderPath = () => {
             </React.Fragment>
           ))
         )}
+        <span className="rfm-breadcrumb-count">
+          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+        </span>
       </div>
     </>
   );
@@ -138,8 +177,8 @@ const FolderPath = () => {
       <div className="rfm-toolbar">
         <div className="rfm-toolbar-group">
           <div
-            className={`rfm-folder-path-svg ${!sidebarVisible ? "rfm-header-icon--pulse" : ""}`}
-            onClick={() => setSidebarVisible(!sidebarVisible)}
+            className={`rfm-folder-path-svg ${(!sidebarVisible && !menuClicked) ? "rfm-header-icon--pulse" : ""}`}
+            onClick={handleMenuClick}
             title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
           >
             <SvgIcon svgType="menu" />
@@ -147,7 +186,7 @@ const FolderPath = () => {
         </div>
 
         {/* Desktop Breadcrumbs (Hidden on Mobile via CSS) */}
-        <div className="rfm-toolbar-breadcrumbs">
+        <div className={`rfm-toolbar-breadcrumbs ${!visible ? 'is-breadcrumb-hidden' : ''}`}>
           {breadcrumbContent}
         </div>
 
@@ -200,7 +239,7 @@ const FolderPath = () => {
       </div>
 
       {/* Mobile Breadcrumbs Row (Hidden on Desktop via CSS) */}
-      <div className="rfm-breadcrumb-bar">
+      <div className={`rfm-breadcrumb-bar ${!visible ? 'is-breadcrumb-hidden' : ''}`}>
         {breadcrumbContent}
       </div>
     </div>

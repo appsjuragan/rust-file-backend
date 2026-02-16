@@ -137,7 +137,7 @@
     }
 
     .rfm-status-badge {
-        @apply px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight;
+        @apply inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight leading-none;
     }
 
     .rfm-status-badge.is-pending,
@@ -153,7 +153,8 @@
         @apply bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800;
     }
 
-    .rfm-status-badge.is-unchecked {
+    .rfm-status-badge.is-unchecked,
+    .rfm-status-badge.is-not_supported {
         @apply bg-stone-200 text-stone-600 dark:bg-slate-800 dark:text-slate-500 border border-stone-300 dark:border-slate-700;
     }
 
@@ -301,7 +302,7 @@
         }
 
         .rfm-modal-body {
-            @apply p-6 pt-0 pb-12 w-full box-border;
+            @apply p-10 pt-0 pb-20 w-full box-border;
         }
 
         .rfm-preview-modal {

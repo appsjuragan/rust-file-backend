@@ -1,6 +1,7 @@
 import React from "react";
 import CommonModal from "./CommonModal";
 import { FileType } from "../../types";
+import SvgIcon from "../Icons/SvgIcon";
 
 interface IMetadataModalProps {
     isVisible: boolean;
@@ -38,7 +39,12 @@ const MetadataModal: React.FC<IMetadataModalProps> = ({ isVisible, onClose, file
                 </div>
                 <div className="rfm-form-group">
                     <label>Scan Status</label>
-                    <input type="text" value={file.scanStatus || 'unchecked'} readOnly />
+                    <div className="mt-1">
+                        <span className={`rfm-status-badge is-${file.scanStatus || 'unchecked'}`}>
+                            <SvgIcon svgType="shield" className="w-3.5 h-3.5 mr-1" />
+                            {file.scanStatus || 'unchecked'}
+                        </span>
+                    </div>
                 </div>
                 {file.extraMetadata && (
                     <div className="rfm-form-group">

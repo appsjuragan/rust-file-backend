@@ -30,9 +30,37 @@
         @apply flex flex-col py-2 px-1;
     }
 
+    .rfm-sidebar-header {
+        @apply flex items-center gap-3 px-6 py-2.5 border-b border-stone-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20;
+    }
+
+    .rfm-app-logo {
+        @apply w-8 h-8 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 text-white p-1.5;
+    }
+
+    .rfm-app-logo-icon {
+        @apply w-full h-full;
+    }
+
+    .rfm-app-title {
+        @apply flex flex-col font-black leading-none tracking-tight;
+    }
+
+    .rfm-app-title-main {
+        @apply text-base text-stone-900 dark:text-white uppercase;
+    }
+
+    .rfm-app-title-sub {
+        @apply text-base text-teal-600 dark:text-sky-400 -mt-0.5 uppercase;
+    }
+
     @media (max-width: 768px) {
         .rfm-sidebar-list {
-            @apply pt-16;
+            @apply pt-4;
+        }
+
+        .rfm-sidebar-header {
+            @apply h-auto py-2.5 mb-2;
         }
     }
 

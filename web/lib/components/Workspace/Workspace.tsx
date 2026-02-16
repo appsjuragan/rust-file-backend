@@ -83,6 +83,11 @@ const Workspace = () => {
   const [newTextFileModalVisible, setNewTextFileModalVisible] = useState(false);
   const didDragSelectionRef = React.useRef(false);
 
+  // Breadcrumb visibility state
+  const [showHeader, setShowHeader] = useState(true);
+  const lastScrollTopRef = React.useRef(0);
+  const scrollThreshold = 10;
+
   useEffect(() => {
     setLastSelectedId(null);
   }, [currentFolder]);
@@ -476,12 +481,26 @@ const Workspace = () => {
           }}
         />
       )}
-      <FolderPath />
+      <FolderPath visible={showHeader} />
 
       <div
         className="rfm-workspace-file-listing"
         onScroll={(e) => {
           const target = e.currentTarget;
+          const currentScrollTop = target.scrollTop;
+
+          // Auto-hide breadcrumb logic
+          if (Math.abs(currentScrollTop - lastScrollTopRef.current) > scrollThreshold) {
+            if (currentScrollTop > lastScrollTopRef.current) {
+              // User is scrolling DOWN - hide header
+              if (showHeader) setShowHeader(false);
+            } else {
+              // User is scrolling UP - show header
+              if (!showHeader) setShowHeader(true);
+            }
+          }
+          lastScrollTopRef.current = currentScrollTop;
+
           if (target.scrollHeight - target.scrollTop <= target.clientHeight + 100) {
             if (onLoadMore && hasMore && !isLoadingMore) {
               onLoadMore();
@@ -568,7 +587,7 @@ const Workspace = () => {
                   </div>
                 </div>
               </div>
-              <div className="rfm-fab-item" onClick={() => { triggerOpenUpload(); setFabMenuOpen(false); }}>
+              <div className="rfm-fab-item" onClick={() => { triggerOpenUpload?.(); setFabMenuOpen(false); }}>
                 <div className="rfm-fab-action">
                   <span className="rfm-fab-action-label">Upload Files</span>
                   <div className="rfm-fab-action-icon">
@@ -593,7 +612,7 @@ const Workspace = () => {
                 title={`Paste ${clipboardIds.length} items`}
               >
                 <div className="relative">
-                  <SvgIcon svgType="clipboard" />
+                  <SvgIcon svgType="copy" />
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                     {clipboardIds.length}
                   </span>
@@ -610,6 +629,7 @@ const Workspace = () => {
               onChange={async (e) => {
                 if (e.target.files && e.target.files.length > 0 && onUpload) {
                   const file = e.target.files[0];
+                  if (!file) return;
                   const timestamp = new Date().getTime();
                   const fileName = `photo_${timestamp}.jpg`;
                   const renamedFile = new File([file], fileName, { type: file.type });
@@ -662,7 +682,7 @@ const Workspace = () => {
               }}
               title="Copy"
             >
-              <SvgIcon svgType="clipboard" />
+              <SvgIcon svgType="copy" />
             </div>
 
             <div

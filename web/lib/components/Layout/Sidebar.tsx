@@ -301,6 +301,15 @@ const Sidebar = () => {
 
     return (
         <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
+            <div className="rfm-sidebar-header">
+                <div className="rfm-app-logo">
+                    <SvgIcon svgType="rocket" className="rfm-app-logo-icon" />
+                </div>
+                <div className="rfm-app-title">
+                    <span className="rfm-app-title-main">Juragan <span className="rfm-app-title-sub">Cloud</span></span>
+
+                </div>
+            </div>
             <div className="rfm-sidebar-list">
                 <div
                     className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""} ${isDragOverRoot ? "rfm-drag-over" : ""}`}

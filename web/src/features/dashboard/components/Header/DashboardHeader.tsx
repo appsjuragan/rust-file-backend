@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Search, User, Moon, LogOut, ChevronDown, Sun, Folder, File } from "lucide-react";
 import { FileType } from "../../../../../lib/types";
-import { FileIcon, FolderPath } from "../../../../../lib";
+import { FileIcon, FolderPath, SvgIcon } from "../../../../../lib";
 import "./DashboardHeader.css";
 
 interface DashboardHeaderProps {
@@ -36,17 +36,50 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     searchSuggestions = [],
     isSearching = false,
     onSearchResultClick,
-    sidebarVisible,
     setSidebarVisible
 }) => {
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setDropdownVisible(false);
+            }
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setSearchQuery("");
+            }
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setDropdownVisible(false);
+                setSearchQuery("");
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [dropdownVisible, setDropdownVisible, setSearchQuery]);
+
     return (
         <header className="app-header">
-            <div className="logo">
-                <div className="logo-icon">🚀</div>
-                <span>File Manager</span>
+            <div className="logo cursor-pointer" onClick={() => window.location.reload()}>
+                <div className="rfm-app-logo !w-8 !h-8 !rounded-xl !p-1.5">
+                    <SvgIcon svgType="rocket" className="rfm-app-logo-icon" />
+                </div>
+                <div className="rfm-app-title !gap-0">
+                    <span className="rfm-app-title-main !text-sm !tracking-tight">Juragan</span>
+                    <span className="rfm-app-title-sub !text-sm !tracking-tight !-mt-1">Cloud</span>
+                </div>
             </div>
             <div className="global-search-container">
-                <div className="search-input-wrapper">
+                <div className="search-input-wrapper" ref={searchRef}>
                     <Search className="search-icon-svg" size={18} />
                     <input
                         type="text"
@@ -95,7 +128,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </div>
             </div>
             <div className="user-info">
-                <div className="user-dropdown-container" onClick={() => {
+                <div className="user-dropdown-container" ref={dropdownRef} onClick={() => {
                     setDropdownVisible(!dropdownVisible);
                     if (window.innerWidth <= 768 && !dropdownVisible) {
                         setSidebarVisible(false);

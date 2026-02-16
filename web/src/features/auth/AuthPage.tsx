@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { authService } from "../../services/authService";
 import { formatFriendlyError } from "../../utils/errorFormatter";
 import { CaptchaWidget, useCaptcha } from "../../captcha";
+import { SvgIcon } from "../../../lib";
 import "./Auth.css";
 
 interface AuthPageProps {
@@ -102,8 +103,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
             style={bgImage ? { backgroundImage: `url(${bgImage})` } : {}}
         >
             <div className="auth-card">
-                <h1>🚀 Enterprise File Manager</h1>
-                <p>Secure, Fast, Reliable</p>
+                <div className="flex justify-center mb-3">
+                    <div className="rfm-app-logo !w-16 !h-16 !rounded-[2rem] !p-3.5 shadow-2xl">
+                        <SvgIcon svgType="rocket" className="rfm-app-logo-icon" />
+                    </div>
+                </div>
+                <div className="rfm-app-title !items-center !gap-0 mb-4">
+                    <span className="rfm-app-title-main !text-4xl !tracking-tighter">Juragan</span>
+                    <span className="rfm-app-title-sub !text-4xl !tracking-tighter !-mt-4">Cloud</span>
+                </div>
+                <p>Advanced Agentic File Management</p>
                 <form onSubmit={handleLogin}>
                     <input
                         type="text"

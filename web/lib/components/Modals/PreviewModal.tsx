@@ -11,7 +11,7 @@ interface IPreviewModalProps {
     fileId?: string;
     mimeType?: string;
     size?: number;
-    scanStatus?: "pending" | "scanning" | "clean" | "infected" | "unchecked";
+    scanStatus?: "pending" | "scanning" | "clean" | "infected" | "unchecked" | "not_supported";
     clickPosition?: { x: number; y: number } | null;
 }
 
@@ -222,9 +222,10 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
                     )}
                     <div className="rfm-metadata-row">
                         <span>Scan Status</span>
-                        <span className={`rfm-status-badge is-${scanStatus || 'unchecked'}`}>
+                        <div className={`rfm-status-badge is-${scanStatus || 'unchecked'}`}>
+                            <SvgIcon svgType="shield" className="w-3.5 h-3.5 mr-1" />
                             {scanStatus || 'unchecked'}
-                        </span>
+                        </div>
                     </div>
                 </div>
             </div>
