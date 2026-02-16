@@ -64,6 +64,12 @@
         }
     }
 
+    @media (min-width: 769px) {
+        .rfm-sidebar-header {
+            @apply hidden;
+        }
+    }
+
     .rfm-sidebar-item {
         @apply flex items-center gap-2 px-2 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-stone-600 font-semibold mb-1 border border-transparent;
     }
@@ -101,7 +107,7 @@
     }
 
     .rfm-sidebar-indent {
-        @apply ml-4 border-l border-stone-200/60 dark:border-slate-800 pl-1;
+        @apply ml-4 pl-1;
     }
 
     /* Storage Statistics (Sidebar Facts) */

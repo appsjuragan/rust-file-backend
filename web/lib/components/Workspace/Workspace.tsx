@@ -489,8 +489,8 @@ const Workspace = () => {
           const target = e.currentTarget;
           const currentScrollTop = target.scrollTop;
 
-          // Auto-hide breadcrumb logic
-          if (Math.abs(currentScrollTop - lastScrollTopRef.current) > scrollThreshold) {
+          // Auto-hide breadcrumb logic (Mobile only)
+          if (window.innerWidth <= 768 && Math.abs(currentScrollTop - lastScrollTopRef.current) > scrollThreshold) {
             if (currentScrollTop > lastScrollTopRef.current) {
               // User is scrolling DOWN - hide header
               if (showHeader) setShowHeader(false);
@@ -498,6 +498,8 @@ const Workspace = () => {
               // User is scrolling UP - show header
               if (!showHeader) setShowHeader(true);
             }
+          } else if (window.innerWidth > 768 && !showHeader) {
+            setShowHeader(true);
           }
           lastScrollTopRef.current = currentScrollTop;
 

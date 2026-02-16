@@ -264,9 +264,10 @@ const RowComponent = memo(({ index, style, ariaAttributes, rows, selectedIds, dr
                     stopPropagation: () => { }
                 } as any, file);
             } else {
-                // Desktop long press behavior (e.g., enter selection mode)
+                // Desktop long press behavior: Multi-select
                 setIsLongPress(true);
-                handleItemClick(file, e as unknown as React.MouseEvent);
+                // Simulate Ctrl+Click behavior for multi-select
+                handleItemClick(file, { ctrlKey: true, stopPropagation: () => { } } as any);
                 if (navigator.vibrate) navigator.vibrate(50);
             }
         }, 500);

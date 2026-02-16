@@ -28,7 +28,7 @@
         @apply absolute rounded-2xl bg-stone-50 z-[9000] border border-stone-200 top-[10%] left-[10%] w-[450px] h-[350px] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         resize: both;
-        animation: rfm-modal-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: rfm-modal-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         transform-origin: center center;
     }
 
@@ -216,7 +216,7 @@
     }
 
     .rfm-float-size-info {
-        @apply px-4 py-3 bg-white/10 text-[11px] uppercase tracking-wider opacity-90 border-r border-white/10;
+        @apply px-4 py-3 bg-white/10 text-[11px] uppercase tracking-wider opacity-90 border-r border-white/10 whitespace-nowrap;
     }
 
     .rfm-float-download-divider {
@@ -224,7 +224,7 @@
     }
 
     .rfm-float-download-btn-content {
-        @apply flex items-center gap-2 px-5 py-3;
+        @apply flex items-center gap-2 px-5 py-3 whitespace-nowrap;
     }
 
     .rfm-preview-float-download svg {

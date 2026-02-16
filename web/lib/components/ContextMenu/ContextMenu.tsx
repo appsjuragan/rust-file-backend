@@ -282,8 +282,64 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
                                 return (
                                     <>
-                                        {/* Download only for single file selection */}
-                                        {targetFile && !targetFile.isDir && (
+                                        {/* Open (Preview) - Bold */}
+                                        <div
+                                            className={`rfm-context-menu-item font-bold ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={isScanBusy ? undefined : handleOpen}
+                                        >
+                                            <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
+                                            Open (Preview)
+                                        </div>
+
+                                        {/* View Meta Data - Only for single file */}
+                                        {targetFile && (
+                                            <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
+                                                <SvgIcon svgType="info" className="rfm-context-menu-icon" />
+                                                View Meta Data
+                                            </div>
+                                        )}
+
+                                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+
+                                        {/* Rename - Only for single file */}
+                                        {targetFile && (
+                                            <div
+                                                className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                                onClick={isScanBusy ? undefined : handleRename}
+                                            >
+                                                <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                                                Rename
+                                            </div>
+                                        )}
+
+                                        {/* Cut & Paste & Copy */}
+                                        <div
+                                            className="rfm-context-menu-item"
+                                            onClick={handleCut}
+                                        >
+                                            <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
+                                            Cut {selectedIds.length > 1 ? `(${selectedIds.length} items)` : ''}
+                                        </div>
+
+                                        {clipboardIds.length > 0 && clipboardSourceFolder !== currentFolder && (
+                                            <div className="rfm-context-menu-item" onClick={handlePaste}>
+                                                <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                                                Paste ({clipboardIds.length} item{clipboardIds.length > 1 ? 's' : ''})
+                                            </div>
+                                        )}
+
+                                        <div
+                                            className="rfm-context-menu-item"
+                                            onClick={handleCopy}
+                                        >
+                                            <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
+                                            Copy {selectedIds.length > 1 ? `(${selectedIds.length} items)` : ''}
+                                        </div>
+
+                                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+
+                                        {/* Download - Allowed for files and folders */}
+                                        {targetFile && (
                                             <div
                                                 className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
                                                 onClick={isScanBusy ? undefined : handleDownload}
@@ -293,45 +349,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                                             </div>
                                         )}
 
-                                        {/* Meta and Rename only for single selection */}
-                                        {targetFile && (
-                                            <>
-                                                <div className="rfm-context-menu-item" onClick={handleViewMetadata}>
-                                                    <SvgIcon svgType="info" className="rfm-context-menu-icon" />
-                                                    View Meta Data
-                                                </div>
-                                                <div
-                                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                                    onClick={isScanBusy ? undefined : handleRename}
-                                                >
-                                                    <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
-                                                    Rename
-                                                </div>
-                                                <div
-                                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                                    onClick={isScanBusy ? undefined : handleOpen}
-                                                >
-                                                    <SvgIcon svgType="eye" className="rfm-context-menu-icon" />
-                                                    Open (Preview)
-                                                </div>
-                                            </>
-                                        )}
+                                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
-                                        {/* Bulk Actions (Copy, Cut, Delete) */}
-                                        <div
-                                            className="rfm-context-menu-item"
-                                            onClick={handleCopy}
-                                        >
-                                            <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
-                                            Copy {selectedIds.length > 1 ? `(${selectedIds.length} items)` : ''}
-                                        </div>
-                                        <div
-                                            className="rfm-context-menu-item"
-                                            onClick={handleCut}
-                                        >
-                                            <SvgIcon svgType="scissors" className="rfm-context-menu-icon" />
-                                            Cut {selectedIds.length > 1 ? `(${selectedIds.length} items)` : ''}
-                                        </div>
+                                        {/* Delete */}
                                         <div
                                             className="rfm-context-menu-item text-rose-500"
                                             onClick={handleDelete}
