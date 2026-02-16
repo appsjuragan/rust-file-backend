@@ -52,7 +52,6 @@ export const fileService = {
         body: JSON.stringify({ name, parent_id: parentId }),
     }),
 
-    // TODO: Use getDownloadUrl w/ ticket instead of raw token in URL
     getDownloadUrl: (ticket: string) => `${BASE_URL}/download/${ticket}`,
 
     getDownloadTicket: (id: string) => request(`/files/${id}/ticket`, { method: 'POST' }),

@@ -50,11 +50,11 @@ export const useFileUpload = (
                 const resumable = sessions.filter((s: any) => localMetaMap.has(s.upload_id));
 
                 if (resumable.length === 0) {
-                    console.log('[Resume] No resumable uploads found (no matching local data).');
+                    // console.log('[Resume] No resumable uploads found (no matching local data).');
                     return;
                 }
 
-                console.log(`[Resume] Found ${resumable.length} resumable upload(s). Resuming...`);
+                // console.log(`[Resume] Found ${resumable.length} resumable upload(s). Resuming...`);
 
                 // 3. Create status entries for each resumable session
                 const statusItems: UploadStatus[] = resumable.map((s: any) => ({
@@ -130,7 +130,7 @@ export const useFileUpload = (
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
             const hashResult = hasher.digest();
-            console.log(`[Hash Tool] Generated hash for ${file.name}: ${hashResult}`);
+            // console.log(`[Hash Tool] Generated hash for ${file.name}: ${hashResult}`);
             return hashResult;
         } catch (err) {
             console.error(`[Hash Tool] Failed to hash ${file.name}:`, err);
@@ -188,7 +188,7 @@ export const useFileUpload = (
                         parentId: folderId,
                         createdAt: Date.now(),
                     });
-                    console.log(`[Upload] Stored ${file.name} in IndexedDB for resume (${totalChunks} chunks)`);
+                    // console.log(`[Upload] Stored ${file.name} in IndexedDB for resume (${totalChunks} chunks)`);
                 } catch (e) {
                     console.warn('[Upload] Failed to store in IndexedDB, upload will not be resumable:', e);
                 }
@@ -296,9 +296,9 @@ export const useFileUpload = (
                     });
 
                     if (existing) {
-                        console.log(`[Upload] Found existing file: ${fileName}. Existing Hash: ${existing.hash}, New Hash: ${hash}`);
+                        // console.log(`[Upload] Found existing file: ${fileName}. Existing Hash: ${existing.hash}, New Hash: ${hash}`);
                         if (existing.hash && existing.hash === hash) {
-                            console.log(`[Upload] Hashes match for ${fileName}, skipping everything.`);
+                            // console.log(`[Upload] Hashes match for ${fileName}, skipping everything.`);
                             updateStatus(id, 100, 'completed');
                             if (targetFolderId === folderId) refreshFiles(folderId, true);
                             continue;
@@ -345,7 +345,7 @@ export const useFileUpload = (
         const upload = activeUploads.find(u => u.id === id);
         if (!upload) return;
 
-        console.log(`[Upload] Cancelling upload ${upload.name} (${id})`);
+        // console.log(`[Upload] Cancelling upload ${upload.name} (${id})`);
 
         if (upload.uploadId) {
             try {
