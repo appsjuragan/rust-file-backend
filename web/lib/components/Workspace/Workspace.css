@@ -220,7 +220,13 @@
 }
 
 .rfm-breadcrumb-up-icon {
-    @apply w-9 h-9 flex items-center justify-center text-stone-500 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 p-2 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    @apply text-stone-500 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
 }
 
 .rfm-mobile-actions {
@@ -232,7 +238,15 @@
 }
 
 .rfm-header-icon {
-    @apply w-9 h-9 transition-all duration-200 cursor-pointer p-2 flex items-center justify-center rounded-lg hover:bg-white/50 dark:hover:bg-slate-600/50;
+    width: 36px;
+    height: 36px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    @apply rounded-lg hover:bg-white/50 dark:hover:bg-slate-600/50;
 }
 
 .rfm-header-icon--selected {
@@ -240,7 +254,8 @@
 }
 
 .rfm-header-sort-icon {
-    @apply w-4 h-4;
+    width: 1rem;
+    height: 1rem;
 }
 
 /* Selection Marquee */
@@ -344,7 +359,12 @@
 }
 
 .rfm-folder-path-svg {
-    @apply w-8 h-8 flex items-center justify-center fill-white bg-stone-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-stone-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0 relative z-[4500];
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    @apply fill-white bg-stone-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-stone-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0 relative z-[4500];
 }
 
 @media (max-width: 768px) {
@@ -354,7 +374,8 @@
 }
 
 .rfm-folder-path-svg svg {
-    @apply w-full h-full;
+    width: 100%;
+    height: 100%;
 }
 
 .rfm-breadcrumbs {
@@ -383,7 +404,8 @@
 }
 
 .rfm-sort-trigger {
-    @apply flex items-center gap-2 bg-stone-100 dark:bg-slate-800 rounded-lg px-3 h-9 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none;
+    height: 36px;
+    @apply flex items-center gap-2 bg-stone-100 dark:bg-slate-800 rounded-lg px-3 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none;
 }
 
 .rfm-sort-trigger span {
@@ -424,7 +446,9 @@
 }
 
 .rfm-sort-direction {
-    @apply flex items-center justify-center w-9 h-9 rounded-lg bg-stone-100 dark:bg-slate-800 text-stone-400 border border-stone-200 dark:border-slate-700 hover:text-teal-600 dark:hover:text-sky-400 cursor-pointer transition-colors active:scale-95;
+    width: 36px;
+    height: 36px;
+    @apply flex items-center justify-center rounded-lg bg-stone-100 dark:bg-slate-800 text-stone-400 border border-stone-200 dark:border-slate-700 hover:text-teal-600 dark:hover:text-sky-400 cursor-pointer transition-colors active:scale-95;
 }
 
 @media (max-width: 768px) {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType, FolderNode } from "../../types";
@@ -35,6 +35,70 @@ interface FolderTreeItemProps {
     expandedIds: Set<string>;
     onToggle: (id: string) => void;
 }
+
+const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: () => void, onSelect: (f: FileType) => void }) => {
+    const [swipeX, setSwipeX] = useState(0);
+    const [touchStartX, setTouchStartX] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (!e.touches[0]) return;
+        setTouchStartX(e.touches[0].clientX);
+        setIsSwiping(true);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isSwiping || !e.touches[0]) return;
+        const currentX = e.touches[0].clientX;
+        const diff = currentX - touchStartX;
+        // Only allow swiping left
+        if (diff < 0) {
+            setSwipeX(Math.max(diff, -70)); // Limit swipe to 70px
+        } else {
+            setSwipeX(0);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsSwiping(false);
+        if (swipeX < -40) {
+            setSwipeX(-70);
+        } else {
+            setSwipeX(0);
+        }
+    };
+
+    return (
+        <div className="rfm-swipe-item-container">
+            <div
+                className="rfm-swipe-action-bg"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove();
+                }}
+            >
+                <SvgIcon svgType="trash" size={20} className="text-white" />
+            </div>
+            <div
+                className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800"
+                style={{
+                    transform: `translateX(${swipeX}px)`,
+                    transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+                onClick={() => {
+                    if (swipeX === 0) onSelect(fav);
+                    else setSwipeX(0);
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
+                <SvgIcon svgType={fav.isDir ? "folder" : "file"} size={16} className="mr-2 opacity-70" />
+                <span className="flex-1 truncate">{fav.name}</span>
+            </div>
+        </div>
+    );
+};
 
 const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onToggle }: FolderTreeItemProps) => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, setSidebarVisible } = useFileManager();
@@ -181,7 +245,8 @@ const Sidebar = () => {
         favoritesMinimized,
         setFavoritesMinimized,
         storageUsageMinimized: factsMinimized, // Aliasing for clarity in this file if desired, or just replace usage
-        setStorageUsageMinimized: setFactsMinimized
+        setStorageUsageMinimized: setFactsMinimized,
+        toggleFavorite
     } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set<string>());
@@ -350,7 +415,7 @@ const Sidebar = () => {
                 <div className={`rfm-sidebar-facts ${favoritesMinimized ? 'minimized' : ''}`}>
                     <div className="rfm-facts-header" onClick={() => setFavoritesMinimized(!favoritesMinimized)}>
                         <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
-                            <SvgIcon svgType="star" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                            <SvgIcon svgType="star" size={14} className="mr-1.5 opacity-70" />
                             Favorites
                         </div>
                         <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {
@@ -365,39 +430,36 @@ const Sidebar = () => {
                     {!favoritesMinimized && (
                         <div className="rfm-facts-container">
                             <div className="rfm-facts-content">
-                                <div className="rfm-fact-category-list">
-                                    {favorites.map((fav) => (
-                                        <div
-                                            key={fav.id}
-                                            className="rfm-fact-sub-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800"
-                                            onClick={() => {
-                                                if (fav.isDir) {
-                                                    setCurrentFolder(fav.id);
-                                                    if (window.innerWidth <= 768 && setSidebarVisible) {
-                                                        setSidebarVisible(false);
-                                                    }
-                                                } else {
-                                                    // Navigate to parent folder and highlight the file
-                                                    if (fav.parentId) {
-                                                        setCurrentFolder(fav.parentId);
-                                                        // Use a small timeout to allow the folder to load/render before highlighting
-                                                        setTimeout(() => {
-                                                            if (setHighlightedId) {
-                                                                setHighlightedId(fav.id);
-                                                            }
-                                                        }, 100);
-
+                                <div className="rfm-sidebar-favorites-scroll">
+                                    <div className="rfm-fact-category-list">
+                                        {favorites.map((fav) => (
+                                            <FavoriteItem
+                                                key={fav.id}
+                                                fav={fav}
+                                                onRemove={() => toggleFavorite(fav)}
+                                                onSelect={(item) => {
+                                                    if (item.isDir) {
+                                                        setCurrentFolder(item.id);
                                                         if (window.innerWidth <= 768 && setSidebarVisible) {
                                                             setSidebarVisible(false);
                                                         }
+                                                    } else {
+                                                        if (item.parentId) {
+                                                            setCurrentFolder(item.parentId);
+                                                            setTimeout(() => {
+                                                                if (setHighlightedId) {
+                                                                    setHighlightedId(item.id);
+                                                                }
+                                                            }, 100);
+                                                            if (window.innerWidth <= 768 && setSidebarVisible) {
+                                                                setSidebarVisible(false);
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                            }}
-                                        >
-                                            <SvgIcon svgType={fav.isDir ? "folder" : "file"} className="w-4 h-4 mr-2 opacity-70" />
-                                            <span className="flex-1 truncate">{fav.name}</span>
-                                        </div>
-                                    ))}
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -410,7 +472,7 @@ const Sidebar = () => {
                 <div className={`rfm-sidebar-facts ${factsMinimized ? 'minimized' : ''}`}>
                     <div className="rfm-facts-header" onClick={() => setFactsMinimized(!factsMinimized)}>
                         <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
-                            <SvgIcon svgType="info" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                            <SvgIcon svgType="info" size={14} className="mr-1.5 opacity-70" />
                             Storage Usage
                         </div>
                         <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {

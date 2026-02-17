@@ -194,7 +194,7 @@ export const ReactFileManager = ({
         // Add only those that are not already favorites
         for (const item of filesArray) {
           if (!next.some(f => f.id === item.id)) {
-            next.push(item);
+            next.unshift(item);
           }
         }
       }
