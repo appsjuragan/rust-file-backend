@@ -353,7 +353,11 @@ const Sidebar = () => {
                             <SvgIcon svgType="star" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
                             Favorites
                         </div>
-                        <button className="rfm-facts-toggle-btn">
+                        <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setFavoritesMinimized(!favoritesMinimized);
+                        }}>
                             <SvgIcon svgType={favoritesMinimized ? "plus" : "minus"} size={12} />
                         </button>
                     </div>
@@ -409,7 +413,11 @@ const Sidebar = () => {
                             <SvgIcon svgType="info" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
                             Storage Usage
                         </div>
-                        <button className="rfm-facts-toggle-btn">
+                        <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setFactsMinimized(!factsMinimized);
+                        }}>
                             <SvgIcon svgType={factsMinimized ? "plus" : "minus"} size={12} />
                         </button>
                     </div>

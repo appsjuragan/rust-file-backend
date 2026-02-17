@@ -372,7 +372,8 @@ export const ReactFileManager = ({
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
     hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
-    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection, iconSize
+    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection, iconSize,
+    favorites, toggleFavorite, favoritesMinimized, storageUsageMinimized
   ]);
 
   return (
