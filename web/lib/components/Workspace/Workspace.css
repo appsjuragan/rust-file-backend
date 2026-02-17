@@ -97,6 +97,26 @@
     display: none;
 }
 
+.rfm-file-table.size-medium td {
+    @apply py-1.5 text-sm;
+}
+
+.rfm-file-table.size-medium .rfm-list-icon {
+    width: 28px !important;
+    height: 28px !important;
+    margin-right: 6px;
+}
+
+.rfm-file-table.size-medium .rfm-list-icon .rfm-file-icon-svg {
+    width: 24px !important;
+    height: 24px !important;
+}
+
+.rfm-file-table.size-medium .rfm-list-icon .rfm-file-icon-extension {
+    top: 13px !important;
+    font-size: 6px !important;
+}
+
 .rfm-file-table.size-large td {
     @apply py-3 text-base;
 }
@@ -136,6 +156,21 @@
 .rfm-icons-grid.size-small .rfm-file-icon-extension {
     top: 18px;
     font-size: 8px;
+}
+
+.rfm-icons-grid.size-medium {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    @apply gap-3 p-3;
+}
+
+.rfm-icons-grid.size-medium .rfm-file-icon-svg {
+    width: 60px;
+    height: 60px;
+}
+
+.rfm-icons-grid.size-medium .rfm-file-icon-extension {
+    top: 34px;
+    font-size: 10px;
 }
 
 .rfm-icons-grid.size-large {

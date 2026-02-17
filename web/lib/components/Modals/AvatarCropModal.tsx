@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Cropper from "react-easy-crop";
 import CommonModal from "./CommonModal";
 import getCroppedImg from "../../utils/cropImage";
@@ -19,6 +19,12 @@ const AvatarCropModal: React.FC<IAvatarCropModalProps> = ({
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+    // Reset crop/zoom when a new image is loaded
+    useEffect(() => {
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+    }, [imageSrc]);
 
     const onCropChange = (crop: any) => {
         setCrop(crop);

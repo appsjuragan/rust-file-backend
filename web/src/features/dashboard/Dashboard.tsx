@@ -227,9 +227,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
     const { activeUploads, setActiveUploads, onUpload, cancelUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(refreshAll, fsRef, chunkSize);
 
-    // Initial Load & Auth Effects
+    // Initial Load & Auth Effects - Run only once on mount
     useEffect(() => {
-        localStorage.setItem("currentFolder", currentFolder);
         userService.getSettings().then((settings: any) => {
             if (settings && settings.theme) setTheme(settings.theme);
         }).catch(console.error);
@@ -237,9 +236,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         fetchProfile();
         fetchUserFacts();
         fetchValidationRules();
+    }, [fetchProfile, fetchUserFacts, fetchValidationRules]);
+
+    // Data Fetching Effect - Run when currentFolder changes
+    useEffect(() => {
+        localStorage.setItem("currentFolder", currentFolder);
         fetchFiles(currentFolder);
         fetchFolderTree();
-    }, [currentFolder, fetchProfile, fetchUserFacts, fetchFiles, fetchValidationRules, fetchFolderTree]);
+    }, [currentFolder, fetchFiles, fetchFolderTree]);
 
     // Polling & Updates
     useEffect(() => {
@@ -308,6 +312,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         return () => window.removeEventListener("popstate", handlePopState);
     }, []);
 
+    const sidebarNavigatingRef = useRef(false);
+
     useEffect(() => {
         if (isInternalNavigation.current) {
             isInternalNavigation.current = false;
@@ -316,7 +322,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
         // Only push if different from current history state to avoid duplicates
         if (window.history.state?.currentFolder !== currentFolder) {
-            window.history.pushState({ ...window.history.state, currentFolder }, "");
+            // If the sidebar is currently open on mobile, it already has a history entry.
+            // When we navigate, we "consume" that entry by replacing it with the new folder state
+            // and clearing the sidebarId. This prevents the back() call in sidebar cleanup
+            // from reverting the folder navigation.
+            if (window.history.state?.sidebarId) {
+                window.history.replaceState({ ...window.history.state, currentFolder, sidebarId: undefined }, "");
+                sidebarNavigatingRef.current = true;
+            } else {
+                window.history.pushState({ ...window.history.state, currentFolder }, "");
+            }
         }
     }, [currentFolder]);
 
@@ -331,6 +346,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         if (isMobile && sidebarVisible) {
             const stateId = `sidebar-${Math.random().toString(36).substr(2, 9)}`;
             window.history.pushState({ ...window.history.state, sidebarId: stateId }, "");
+            sidebarNavigatingRef.current = false;
 
             const handlePopState = (e: PopStateEvent) => {
                 if (sidebarVisibleRef.current && e.state?.sidebarId !== stateId) {
@@ -345,9 +361,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             return () => {
                 clearTimeout(timer);
                 window.removeEventListener("popstate", handlePopState);
-                if (window.history.state?.sidebarId === stateId) {
+
+                // Only go back in history if we are NOT in the middle of a folder navigation
+                // that already consumed/replaced the sidebar's history entry.
+                if (window.history.state?.sidebarId === stateId && !sidebarNavigatingRef.current) {
                     window.history.back();
                 }
+                sidebarNavigatingRef.current = false;
             };
         }
     }, [sidebarVisible]);
@@ -360,13 +380,25 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     };
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        const file = e.target.files?.[0];
+        if (file) {
             const reader = new FileReader();
-            reader.addEventListener("load", () => {
-                setImageToCrop(reader.result as string);
-                setCropModalVisible(true);
-            });
-            reader.readAsDataURL(e.target.files[0]);
+            reader.onload = () => {
+                const dataUrl = reader.result as string;
+                // Reset input value IMMEDIATELY so re-selecting same file works
+                e.target.value = "";
+
+                setImageToCrop(dataUrl);
+                // Small delay to ensure state and focus transitions are smooth on mobile
+                setTimeout(() => {
+                    setCropModalVisible(true);
+                }, 100);
+            };
+            reader.onerror = () => {
+                console.error("FileReader error occurred while loading avatar");
+                e.target.value = "";
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -496,7 +528,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 <AvatarCropModal
                     isVisible={cropModalVisible}
                     imageSrc={imageToCrop}
-                    onClose={() => setCropModalVisible(false)}
+                    onClose={() => {
+                        setCropModalVisible(false);
+                        setImageToCrop(null);
+                    }}
                     onCropComplete={handleCropSave}
                 />
             )}

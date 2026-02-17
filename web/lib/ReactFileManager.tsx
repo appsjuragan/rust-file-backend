@@ -138,7 +138,10 @@ export const ReactFileManager = ({
     if (savedIconSize) setIconSize(savedIconSize as IconSize);
     if (savedViewStyle) setViewStyle(savedViewStyle as ViewStyle);
     if (savedSidebarVisible) setInternalSidebarVisible(savedSidebarVisible === 'true');
-    if (savedCurrentFolder && !propCurrentFolder) setInternalCurrentFolder(savedCurrentFolder);
+    // Only restore if we are at root ("0") to avoid overriding active navigation
+    // if (savedCurrentFolder && !propCurrentFolder && internalCurrentFolder === "0") {
+    //   setInternalCurrentFolder(savedCurrentFolder);
+    // }
 
     const savedFavorites = localStorage.getItem(`rfm_favorites_${userId}`);
     if (savedFavorites) {
@@ -154,7 +157,7 @@ export const ReactFileManager = ({
 
     const savedStorageUsageMinimized = localStorage.getItem(`rfm_storageUsageMinimized_${userId}`);
     if (savedStorageUsageMinimized) setStorageUsageMinimized(savedStorageUsageMinimized === 'true');
-  }, [userId, propCurrentFolder]);
+  }, [userId, internalCurrentFolder]);
 
   // Save preferences when they change
   useEffect(() => {

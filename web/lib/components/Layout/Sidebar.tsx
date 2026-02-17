@@ -100,7 +100,7 @@ const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: ()
     );
 };
 
-const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onToggle }: FolderTreeItemProps) => {
+const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle }: FolderTreeItemProps) => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, setSidebarVisible } = useFileManager();
     const [isDragOver, setIsDragOver] = useState(false);
 
@@ -149,24 +149,28 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
         }
     };
 
-    const handleFolderClick = async (e: React.MouseEvent) => {
+    const handleFolderClick = (e: React.MouseEvent) => {
         e.stopPropagation();
+
+        // 1. Navigate immediately
         setCurrentFolder(node.id);
-        // Auto-expand when clicking
-        if (hasChildren && !isExpanded) {
+
+        // 2. Trigger data fetch if callback exists
+        if (onRefresh) {
+            onRefresh(node.id).catch(err => console.error("Sidebar navigation refresh failed", err));
+        }
+
+        const isExpanding = hasChildren && !isExpanded;
+        // 3. Auto-expand if we are currently collapsed
+        if (isExpanding) {
             onToggle(node.id);
         }
 
-        // Close sidebar on mobile after navigation
+        // 4. Handle mobile sidebar auto-hide
         if (window.innerWidth <= 768 && setSidebarVisible) {
-            setSidebarVisible(false);
-        }
-
-        if (onRefresh) {
-            try {
-                await onRefresh(node.id);
-            } catch (e) {
-                console.error("Error during refresh", e);
+            // Only hide if we aren't drilling down into a sub-tree
+            if (!isExpanding) {
+                setTimeout(() => setSidebarVisible(false), 50);
             }
         }
     };
@@ -180,7 +184,7 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
         <div className="rfm-folder-branch">
             <div
                 className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""} ${isDragOver ? "rfm-drag-over" : ""}`}
-                style={{ paddingLeft: `${Math.max(0.5, level * 0.75)}rem` }}
+                style={{ paddingLeft: `${Math.max(0.75, level * 0.75)}rem` }}
                 onClick={handleFolderClick}
                 onContextMenu={(e) => {
                     e.preventDefault();
@@ -224,7 +228,7 @@ const FolderTreeItem = React.memo(({ node, childrenMap, level, expandedIds, onTo
             )}
         </div>
     );
-});
+};
 
 const Sidebar = () => {
     const {
@@ -343,12 +347,12 @@ const Sidebar = () => {
         }
     };
 
-    const handleRootClick = async () => {
+    const handleRootClick = () => {
         setCurrentFolder("0");
+        // Always close on mobile when going home
         if (window.innerWidth <= 768 && setSidebarVisible) {
             setSidebarVisible(false);
         }
-        if (onRefresh) await onRefresh("0");
     };
 
     // Calculate facts for storage stats
@@ -440,6 +444,7 @@ const Sidebar = () => {
                                                 onSelect={(item) => {
                                                     if (item.isDir) {
                                                         setCurrentFolder(item.id);
+                                                        // Always close on mobile for favorite selection
                                                         if (window.innerWidth <= 768 && setSidebarVisible) {
                                                             setSidebarVisible(false);
                                                         }

@@ -53,6 +53,8 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
         setFocusedIndex(-1);
     }, [currentFolderFiles]);
 
+
+
     if (isLoading) {
         return (
             <div className="rfm-table-container">
@@ -73,6 +75,29 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
     }
 
     const rows = table.getRowModel().rows;
+
+    // Scroll to highlighted item
+    useEffect(() => {
+        if (highlightedId && rows.length > 0) {
+            const index = rows.findIndex(row => row.original.id === highlightedId);
+            if (index !== -1 && listRef.current) {
+                // Prioritize scrollToRow with object signature as confirmed by linter and original code
+                if (typeof listRef.current.scrollToRow === 'function') {
+                    try {
+                        listRef.current.scrollToRow({ index, align: 'center' });
+                    } catch (e) {
+                        console.warn("scrollToRow failed", e);
+                    }
+                }
+                // Fallback to scrollToItem for standard react-window if the above fails or is missing
+                else if (typeof (listRef.current as any).scrollToItem === 'function') {
+                    (listRef.current as any).scrollToItem(index, 'center');
+                }
+
+                setFocusedIndex(index);
+            }
+        }
+    }, [highlightedId, rows]);
     const ROW_HEIGHT = 48; // Slightly reduced for better mobile density while still fitting 2 lines
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
