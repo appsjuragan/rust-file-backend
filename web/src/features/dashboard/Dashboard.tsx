@@ -289,6 +289,37 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         else document.documentElement.classList.remove("dark");
     }, [theme]);
 
+    // Folder Navigation History handling
+    const isInternalNavigation = useRef(false);
+    useEffect(() => {
+        const handlePopState = (e: PopStateEvent) => {
+            if (e.state && e.state.currentFolder !== undefined) {
+                isInternalNavigation.current = true;
+                setCurrentFolder(e.state.currentFolder);
+            }
+        };
+
+        // Initialize history state on first load if not set
+        if (!window.history.state || window.history.state.currentFolder === undefined) {
+            window.history.replaceState({ ...window.history.state, currentFolder }, "");
+        }
+
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, []);
+
+    useEffect(() => {
+        if (isInternalNavigation.current) {
+            isInternalNavigation.current = false;
+            return;
+        }
+
+        // Only push if different from current history state to avoid duplicates
+        if (window.history.state?.currentFolder !== currentFolder) {
+            window.history.pushState({ ...window.history.state, currentFolder }, "");
+        }
+    }, [currentFolder]);
+
     // Back button handling for Sidebar on Mobile
     const sidebarVisibleRef = useRef(sidebarVisible);
     useEffect(() => {
@@ -299,7 +330,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         const isMobile = window.innerWidth <= 768;
         if (isMobile && sidebarVisible) {
             const stateId = `sidebar-${Math.random().toString(36).substr(2, 9)}`;
-            window.history.pushState({ sidebarId: stateId }, "");
+            window.history.pushState({ ...window.history.state, sidebarId: stateId }, "");
 
             const handlePopState = (e: PopStateEvent) => {
                 if (sidebarVisibleRef.current && e.state?.sidebarId !== stateId) {

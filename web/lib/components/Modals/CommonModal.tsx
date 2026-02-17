@@ -46,9 +46,11 @@ const CommonModal: React.FC<IModalProps> = ({
       const stateId = `modal-${Math.random().toString(36).substr(2, 9)}`;
       window.history.pushState({ modalId: stateId }, "");
 
-      const handlePopState = () => {
-        // Close modal when back button is pressed
-        onCloseRef.current();
+      const handlePopState = (e: PopStateEvent) => {
+        // Only close if the new state doesn't match our modalId
+        if (e.state?.modalId !== stateId) {
+          onCloseRef.current();
+        }
       };
 
       window.addEventListener("popstate", handlePopState);
