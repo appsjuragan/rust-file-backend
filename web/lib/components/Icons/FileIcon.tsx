@@ -13,11 +13,15 @@ interface IFileIcon {
   onContextMenu?: (e: React.MouseEvent) => void;
   hideName?: boolean;
   className?: string;
+  isFavorite?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
-  const { setCurrentFolder, onRefresh, clipboardIds, isCut } = useFileManager();
+  const { setCurrentFolder, onRefresh, clipboardIds, isCut, favorites } = useFileManager();
   const isBeingCut = !!(isCut && Array.isArray(clipboardIds) && clipboardIds.includes(props.id));
+
+  // Determine favorite status: either from prop or by checking against favorites in context
+  const isFavorited = props.isFavorite !== undefined ? props.isFavorite : (favorites?.some(f => f.id === props.id) || false);
 
   const fileExtension = useMemo((): string => {
     if (props.isDir || !props.name.includes(".")) {
@@ -67,6 +71,11 @@ const FileIcon = (props: IFileIcon) => {
         />
         {!props.isDir && fileExtension && (
           <span className="rfm-file-icon-extension">{fileExtension}</span>
+        )}
+        {isFavorited && (
+          <div className="rfm-file-icon-favorite-badge">
+            <SvgIcon svgType="star" className="w-full h-full text-yellow-500 fill-current shadow-sm" />
+          </div>
         )}
       </div>
       {!props.hideName && <span className="rfm-file-icon-name">{props.name}</span>}

@@ -50,6 +50,8 @@ export interface IFileManagerProps {
   sidebarVisible?: boolean;
   setSidebarVisible?: (visible: boolean) => void;
   userId?: string;
+  favorites?: FileType[];
+  onToggleFavorite?: (file: FileType | FileType[]) => void;
 }
 
 export const ReactFileManager = ({
@@ -81,6 +83,8 @@ export const ReactFileManager = ({
   sidebarVisible: propSidebarVisible,
   setSidebarVisible: propSetSidebarVisible,
   userId,
+  favorites: propFavorites,
+  onToggleFavorite: propOnToggleFavorite,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -119,7 +123,9 @@ export const ReactFileManager = ({
   const [iconSize, setIconSize] = useState<IconSize>(IconSize.Medium);
 
   // Favorites state
-  const [favorites, setFavorites] = useState<FileType[]>([]);
+  const [internalFavorites, setInternalFavorites] = useState<FileType[]>([]);
+  const favorites = propFavorites ?? internalFavorites;
+  const setFavorites = setInternalFavorites;
   const [favoritesMinimized, setFavoritesMinimized] = useState<boolean>(false);
   const [storageUsageMinimized, setStorageUsageMinimized] = useState<boolean>(false);
 
@@ -184,6 +190,10 @@ export const ReactFileManager = ({
   }, [favoritesMinimized, storageUsageMinimized, userId]);
 
   const toggleFavorite = (file: FileType | FileType[]) => {
+    if (propOnToggleFavorite) {
+      propOnToggleFavorite(file);
+      return;
+    }
     const filesArray = Array.isArray(file) ? file : [file];
     setFavorites(prev => {
       let next = [...prev];

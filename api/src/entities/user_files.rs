@@ -11,6 +11,7 @@ pub struct Model {
     pub parent_id: Option<String>,
     pub is_folder: bool,
     pub filename: String,
+    pub is_favorite: bool,
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,

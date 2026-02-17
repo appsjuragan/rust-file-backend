@@ -30,6 +30,7 @@ export const getColumns = () => [
                             id={info.row.original.id}
                             name={info.row.original.name}
                             isDir={info.row.original.isDir}
+                            isFavorite={info.row.original.isFavorite}
                             hideName={true}
                             className="rfm-list-icon opacity-70"
                         />
@@ -47,6 +48,7 @@ export const getColumns = () => [
                         id={info.row.original.id}
                         name={info.row.original.name}
                         isDir={info.row.original.isDir}
+                        isFavorite={info.row.original.isFavorite}
                         hideName={true}
                         className="rfm-list-icon"
                     />

@@ -24,6 +24,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const [currentFolder, setCurrentFolder] = useState<string>(() => {
         return localStorage.getItem("currentFolder") || "0";
     });
+    const [favorites, setFavorites] = useState<FileType[]>([]);
 
     // User Profile State
     const [profile, setProfile] = useState<{ id: string, name?: string, email?: string, avatarUrl?: string }>({ id: "", name: "", email: "", avatarUrl: "" });
@@ -124,6 +125,28 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         } catch (err) { console.error("Failed to fetch folder tree", err); }
     }, []);
 
+    const fetchFavorites = useCallback(async () => {
+        try {
+            const data = await fileService.listFiles(undefined, 24, 0, true);
+            const mappedFavorites: FileType[] = data.map((item: any) => ({
+                id: item.id,
+                name: item.filename,
+                isDir: item.is_folder,
+                parentId: item.parent_id || "0",
+                lastModified: new Date(item.created_at).getTime() / 1000,
+                scanStatus: item.scan_status,
+                size: item.size,
+                mimeType: item.mime_type,
+                hash: item.hash,
+                isFavorite: item.is_favorite,
+                extraMetadata: item.extra_metadata,
+            }));
+            setFavorites(mappedFavorites);
+        } catch (err) {
+            console.error("Failed to fetch favorites:", err);
+        }
+    }, []);
+
     const fetchFiles = useCallback(async (parentId: string = "0", silent = false, offset = 0) => {
         if (!silent && offset === 0) setLoading(true);
         if (offset > 0) setLoadingMore(true);
@@ -146,6 +169,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 size: item.size,
                 mimeType: item.mime_type,
                 hash: item.hash,
+                isFavorite: item.is_favorite,
                 extraMetadata: item.extra_metadata,
             }));
 
@@ -221,9 +245,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         await Promise.all([
             fetchFiles(parentId, silent),
             fetchUserFacts(),
-            fetchFolderTree()
+            fetchFolderTree(),
+            fetchFavorites()
         ]);
-    }, [fetchFiles, fetchUserFacts, fetchFolderTree]);
+    }, [fetchFiles, fetchUserFacts, fetchFolderTree, fetchFavorites]);
 
     const { activeUploads, setActiveUploads, onUpload, cancelUpload, overwriteConfirm, setOverwriteConfirm } = useFileUpload(refreshAll, fsRef, chunkSize);
 
@@ -236,7 +261,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         fetchProfile();
         fetchUserFacts();
         fetchValidationRules();
-    }, [fetchProfile, fetchUserFacts, fetchValidationRules]);
+        fetchFavorites();
+    }, [fetchProfile, fetchUserFacts, fetchValidationRules, fetchFavorites]);
 
     // Data Fetching Effect - Run when currentFolder changes
     useEffect(() => {
@@ -340,6 +366,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     useEffect(() => {
         sidebarVisibleRef.current = sidebarVisible;
     }, [sidebarVisible]);
+
+    /**
+     * Wrapped navigation handler that ensures history state is correctly 
+     * updated before the mobile sidebar is closed, preventing race conditions.
+     */
+    const navigateToFolder = useCallback((id: string) => {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && sidebarVisibleRef.current) {
+            if (window.history.state?.sidebarId) {
+                // Pre-emptively update history to "consume" the sidebar entry
+                window.history.replaceState({ ...window.history.state, currentFolder: id, sidebarId: undefined }, "");
+                sidebarNavigatingRef.current = true;
+            }
+        }
+        setCurrentFolder(id);
+    }, [setCurrentFolder]);
+
 
     useEffect(() => {
         const isMobile = window.innerWidth <= 768;
@@ -446,15 +489,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 searchSuggestions={searchSuggestions}
                 isSearching={isSearching}
                 onSearchResultClick={(file) => {
-                    if (window.innerWidth <= 768) setSidebarVisible(false);
                     if (file.isDir) {
-                        setCurrentFolder(file.id);
+                        navigateToFolder(file.id);
                     } else {
                         if (file.parentId) {
-                            setCurrentFolder(file.parentId);
+                            navigateToFolder(file.parentId);
                             setHighlightedId(file.id);
                         }
                     }
+                    if (window.innerWidth <= 768) setSidebarVisible(false);
                 }}
             />
 
@@ -462,7 +505,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 <ReactFileManager
                     fs={fs}
                     onRefresh={(id: string) => fetchFiles(id)}
-                    setCurrentFolder={setCurrentFolder}
+                    setCurrentFolder={navigateToFolder}
                     currentFolder={currentFolder}
                     onUpload={onUpload}
                     onCancelUpload={cancelUpload}
@@ -489,6 +532,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     sidebarVisible={sidebarVisible}
                     setSidebarVisible={setSidebarVisible}
                     userId={profile.id}
+                    favorites={favorites}
+                    onToggleFavorite={async (file) => {
+                        const filesArray = Array.isArray(file) ? file : [file];
+                        await Promise.all(filesArray.map(f => fileService.toggleFavorite(f.id)));
+                        fetchFiles(currentFolder, true);
+                        fetchFavorites();
+                    }}
                 />
             </main>
 

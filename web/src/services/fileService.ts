@@ -3,11 +3,12 @@ import { request } from "./httpClient";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const fileService = {
-    listFiles: (parentId?: string, limit?: number, offset?: number) => {
+    listFiles: (parentId?: string, limit?: number, offset?: number, isFavorite?: boolean) => {
         const queryParams = new URLSearchParams();
         if (parentId) queryParams.set('parent_id', parentId);
         if (limit !== undefined) queryParams.set('limit', limit.toString());
         if (offset !== undefined) queryParams.set('offset', offset.toString());
+        if (isFavorite !== undefined) queryParams.set('is_favorite', isFavorite.toString());
 
         const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return request(`/files${query}`);
@@ -91,6 +92,8 @@ export const fileService = {
     }),
 
     listFolderTree: () => request('/folders/tree'),
+
+    toggleFavorite: (id: string) => request(`/files/${id}/favorite`, { method: 'POST' }),
 
     getValidationRules: () => request('/system/validation-rules'),
 };

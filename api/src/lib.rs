@@ -39,6 +39,7 @@ use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
         api::handlers::files::delete_item,
         api::handlers::files::rename_item,
         api::handlers::files::get_folder_path,
+        api::handlers::files::toggle_favorite,
         api::handlers::files::get_zip_contents,
         api::handlers::files::bulk_delete,
         api::handlers::files::bulk_move,
@@ -173,6 +174,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/files/:id",
             get(api::handlers::files::download_file).delete(api::handlers::files::delete_item),
+        )
+        .route(
+            "/files/:id/favorite",
+            post(api::handlers::files::toggle_favorite),
         )
         .route(
             "/files/:id/ticket",

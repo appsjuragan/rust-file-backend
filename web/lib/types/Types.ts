@@ -22,6 +22,7 @@ export type FileType = {
   hash?: string;
   extraMetadata?: any;
   expiresAt?: string;
+  isFavorite?: boolean;
 };
 
 export type FileSystemType = FileType[];

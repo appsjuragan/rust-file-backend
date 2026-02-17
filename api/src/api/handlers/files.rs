@@ -12,8 +12,8 @@ use axum::{
 use chrono::Utc;
 use futures::TryStreamExt;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, RelationTrait, Set, sea_query::{Expr, Func},
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, sea_query::{Expr, Func},
 };
 use serde::{Deserialize, Serialize};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
@@ -45,6 +45,7 @@ pub struct FileMetadataResponse {
     pub scan_status: Option<String>,
     pub scan_result: Option<String>,
     pub hash: Option<String>,
+    pub is_favorite: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -94,6 +95,7 @@ pub struct ListFilesQuery {
     pub similarity: Option<bool>,
     pub limit: Option<u64>,
     pub offset: Option<u64>,
+    pub is_favorite: Option<bool>,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
@@ -455,8 +457,12 @@ pub async fn list_files(
         } else {
             cond = cond.add(user_files::Column::ParentId.eq(parent));
         }
-    } else if query.search.is_none() && query.tags.is_none() && query.category.is_none() {
+    } else if query.search.is_none() && query.tags.is_none() && query.category.is_none() && query.is_favorite.is_none() {
         cond = cond.add(user_files::Column::ParentId.is_null());
+    }
+    
+    if let Some(fav) = query.is_favorite {
+        cond = cond.add(user_files::Column::IsFavorite.eq(fav));
     }
 
     if let Some(ref search) = query.search {
@@ -604,6 +610,7 @@ pub async fn list_files(
             scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
             scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
             hash: storage_file.as_ref().map(|s| s.hash.clone()),
+            is_favorite: user_file.is_favorite,
         });
     }
 
@@ -665,6 +672,7 @@ pub async fn create_folder(
         scan_status: None,
         scan_result: None,
         hash: None,
+        is_favorite: res.is_favorite,
     }))
 }
 
@@ -724,6 +732,7 @@ pub async fn get_folder_path(
                 scan_status: None,
                 scan_result: None,
                 hash: None,
+                is_favorite: folder.is_favorite,
             },
         );
 
@@ -755,6 +764,78 @@ pub async fn delete_item(
 ) -> Result<StatusCode, AppError> {
     state.file_service.delete_item(&claims.sub, &id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/{id}/favorite",
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Favorite status toggled", body = FileMetadataResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn toggle_favorite(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<Json<FileMetadataResponse>, AppError> {
+    let item = UserFiles::find_by_id(id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Item not found".to_string()))?;
+
+    let mut active_model = item.into_active_model();
+    active_model.is_favorite = Set(!active_model.is_favorite.unwrap());
+    let res = active_model.update(&state.db).await?;
+
+    // Manual mapping for now to include metadata
+    let storage_file: Option<storage_files::Model> = if let Some(ref sf_id) = res.storage_file_id {
+        StorageFiles::find_by_id(sf_id.clone()).one(&state.db).await?
+    } else {
+        None
+    };
+
+    let tags_items: Vec<tags::Model> = Tags::find()
+        .join(sea_orm::JoinType::InnerJoin, tags::Relation::FileTags.def())
+        .filter(file_tags::Column::UserFileId.eq(&res.id))
+        .all(&state.db)
+        .await?;
+
+    let metadata = if let Some(ref sf) = storage_file {
+        FileMetadata::find()
+            .filter(file_metadata::Column::StorageFileId.eq(&sf.id))
+            .one(&state.db)
+            .await?
+    } else {
+        None
+    };
+
+    Ok(Json(FileMetadataResponse {
+        id: res.id,
+        filename: res.filename,
+        size: storage_file.as_ref().map(|s| s.size),
+        mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
+        is_folder: res.is_folder,
+        parent_id: res.parent_id,
+        created_at: res.created_at.unwrap_or_else(Utc::now),
+        expires_at: res.expires_at,
+        tags: tags_items.into_iter().map(|t| t.name).collect(),
+        category: metadata.as_ref().map(|m| m.category.clone()),
+        extra_metadata: metadata.map(|m| m.metadata),
+        scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
+        scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
+        hash: storage_file.as_ref().map(|s| s.hash.clone()),
+        is_favorite: res.is_favorite,
+    }))
 }
 
 #[utoipa::path(
@@ -1170,7 +1251,7 @@ async fn return_file_metadata(
     };
 
     // Fetch tags and metadata for response
-    let tags_items = Tags::find()
+    let tags_items: Vec<tags::Model> = Tags::find()
         .join(sea_orm::JoinType::InnerJoin, tags::Relation::FileTags.def())
         .filter(file_tags::Column::UserFileId.eq(&updated.id))
         .all(&state.db)
@@ -1205,6 +1286,7 @@ async fn return_file_metadata(
         scan_status: storage_file.as_ref().and_then(|s| s.scan_status.clone()),
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         hash: storage_file.as_ref().map(|s| s.hash.clone()),
+        is_favorite: updated.is_favorite,
     }))
 }
 

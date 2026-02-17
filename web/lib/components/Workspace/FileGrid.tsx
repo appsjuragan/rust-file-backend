@@ -120,7 +120,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                         className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} ${isSelected ? "rfm-selected" : ""} ${dragOverId === f.id ? "rfm-drag-over" : ""} ${highlightedId === f.id ? "rfm-highlighted" : ""}`}
                         disabled={isPending}
                     >
-                        <FileIcon id={f.id} name={f.name} isDir={f.isDir} />
+                        <FileIcon id={f.id} name={f.name} isDir={f.isDir} isFavorite={f.isFavorite} />
                         {isPending && (
                             <div className="rfm-scanning-overlay">
                                 {isScanning && <SvgIcon svgType="cog" className="rfm-spinner-small animate-spin mr-1" style={{ width: '14px', height: '14px' }} />}
