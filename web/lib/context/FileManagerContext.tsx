@@ -101,7 +101,7 @@ interface ProviderInterface {
   sidebarVisible: boolean;
   setSidebarVisible: Dispatch<boolean>;
   favorites: FileType[];
-  toggleFavorite: (file: FileType) => void;
+  toggleFavorite: (file: FileType | FileType[]) => void;
   favoritesMinimized: boolean;
   setFavoritesMinimized: Dispatch<boolean>;
   storageUsageMinimized: boolean;

@@ -171,19 +171,30 @@ export const ReactFileManager = ({
     localStorage.setItem(`rfm_storageUsageMinimized_${userId}`, String(storageUsageMinimized));
   }, [favoritesMinimized, storageUsageMinimized, userId]);
 
-  const toggleFavorite = (file: FileType) => {
+  const toggleFavorite = (file: FileType | FileType[]) => {
+    const filesArray = Array.isArray(file) ? file : [file];
     setFavorites(prev => {
-      const exists = prev.some(f => f.id === file.id);
-      if (exists) {
-        return prev.filter(f => f.id !== file.id);
+      let next = [...prev];
+      const allSelectedAreFavorites = filesArray.every(item => next.some(f => f.id === item.id));
+
+      if (allSelectedAreFavorites) {
+        // Remove all selected from favorites
+        const idsToRemove = new Set(filesArray.map(f => f.id));
+        next = next.filter(f => !idsToRemove.has(f.id));
       } else {
-        // Keep only the last 6 favorites
-        const newFavorites = [...prev, file];
-        if (newFavorites.length > 6) {
-          return newFavorites.slice(newFavorites.length - 6);
+        // Add only those that are not already favorites
+        for (const item of filesArray) {
+          if (!next.some(f => f.id === item.id)) {
+            next.push(item);
+          }
         }
-        return newFavorites;
       }
+
+      // Limit favorites to prevent UI clutter
+      if (next.length > 24) {
+        return next.slice(next.length - 24);
+      }
+      return next;
     });
   };
 

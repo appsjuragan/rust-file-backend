@@ -339,20 +339,29 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                                         </div>
 
 
-                                        {/* Favorites Toggle - Only for single file/folder */}
-                                        {targetFile && (
+                                        {/* Favorites Toggle - For single or multiple selection */}
+                                        {(targetFile || selectedIds.length > 1) && (
                                             <div
                                                 className="rfm-context-menu-item"
                                                 onClick={() => {
-                                                    toggleFavorite(targetFile);
+                                                    const itemsToToggle = targetFile ? [targetFile] : fs.filter(f => selectedIds.includes(f.id));
+                                                    toggleFavorite(itemsToToggle);
                                                     onClose();
                                                 }}
                                             >
-                                                <SvgIcon
-                                                    svgType="star"
-                                                    className={`rfm-context-menu-icon ${favorites.some(f => f.id === targetFile.id) ? 'fill-yellow-400 text-yellow-500' : ''}`}
-                                                />
-                                                {favorites.some(f => f.id === targetFile.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                                                {(() => {
+                                                    const itemsToCheck = targetFile ? [targetFile] : fs.filter(f => selectedIds.includes(f.id));
+                                                    const isAllFav = itemsToCheck.length > 0 && itemsToCheck.every(item => favorites.some(f => f.id === item.id));
+                                                    return (
+                                                        <>
+                                                            <SvgIcon
+                                                                svgType="star"
+                                                                className={`rfm-context-menu-icon ${isAllFav ? 'fill-yellow-400 text-yellow-500' : ''}`}
+                                                            />
+                                                            {isAllFav ? 'Remove from Favorites' : 'Add to Favorites'}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
 
@@ -360,16 +369,17 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
                                         {/* Download - Allowed for files and folders */}
                                         {targetFile && (
-                                            <div
-                                                className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
-                                                onClick={isScanBusy ? undefined : handleDownload}
-                                            >
-                                                <SvgIcon svgType="download" className="rfm-context-menu-icon" />
-                                                Download {isScanBusy && '(Checking...)'}
-                                            </div>
+                                            <>
+                                                <div
+                                                    className={`rfm-context-menu-item ${isScanBusy ? 'disabled opacity-50 cursor-not-allowed' : ''}`}
+                                                    onClick={isScanBusy ? undefined : handleDownload}
+                                                >
+                                                    <SvgIcon svgType="download" className="rfm-context-menu-icon" />
+                                                    Download {isScanBusy && '(Checking...)'}
+                                                </div>
+                                                <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+                                            </>
                                         )}
-
-                                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
                                         {/* Delete */}
                                         <div
