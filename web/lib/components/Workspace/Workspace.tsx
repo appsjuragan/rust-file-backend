@@ -73,6 +73,7 @@ const Workspace = () => {
     openUpload: triggerOpenUpload,
     clipboardSourceFolder,
     setClipboardSourceFolder,
+    iconSize
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -523,6 +524,7 @@ const Workspace = () => {
             handleDragLeave={handleDragLeave}
             handleDropOnFolder={handleDropOnFolder}
             handleContextMenu={handleContextMenu}
+            iconSize={iconSize}
           />
         )}
 
@@ -541,6 +543,7 @@ const Workspace = () => {
             handleDoubleClick={handleDoubleClick}
             currentFolderFiles={currentFolderFiles}
             columnsCount={columns.length}
+            iconSize={iconSize}
           />
         )}
 

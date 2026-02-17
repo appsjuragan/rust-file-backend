@@ -77,10 +77,81 @@
     @apply w-5 h-5;
 }
 
+/* List View - Sizes */
+.rfm-file-table.size-small td {
+    @apply py-0.5 text-xs;
+}
+
+.rfm-file-table.size-small .rfm-list-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 4px;
+}
+
+.rfm-file-table.size-small .rfm-list-icon .rfm-file-icon-svg {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+.rfm-file-table.size-small .rfm-list-icon .rfm-file-icon-extension {
+    display: none;
+}
+
+.rfm-file-table.size-large td {
+    @apply py-3 text-base;
+}
+
+.rfm-file-table.size-large .rfm-list-icon {
+    width: 48px !important;
+    height: 48px !important;
+    margin-right: 8px;
+}
+
+.rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-svg {
+    width: 42px !important;
+    height: 42px !important;
+}
+
+.rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-extension {
+    top: 22px !important;
+    font-size: 9px !important;
+}
+
 /* Grid View */
 .rfm-icons-grid {
     @apply grid gap-2 p-3 mt-1 pb-10;
     grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+}
+
+.rfm-icons-grid.size-small {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    @apply gap-1 p-2;
+}
+
+.rfm-icons-grid.size-small .rfm-file-icon-svg {
+    width: 32px;
+    height: 32px;
+}
+
+.rfm-icons-grid.size-small .rfm-file-icon-extension {
+    top: 18px;
+    font-size: 8px;
+}
+
+.rfm-icons-grid.size-large {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    @apply gap-4 p-4;
+}
+
+.rfm-icons-grid.size-large .rfm-file-icon-svg {
+    width: 80px;
+    height: 80px;
+}
+
+.rfm-icons-grid.size-large .rfm-file-icon-extension {
+    top: 48px;
+    font-size: 14px;
+    letter-spacing: 1px;
 }
 
 .rfm-icons-grid .rfm-file-item {

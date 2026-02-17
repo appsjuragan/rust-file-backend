@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { flexRender, Table } from '@tanstack/react-table';
-import { FileType } from "../../types";
+import { FileType, IconSize } from "../../types";
 import SvgIcon from '../Icons/SvgIcon';
 
 interface FileTableProps {
@@ -17,6 +17,7 @@ interface FileTableProps {
     handleDoubleClick: (file: FileType) => void;
     currentFolderFiles: FileType[];
     columnsCount: number;
+    iconSize?: IconSize;
 }
 
 export const FileTable: React.FC<FileTableProps> = ({
@@ -32,7 +33,8 @@ export const FileTable: React.FC<FileTableProps> = ({
     handleItemClick,
     handleDoubleClick,
     currentFolderFiles,
-    columnsCount
+    columnsCount,
+    iconSize
 }) => {
     const longPressTimer = React.useRef<any>(null);
     const [isLongPress, setIsLongPress] = useState(false);
@@ -84,7 +86,7 @@ export const FileTable: React.FC<FileTableProps> = ({
     };
 
     return (
-        <table className="w-full">
+        <table className={`w-full rfm-file-table ${iconSize ? `size-${iconSize}` : ''}`}>
             <thead>
                 {table.getHeaderGroups().map(headerGroup => (
                     <tr key={headerGroup.id}>

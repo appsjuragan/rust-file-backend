@@ -425,6 +425,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     refreshFolderTree={fetchFolderTree}
                     sidebarVisible={sidebarVisible}
                     setSidebarVisible={setSidebarVisible}
+                    userId={profile.id}
                 />
             </main>
 

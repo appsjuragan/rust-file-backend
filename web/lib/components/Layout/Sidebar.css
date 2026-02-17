@@ -112,11 +112,16 @@
 
     /* Storage Statistics (Sidebar Facts) */
     .rfm-sidebar-facts {
-        @apply mt-auto border-t border-stone-200 dark:border-slate-800 transition-all duration-300;
+        @apply border-t border-stone-200 dark:border-slate-800 transition-all duration-300;
+    }
+
+    /* The first facts container following the list should push to bottom */
+    .rfm-sidebar-list+.rfm-sidebar-facts {
+        @apply mt-auto;
     }
 
     .rfm-facts-header {
-        @apply px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 transition-colors h-11;
+        @apply relative px-4 py-2 flex items-center justify-start cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 transition-colors h-11;
     }
 
     .rfm-facts-title {
@@ -124,7 +129,7 @@
     }
 
     .rfm-facts-toggle-btn {
-        @apply w-6 h-6 flex items-center justify-center rounded-lg bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-300 dark:hover:bg-slate-600 transition-all shadow-sm;
+        @apply absolute right-4 w-6 h-6 flex items-center justify-center rounded-lg bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-300 dark:hover:bg-slate-600 transition-all shadow-sm;
     }
 
     .rfm-facts-container {
@@ -132,11 +137,11 @@
     }
 
     .rfm-facts-minimized-info {
-        @apply px-4 pb-3 text-[11px] font-semibold text-teal-700 dark:text-sky-400 cursor-pointer;
+        @apply px-4 pb-3 text-[11px] font-semibold text-teal-700 dark:text-sky-400 cursor-pointer text-center;
     }
 
     .rfm-sidebar-facts.minimized {
-        @apply mt-auto;
+        /* No margin adjustment needed here as flex layout handles position */
     }
 
     .rfm-facts-content {

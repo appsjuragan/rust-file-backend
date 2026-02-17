@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { getAuthToken, setAuthToken, clearAuthToken } from "./services/httpClient";
 import { AuthPage } from "./features/auth/AuthPage";
 import Dashboard from "./features/dashboard/Dashboard";
+import { BackendStatusMonitor } from "./components/BackendStatusMonitor";
 import "./App.css";
 import "../lib/tailwind.css";
 
@@ -30,7 +31,10 @@ function App() {
     return (
         <div className="app-root">
             {isAuthenticated ? (
-                <Dashboard onLogout={handleLogout} />
+                <>
+                    <Dashboard onLogout={handleLogout} />
+                    <BackendStatusMonitor onLogout={handleLogout} />
+                </>
             ) : (
                 <AuthPage onLogin={handleLogin} />
             )}

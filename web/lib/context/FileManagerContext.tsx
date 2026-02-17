@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection } from "../types";
+import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection, IconSize } from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
@@ -23,6 +23,8 @@ interface ProviderInterface {
   setSortField: Dispatch<SortField>;
   sortDirection: SortDirection;
   setSortDirection: Dispatch<SortDirection>;
+  iconSize: IconSize;
+  setIconSize: Dispatch<IconSize>;
   activeUploads: UploadStatus[];
   setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
   selectedIds: string[];
@@ -98,6 +100,12 @@ interface ProviderInterface {
   refreshFolderTree?: () => Promise<void>;
   sidebarVisible: boolean;
   setSidebarVisible: Dispatch<boolean>;
+  favorites: FileType[];
+  toggleFavorite: (file: FileType) => void;
+  favoritesMinimized: boolean;
+  setFavoritesMinimized: Dispatch<boolean>;
+  storageUsageMinimized: boolean;
+  setStorageUsageMinimized: Dispatch<boolean>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

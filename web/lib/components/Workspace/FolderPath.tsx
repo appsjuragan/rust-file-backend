@@ -3,7 +3,7 @@ import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useFileManager } from "../../context";
 // Types
 import type { FileType } from "../../types";
-import { ViewStyle, SortField, SortDirection } from "../../types";
+import { ViewStyle, SortField, SortDirection, IconSize } from "../../types";
 import { ArrowDown, ArrowUp, ChevronDown, Check } from "lucide-react";
 // Components
 import SvgIcon from "../Icons/SvgIcon";
@@ -32,6 +32,8 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     setSortField,
     sortDirection,
     setSortDirection,
+    iconSize,
+    setIconSize,
     folderTree
   } = useFileManager();
 
@@ -197,6 +199,20 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
             title={viewStyle === ViewStyle.Icons ? "Switch to List View" : "Switch to Grid View"}
           >
             <SvgIcon svgType={viewStyle === ViewStyle.Icons ? "list" : "icons"} />
+          </div>
+
+          <div
+            className="rfm-header-icon"
+            onClick={() => {
+              if (iconSize === IconSize.Small) setIconSize(IconSize.Medium);
+              else if (iconSize === IconSize.Medium) setIconSize(IconSize.Large);
+              else setIconSize(IconSize.Small);
+            }}
+            title={`View Size: ${iconSize}`}
+          >
+            {iconSize === IconSize.Small && <SvgIcon svgType="size-small" />}
+            {iconSize === IconSize.Medium && <SvgIcon svgType="size-medium" />}
+            {iconSize === IconSize.Large && <SvgIcon svgType="size-large" />}
           </div>
 
           {/* Custom Sort Controls */}

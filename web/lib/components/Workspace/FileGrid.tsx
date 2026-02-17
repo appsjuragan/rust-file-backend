@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileType } from '../../types';
+import { FileType, IconSize } from '../../types';
 import FileIcon from '../Icons/FileIcon';
 import SvgIcon from '../Icons/SvgIcon';
 
@@ -15,6 +15,7 @@ interface FileGridProps {
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
     handleContextMenu: (e: React.MouseEvent, file: FileType | null) => void;
+    iconSize?: IconSize;
 }
 
 export const FileGrid: React.FC<FileGridProps> = ({
@@ -28,7 +29,8 @@ export const FileGrid: React.FC<FileGridProps> = ({
     handleDragOver,
     handleDragLeave,
     handleDropOnFolder,
-    handleContextMenu
+    handleContextMenu,
+    iconSize
 }) => {
     const longPressTimer = React.useRef<any>(null);
     const [isLongPress, setIsLongPress] = useState(false);
@@ -77,7 +79,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     };
 
     return (
-        <div className="rfm-icons-grid">
+        <div className={`rfm-icons-grid ${iconSize ? `size-${iconSize}` : ''}`}>
             {currentFolderFiles.map((f: FileType, key: number) => {
                 const isPending = f.scanStatus === 'pending' || f.scanStatus === 'scanning';
                 const isScanning = f.scanStatus === 'scanning';

@@ -45,6 +45,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         setDialogState,
         clipboardSourceFolder,
         setClipboardSourceFolder,
+        favorites,
+        toggleFavorite,
     } = useFileManager();
     const menuRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
@@ -335,6 +337,24 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                                             <SvgIcon svgType="clipboard" className="rfm-context-menu-icon" />
                                             Copy {selectedIds.length > 1 ? `(${selectedIds.length} items)` : ''}
                                         </div>
+
+
+                                        {/* Favorites Toggle - Only for single file/folder */}
+                                        {targetFile && (
+                                            <div
+                                                className="rfm-context-menu-item"
+                                                onClick={() => {
+                                                    toggleFavorite(targetFile);
+                                                    onClose();
+                                                }}
+                                            >
+                                                <SvgIcon
+                                                    svgType="star"
+                                                    className={`rfm-context-menu-icon ${favorites.some(f => f.id === targetFile.id) ? 'fill-yellow-400 text-yellow-500' : ''}`}
+                                                />
+                                                {favorites.some(f => f.id === targetFile.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                                            </div>
+                                        )}
 
                                         <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 

@@ -17,7 +17,7 @@ import {
 } from "./components";
 // Types
 import type { FileSystemType, FileType, FolderNode } from "./types";
-import { ViewStyle, UploadStatus, SortField, SortDirection } from "./types";
+import { ViewStyle, UploadStatus, SortField, SortDirection, IconSize } from "./types";
 // HTTP Client
 import { setOnRequestCallback } from "../src/services/httpClient";
 
@@ -49,6 +49,7 @@ export interface IFileManagerProps {
   refreshFolderTree?: () => Promise<void>;
   sidebarVisible?: boolean;
   setSidebarVisible?: (visible: boolean) => void;
+  userId?: string;
 }
 
 export const ReactFileManager = ({
@@ -79,6 +80,7 @@ export const ReactFileManager = ({
   refreshFolderTree,
   sidebarVisible: propSidebarVisible,
   setSidebarVisible: propSetSidebarVisible,
+  userId,
 }: IFileManagerProps) => {
   const [internalCurrentFolder, setInternalCurrentFolder] = useState<string>("0");
   const currentFolder = propCurrentFolder ?? internalCurrentFolder;
@@ -114,6 +116,76 @@ export const ReactFileManager = ({
 
   const [sortField, setSortField] = useState<SortField>(SortField.Name);
   const [sortDirection, setSortDirection] = useState<SortDirection>(SortDirection.Asc);
+  const [iconSize, setIconSize] = useState<IconSize>(IconSize.Medium);
+
+  // Favorites state
+  const [favorites, setFavorites] = useState<FileType[]>([]);
+  const [favoritesMinimized, setFavoritesMinimized] = useState<boolean>(false);
+  const [storageUsageMinimized, setStorageUsageMinimized] = useState<boolean>(false);
+
+  // Load sort preferences and icon size when userId changes
+  useEffect(() => {
+    if (!userId) return;
+    const savedField = localStorage.getItem(`rfm_sortField_${userId}`);
+    const savedDirection = localStorage.getItem(`rfm_sortDirection_${userId}`);
+    const savedIconSize = localStorage.getItem(`rfm_iconSize_${userId}`);
+
+    if (savedField) setSortField(savedField as SortField);
+    if (savedDirection) setSortDirection(savedDirection as SortDirection);
+    if (savedIconSize) setIconSize(savedIconSize as IconSize);
+
+    const savedFavorites = localStorage.getItem(`rfm_favorites_${userId}`);
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error("Failed to parse favorites", e);
+      }
+    }
+
+    const savedFavoritesMinimized = localStorage.getItem(`rfm_favoritesMinimized_${userId}`);
+    if (savedFavoritesMinimized) setFavoritesMinimized(savedFavoritesMinimized === 'true');
+
+    const savedStorageUsageMinimized = localStorage.getItem(`rfm_storageUsageMinimized_${userId}`);
+    if (savedStorageUsageMinimized) setStorageUsageMinimized(savedStorageUsageMinimized === 'true');
+  }, [userId]);
+
+  // Save preferences when they change
+  useEffect(() => {
+    if (!userId) return;
+    localStorage.setItem(`rfm_sortField_${userId}`, sortField);
+    localStorage.setItem(`rfm_sortDirection_${userId}`, sortDirection);
+    localStorage.setItem(`rfm_iconSize_${userId}`, iconSize);
+  }, [sortField, sortDirection, iconSize, userId]);
+
+  // Persist favorites
+  useEffect(() => {
+    if (!userId) return;
+    localStorage.setItem(`rfm_favorites_${userId}`, JSON.stringify(favorites));
+  }, [favorites, userId]);
+
+  // Persist accordion states
+  useEffect(() => {
+    if (!userId) return;
+    localStorage.setItem(`rfm_favoritesMinimized_${userId}`, String(favoritesMinimized));
+    localStorage.setItem(`rfm_storageUsageMinimized_${userId}`, String(storageUsageMinimized));
+  }, [favoritesMinimized, storageUsageMinimized, userId]);
+
+  const toggleFavorite = (file: FileType) => {
+    setFavorites(prev => {
+      const exists = prev.some(f => f.id === file.id);
+      if (exists) {
+        return prev.filter(f => f.id !== file.id);
+      } else {
+        // Keep only the last 6 favorites
+        const newFavorites = [...prev, file];
+        if (newFavorites.length > 6) {
+          return newFavorites.slice(newFavorites.length - 6);
+        }
+        return newFavorites;
+      }
+    });
+  };
 
   const sortedFs = useMemo(() => {
     return [...fs].sort((a, b) => {
@@ -221,6 +293,8 @@ export const ReactFileManager = ({
     setSortField,
     sortDirection,
     setSortDirection,
+    iconSize,
+    setIconSize,
     viewOnly: viewOnly,
     currentFolder: currentFolder,
     setCurrentFolder: setCurrentFolder,
@@ -285,6 +359,12 @@ export const ReactFileManager = ({
     refreshFolderTree,
     sidebarVisible,
     setSidebarVisible,
+    favorites,
+    toggleFavorite,
+    favoritesMinimized,
+    setFavoritesMinimized,
+    storageUsageMinimized,
+    setStorageUsageMinimized
   }), [
     sortedFs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
     onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
@@ -292,7 +372,7 @@ export const ReactFileManager = ({
     previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
     triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
     hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
-    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection
+    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection, iconSize
   ]);
 
   return (

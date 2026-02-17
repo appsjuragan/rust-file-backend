@@ -14,3 +14,9 @@ export enum SortDirection {
   Asc = 'asc',
   Desc = 'desc',
 }
+
+export enum IconSize {
+  Small = 'small',
+  Medium = 'medium',
+  Large = 'large',
+}

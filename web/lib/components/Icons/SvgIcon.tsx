@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ISvgIconProps extends React.AllHTMLAttributes<HTMLDivElement> {
-  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera" | "dots" | "shield" | "rocket";
+  svgType: "file" | "folder" | "arrow-up" | "arrow-down" | "arrow-right" | "close" | "list" | "icons" | "download" | "info" | "eye" | "scissors" | "trash" | "clipboard" | "edit" | "plus" | "upload" | "check" | "home" | "loading" | "cog" | "alert-triangle" | "minus" | "square" | "copy" | "menu" | "camera" | "dots" | "shield" | "rocket" | "size-small" | "size-medium" | "size-large" | "star";
 }
 
 const SvgIcon: React.FC<ISvgIconProps> = ({
@@ -248,6 +248,34 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
             <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
             <path d="M9 12H4s.55-3.03 2-5c1.62-2.2 5-3 5-3" />
             <path d="M12 15v5s3.03-.55 5-2c2.2-1.62 3-5 3-5" />
+          </svg>
+        );
+      }
+      case "size-small": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"></path>
+          </svg>
+        );
+      }
+      case "size-medium": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"></path>
+          </svg>
+        );
+      }
+      case "size-large": {
+        return (
+          <svg className="w-full h-full" stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+          </svg>
+        );
+      }
+      case "star": {
+        return (
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
         );
       }

@@ -175,7 +175,13 @@ const Sidebar = () => {
         userFacts,
         folderTree,
         sidebarVisible,
-        setSidebarVisible
+        setSidebarVisible,
+        favorites,
+        setHighlightedId,
+        favoritesMinimized,
+        setFavoritesMinimized,
+        storageUsageMinimized: factsMinimized, // Aliasing for clarity in this file if desired, or just replace usage
+        setStorageUsageMinimized: setFactsMinimized
     } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set<string>());
@@ -297,8 +303,6 @@ const Sidebar = () => {
         ].filter(c => c.count > 0).sort((a, b) => b.count - a.count);
     }, [userFacts]);
 
-    const [factsMinimized, setFactsMinimized] = useState(false);
-
     return (
         <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
             <div className="rfm-sidebar-header">
@@ -340,6 +344,62 @@ const Sidebar = () => {
                     ))}
                 </div>
             </div>
+
+            {/* Favorites Accordion */}
+            {favorites.length > 0 && (
+                <div className={`rfm-sidebar-facts ${favoritesMinimized ? 'minimized' : ''}`}>
+                    <div className="rfm-facts-header" onClick={() => setFavoritesMinimized(!favoritesMinimized)}>
+                        <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+                            <SvgIcon svgType="star" className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                            Favorites
+                        </div>
+                        <button className="rfm-facts-toggle-btn">
+                            <SvgIcon svgType={favoritesMinimized ? "plus" : "minus"} size={12} />
+                        </button>
+                    </div>
+
+                    {!favoritesMinimized && (
+                        <div className="rfm-facts-container">
+                            <div className="rfm-facts-content">
+                                <div className="rfm-fact-category-list">
+                                    {favorites.map((fav) => (
+                                        <div
+                                            key={fav.id}
+                                            className="rfm-fact-sub-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800"
+                                            onClick={() => {
+                                                if (fav.isDir) {
+                                                    setCurrentFolder(fav.id);
+                                                    if (window.innerWidth <= 768 && setSidebarVisible) {
+                                                        setSidebarVisible(false);
+                                                    }
+                                                } else {
+                                                    // Navigate to parent folder and highlight the file
+                                                    if (fav.parentId) {
+                                                        setCurrentFolder(fav.parentId);
+                                                        // Use a small timeout to allow the folder to load/render before highlighting
+                                                        setTimeout(() => {
+                                                            if (setHighlightedId) {
+                                                                setHighlightedId(fav.id);
+                                                            }
+                                                        }, 100);
+
+                                                        if (window.innerWidth <= 768 && setSidebarVisible) {
+                                                            setSidebarVisible(false);
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <SvgIcon svgType={fav.isDir ? "folder" : "file"} className="w-4 h-4 mr-2 opacity-70" />
+                                            <span className="flex-1 truncate">{fav.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Storage Statistics */}
             {userFacts && (
