@@ -129,10 +129,16 @@ export const ReactFileManager = ({
     const savedField = localStorage.getItem(`rfm_sortField_${userId}`);
     const savedDirection = localStorage.getItem(`rfm_sortDirection_${userId}`);
     const savedIconSize = localStorage.getItem(`rfm_iconSize_${userId}`);
+    const savedViewStyle = localStorage.getItem(`rfm_viewStyle_${userId}`);
+    const savedSidebarVisible = localStorage.getItem(`rfm_sidebarVisible_${userId}`);
+    const savedCurrentFolder = localStorage.getItem(`rfm_currentFolder_${userId}`);
 
     if (savedField) setSortField(savedField as SortField);
     if (savedDirection) setSortDirection(savedDirection as SortDirection);
     if (savedIconSize) setIconSize(savedIconSize as IconSize);
+    if (savedViewStyle) setViewStyle(savedViewStyle as ViewStyle);
+    if (savedSidebarVisible) setInternalSidebarVisible(savedSidebarVisible === 'true');
+    if (savedCurrentFolder && !propCurrentFolder) setInternalCurrentFolder(savedCurrentFolder);
 
     const savedFavorites = localStorage.getItem(`rfm_favorites_${userId}`);
     if (savedFavorites) {
@@ -148,7 +154,7 @@ export const ReactFileManager = ({
 
     const savedStorageUsageMinimized = localStorage.getItem(`rfm_storageUsageMinimized_${userId}`);
     if (savedStorageUsageMinimized) setStorageUsageMinimized(savedStorageUsageMinimized === 'true');
-  }, [userId]);
+  }, [userId, propCurrentFolder]);
 
   // Save preferences when they change
   useEffect(() => {
@@ -156,7 +162,10 @@ export const ReactFileManager = ({
     localStorage.setItem(`rfm_sortField_${userId}`, sortField);
     localStorage.setItem(`rfm_sortDirection_${userId}`, sortDirection);
     localStorage.setItem(`rfm_iconSize_${userId}`, iconSize);
-  }, [sortField, sortDirection, iconSize, userId]);
+    localStorage.setItem(`rfm_viewStyle_${userId}`, viewStyle);
+    localStorage.setItem(`rfm_sidebarVisible_${userId}`, String(internalSidebarVisible));
+    localStorage.setItem(`rfm_currentFolder_${userId}`, currentFolder);
+  }, [sortField, sortDirection, iconSize, viewStyle, internalSidebarVisible, currentFolder, userId]);
 
   // Persist favorites
   useEffect(() => {

@@ -170,7 +170,7 @@
 
 /* Workspace Header & Icons */
 .rfm-workspace-header {
-    @apply w-full flex flex-col gap-1 justify-start items-stretch mb-2 shrink-0;
+    @apply w-full flex flex-col gap-1 justify-start items-stretch mb-2 shrink-0 relative z-[100];
 }
 
 .is-breadcrumb-hidden {
@@ -399,7 +399,7 @@
 }
 
 .rfm-sort-menu {
-    @apply absolute top-full right-0 mt-2 w-32 bg-white/90 dark:bg-slate-800/95 backdrop-blur-md rounded-xl shadow-2xl border border-stone-200 dark:border-slate-700 py-2 z-[5000] overflow-hidden;
+    @apply absolute top-full right-0 mt-2 w-40 bg-white dark:bg-slate-800 backdrop-blur-md rounded-xl shadow-2xl border border-stone-200 dark:border-slate-700 py-2 z-[5000] overflow-hidden;
     animation: rfm-sort-slide-down 0.2s ease-out;
 }
 
