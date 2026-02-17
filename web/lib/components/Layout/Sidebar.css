@@ -1,271 +1,538 @@
-@layer utilities {
+/* Sidebar */
+.rfm-sidebar {
+    width: 20rem;
+    /* 80*0.25rem = 20rem (w-80) */
+    background-color: rgb(245, 245, 244);
+    /* stone-100 */
+    border-right-width: 1px;
+    border-right-color: rgb(231, 229, 228);
+    /* stone-200 */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    user-select: none;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
 
-    /* Sidebar */
+.dark .rfm-sidebar {
+    background-color: rgb(15, 23, 42);
+    /* slate-900 */
+    border-right-color: rgb(30, 41, 59);
+    /* slate-800 */
+}
+
+.rfm-sidebar.is-hidden {
+    width: 0;
+    border-right-width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Mobile Sidebar Drawer */
+@media (max-width: 768px) {
     .rfm-sidebar {
-        @apply w-80 bg-stone-100 border-r border-stone-200 flex flex-col overflow-y-auto select-none dark:bg-slate-900 dark:border-slate-800 transition-all duration-300 ease-in-out;
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 6000;
+        width: 20rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        transform: translateX(0);
+        opacity: 1;
+        border-right-width: 0;
+        backdrop-filter: blur(10px);
     }
 
     .rfm-sidebar.is-hidden {
-        @apply w-0 border-r-0 opacity-0 pointer-events-none;
+        transform: translateX(-100%);
+        opacity: 0;
+        width: 20rem;
+        box-shadow: none;
     }
+}
 
-    /* Mobile Sidebar Drawer */
-    @media (max-width: 768px) {
-        .rfm-sidebar {
-            @apply fixed inset-y-0 left-0 z-[6000] w-80 shadow-2xl translate-x-0 opacity-100 border-r-0;
-            background-color: rgb(245, 245, 244);
-            backdrop-filter: blur(10px);
-        }
+.rfm-sidebar-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.25rem;
+}
 
-        .dark .rfm-sidebar {
-            background-color: rgb(15, 23, 42);
-        }
+.rfm-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.5rem;
+    border-bottom: 1px solid rgb(231, 229, 228);
+    background-color: white;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
 
-        .rfm-sidebar.is-hidden {
-            @apply -translate-x-full opacity-0 w-80 shadow-none;
-        }
-    }
+.dark .rfm-sidebar-header {
+    border-bottom-color: rgb(30, 41, 59);
+    background-color: rgb(15, 23, 42);
+}
 
+.rfm-app-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 0.75rem;
+    background-color: rgb(13, 148, 136);
+    /* teal-600 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    padding: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.2);
+}
+
+.rfm-app-logo-icon {
+    width: 100%;
+    height: 100%;
+}
+
+.rfm-app-title {
+    display: flex;
+    flex-direction: column;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+}
+
+.rfm-app-title-main {
+    font-size: 1rem;
+    color: rgb(28, 25, 23);
+    /* stone-900 */
+    text-transform: uppercase;
+}
+
+.dark .rfm-app-title-main {
+    color: white;
+}
+
+.rfm-app-title-sub {
+    font-size: 1rem;
+    color: rgb(13, 148, 136);
+    /* teal-600 */
+    margin-top: -0.125rem;
+    text-transform: uppercase;
+}
+
+.dark .rfm-app-title-sub {
+    color: rgb(56, 189, 248);
+    /* sky-400 */
+}
+
+@media (max-width: 768px) {
     .rfm-sidebar-list {
-        @apply flex flex-col py-2 px-1;
+        padding-top: 1rem;
     }
 
     .rfm-sidebar-header {
-        @apply flex items-center gap-3 px-6 py-2.5 border-b border-stone-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20;
+        height: auto;
+        margin-bottom: 0.5rem;
     }
+}
 
-    .rfm-app-logo {
-        width: 32px;
-        height: 32px;
-        @apply rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 text-white p-1.5;
+@media (min-width: 769px) {
+    .rfm-sidebar-header {
+        display: none;
     }
+}
 
-    .rfm-app-logo-icon {
-        @apply w-full h-full;
-    }
+.rfm-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.5rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition-property: all;
+    transition-duration: 200ms;
+    color: rgb(87, 83, 78);
+    /* stone-600 */
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    border: 1px solid transparent;
+}
 
-    .rfm-app-title {
-        @apply flex flex-col font-black leading-none tracking-tight;
-    }
+.rfm-sidebar-chevron {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 0.25rem;
+    transition-property: background-color;
+    transition-duration: 200ms;
+}
 
-    .rfm-app-title-main {
-        @apply text-base text-stone-900 dark:text-white uppercase;
-    }
+.rfm-sidebar-chevron:hover {
+    background-color: rgb(231, 229, 228);
+}
 
-    .rfm-app-title-sub {
-        @apply text-base text-teal-600 dark:text-sky-400 -mt-0.5 uppercase;
-    }
+.dark .rfm-sidebar-chevron:hover {
+    background-color: rgb(51, 65, 85);
+}
 
-    @media (max-width: 768px) {
-        .rfm-sidebar-list {
-            @apply pt-4;
-        }
+.rfm-chevron-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: rgb(168, 162, 158);
+}
 
-        .rfm-sidebar-header {
-            @apply h-auto py-2.5 mb-2;
-        }
-    }
+.dark .rfm-chevron-icon {
+    color: rgb(71, 85, 105);
+}
 
-    @media (min-width: 769px) {
-        .rfm-sidebar-header {
-            @apply hidden;
-        }
-    }
+.rfm-chevron-spacer {
+    pointer-events: none;
+}
 
-    .rfm-sidebar-item {
-        @apply flex items-center gap-2 px-2 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-stone-600 font-semibold mb-1 border border-transparent;
-    }
+.rfm-sidebar-item:hover {
+    background-color: rgb(250, 250, 249);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    color: rgb(28, 25, 23);
+    border-color: rgb(231, 229, 228);
+}
 
-    .rfm-sidebar-chevron {
-        width: 16px;
-        height: 16px;
-        @apply flex items-center justify-center flex-shrink-0 rounded transition-colors;
-    }
+.dark .rfm-sidebar-item:hover {
+    background-color: rgb(30, 41, 59);
+    color: rgb(226, 232, 240);
+    border-color: rgb(51, 65, 85);
+}
 
-    .rfm-sidebar-chevron:hover {
-        @apply bg-stone-200 dark:bg-slate-700;
-    }
+.rfm-sidebar-item.active {
+    background-color: rgb(250, 250, 249);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    color: rgb(15, 118, 110);
+    /* teal-700 */
+    border-color: rgb(231, 229, 228);
+}
 
-    .rfm-chevron-icon {
-        @apply w-3 h-3 text-stone-400 dark:text-slate-500;
-    }
+.dark .rfm-sidebar-item.active {
+    background-color: rgb(30, 41, 59);
+    color: rgb(56, 189, 248);
+    /* sky-400 */
+    border-color: rgb(51, 65, 85);
+}
 
-    .rfm-chevron-spacer {
-        @apply pointer-events-none;
-    }
+.rfm-sidebar-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
 
-    .rfm-sidebar-item:hover {
-        @apply bg-stone-50 shadow-sm text-stone-900 border border-stone-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700;
-    }
+.rfm-sidebar-item-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 0%;
+}
 
-    .rfm-sidebar-item.active {
-        @apply bg-stone-50 shadow-sm text-teal-700 border border-stone-200 dark:bg-slate-800 dark:text-sky-400 dark:border-slate-700;
-    }
+.rfm-sidebar-indent {
+    margin-left: 1rem;
+    padding-left: 0.25rem;
+}
 
-    .rfm-sidebar-icon {
-        width: 20px;
-        height: 20px;
-        @apply flex-shrink-0;
-    }
+/* Storage Statistics (Sidebar Facts) */
+.rfm-sidebar-facts {
+    border-top: 1px solid rgb(231, 229, 228);
+    transition-property: all;
+    transition-duration: 300ms;
+}
 
-    .rfm-sidebar-item-text {
-        @apply truncate flex-1;
-    }
+.dark .rfm-sidebar-facts {
+    border-top-color: rgb(30, 41, 59);
+}
 
-    .rfm-sidebar-indent {
-        @apply ml-4 pl-1;
-    }
+.rfm-sidebar-list+.rfm-sidebar-facts {
+    margin-top: auto;
+}
 
-    /* Storage Statistics (Sidebar Facts) */
-    .rfm-sidebar-facts {
-        @apply border-t border-stone-200 dark:border-slate-800 transition-all duration-300;
-    }
+.rfm-facts-header {
+    position: relative;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    cursor: pointer;
+    transition-property: background-color;
+    transition-duration: 200ms;
+    height: 2.75rem;
+}
 
-    /* The first facts container following the list should push to bottom */
-    .rfm-sidebar-list+.rfm-sidebar-facts {
-        @apply mt-auto;
-    }
+.rfm-facts-header:hover {
+    background-color: rgb(231, 229, 228);
+}
 
-    .rfm-facts-header {
-        @apply relative px-4 py-2 flex items-center justify-start cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 transition-colors h-11;
-    }
+.dark .rfm-facts-header:hover {
+    background-color: rgb(30, 41, 59);
+}
 
-    .rfm-facts-title {
-        @apply text-[10px] font-bold text-stone-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2;
-    }
+.rfm-facts-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgb(120, 113, 108);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
-    .rfm-facts-toggle-btn {
-        width: 24px;
-        height: 24px;
-        @apply absolute right-4 flex items-center justify-center rounded-lg bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-300 dark:hover:bg-slate-600 transition-all shadow-sm;
-    }
+.dark .rfm-facts-title {
+    color: rgb(148, 163, 184);
+}
 
-    .rfm-facts-container {
-        @apply p-4 pt-0 transition-all duration-300 overflow-hidden;
-    }
+.rfm-facts-toggle-btn {
+    width: 24px;
+    height: 24px;
+    position: absolute;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background-color: rgb(231, 229, 228);
+    color: rgb(87, 83, 78);
+    transition-property: all;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: none;
+    cursor: pointer;
+}
 
-    .rfm-facts-minimized-info {
-        @apply px-4 pb-3 text-[11px] font-semibold text-teal-700 dark:text-sky-400 cursor-pointer text-center;
-    }
+.dark .rfm-facts-toggle-btn {
+    background-color: rgb(51, 65, 85);
+    color: rgb(203, 213, 225);
+}
 
-    .rfm-sidebar-facts.minimized {
-        /* No margin adjustment needed here as flex layout handles position */
-    }
+.rfm-facts-toggle-btn:hover {
+    background-color: rgb(214, 211, 209);
+}
 
-    .rfm-facts-content {
-        @apply mb-4;
-    }
+.dark .rfm-facts-toggle-btn:hover {
+    background-color: rgb(71, 85, 105);
+}
 
-    .rfm-fact-item {
-        @apply text-[13px] font-bold text-stone-800 dark:text-slate-100 mb-0.5;
-    }
+.rfm-facts-container {
+    padding: 0 1rem 1rem 1rem;
+    transition-property: all;
+    transition-duration: 300ms;
+    overflow: hidden;
+}
 
-    .rfm-fact-category-list {
-        @apply mt-2 grid grid-cols-1 gap-1;
-    }
+.rfm-facts-minimized-info {
+    padding: 0 1rem 0.75rem 1rem;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgb(15, 118, 110);
+    cursor: pointer;
+    text-align: center;
+}
 
-    .rfm-fact-sub-item {
-        @apply flex items-center gap-2 text-[11px] text-stone-500 dark:text-slate-400 py-0.5 px-2 rounded-md transition-all;
-    }
+.dark .rfm-facts-minimized-info {
+    color: rgb(56, 189, 248);
+}
 
-    .rfm-sidebar-favorites-scroll {
-        @apply max-h-[240px] overflow-y-auto pr-1;
-        scrollbar-width: thin;
-    }
+.rfm-facts-content {
+    margin-bottom: 1rem;
+}
 
-    .rfm-sidebar-favorites-scroll::-webkit-scrollbar {
-        @apply w-1;
-    }
+.rfm-fact-item {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgb(41, 37, 36);
+    margin-bottom: 0.125rem;
+}
 
-    .rfm-swipe-item-container {
-        @apply relative overflow-hidden rounded-md mb-0.5;
-    }
+.dark .rfm-fact-item {
+    color: rgb(241, 245, 249);
+}
 
-    .rfm-swipe-action-bg {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        right: 0;
-        width: 70px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        @apply bg-stone-300 dark:bg-slate-800;
-    }
+.rfm-fact-category-list {
+    margin-top: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.25rem;
+}
 
-    .rfm-swipe-action-bg:hover {
-        @apply bg-rose-100 dark:bg-rose-900/30;
-    }
+.rfm-fact-sub-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 11px;
+    color: rgb(120, 113, 108);
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    transition-property: all;
+}
 
-    .rfm-swipe-action-bg svg {
-        transition: color 0.2s;
-        @apply text-stone-500 dark:text-slate-400;
-    }
+.dark .rfm-fact-sub-item {
+    color: rgb(148, 163, 184);
+}
 
-    .rfm-swipe-action-bg:hover svg {
-        @apply text-rose-600;
-    }
+.rfm-sidebar-favorites-scroll {
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    scrollbar-width: thin;
+}
 
-    .rfm-swipable-item {
-        position: relative;
-        z-index: 10;
-        @apply bg-stone-100 dark:bg-slate-900;
-    }
+.rfm-sidebar-favorites-scroll::-webkit-scrollbar {
+    width: 4px;
+}
 
-    .rfm-fact-sub-item.highlighted {
-        @apply bg-stone-200 dark:bg-slate-800 text-stone-900 dark:text-slate-200;
-    }
+.rfm-swipe-item-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.375rem;
+    margin-bottom: 0.125rem;
+}
 
-    .rfm-fact-sub-item .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 9999px;
-        @apply flex-shrink-0;
-    }
+.rfm-swipe-action-bg {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition-property: background-color;
+    transition-duration: 200ms;
+    background-color: rgb(214, 211, 209);
+}
 
-    .rfm-facts-pie-container {
-        width: 96px;
-        height: 96px;
-        @apply flex-shrink-0 relative flex items-center justify-center;
-    }
+.dark .rfm-swipe-action-bg {
+    background-color: rgb(30, 41, 59);
+}
 
-    .rfm-facts-pie-svg {
-        width: 100%;
-        height: 100%;
-        transform: rotate(-90deg);
-    }
+.rfm-swipe-action-bg:hover {
+    background-color: rgb(255, 228, 230);
+    /* rose-100 */
+}
 
-    .rfm-pie-segment {
-        @apply transition-all duration-300 cursor-pointer origin-center;
-        stroke: white;
-        stroke-width: 0.5;
-    }
+.dark .rfm-swipe-action-bg:hover {
+    background-color: rgba(136, 19, 55, 0.3);
+    /* rose-900/30 */
+}
 
-    .dark .rfm-pie-segment {
-        stroke: #0f172a;
-    }
+.rfm-swipe-action-bg svg {
+    transition-property: color;
+    transition-duration: 200ms;
+    color: rgb(120, 113, 108);
+}
 
-    .rfm-pie-segment.active {
-        @apply opacity-90;
-        transform: scale(1.05);
-    }
+.dark .rfm-swipe-action-bg svg {
+    color: rgb(148, 163, 184);
+}
 
-    .rfm-pie-percentage {
-        @apply fill-stone-900 dark:fill-white font-extrabold text-[9px] pointer-events-none;
-        /* Rotate back because the SVG is rotated -90deg */
-        transform: rotate(90deg);
-        transform-origin: center;
-    }
+.rfm-swipe-action-bg:hover svg {
+    color: rgb(225, 29, 72);
+    /* rose-600 */
+}
 
-    .rfm-pie-label {
-        @apply fill-stone-500 dark:fill-slate-400 font-medium text-[8px] pointer-events-none;
-        transform: rotate(90deg);
-        transform-origin: center;
-    }
+.rfm-swipable-item {
+    position: relative;
+    z-index: 10;
+    background-color: rgb(245, 245, 244);
+    border-radius: 0 !important;
+}
 
-    .rfm-facts-pie-empty {
-        @apply w-full h-full rounded-full bg-stone-200 dark:bg-slate-800 border-2 border-dashed border-stone-300 dark:border-slate-700;
-    }
+.dark .rfm-swipable-item {
+    background-color: rgb(15, 23, 42);
+}
+
+.rfm-fact-sub-item.highlighted {
+    background-color: rgb(231, 229, 228);
+    color: rgb(28, 25, 23);
+}
+
+.dark .rfm-fact-sub-item.highlighted {
+    background-color: rgb(30, 41, 59);
+    color: rgb(226, 232, 240);
+}
+
+.rfm-fact-sub-item .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+}
+
+.rfm-facts-pie-container {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rfm-facts-pie-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.rfm-pie-segment {
+    transition-property: all;
+    transition-duration: 300ms;
+    cursor: pointer;
+    transform-origin: center;
+    stroke: white;
+    stroke-width: 0.5;
+}
+
+.dark .rfm-pie-segment {
+    stroke: rgb(15, 23, 42);
+}
+
+.rfm-pie-segment.active {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+.rfm-pie-percentage {
+    fill: rgb(28, 25, 23);
+    font-weight: 800;
+    font-size: 9px;
+    pointer-events: none;
+    transform: rotate(90deg);
+    transform-origin: center;
+}
+
+.dark .rfm-pie-percentage {
+    fill: white;
+}
+
+.rfm-pie-label {
+    fill: rgb(120, 113, 108);
+    font-weight: 500;
+    font-size: 8px;
+    pointer-events: none;
+    transform: rotate(90deg);
+    transform-origin: center;
+}
+
+.dark .rfm-pie-label {
+    fill: rgb(148, 163, 184);
+}
+
+.rfm-facts-pie-empty {
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    background-color: rgb(231, 229, 228);
+    border: 2px dashed rgb(214, 211, 209);
+}
+
+.dark .rfm-facts-pie-empty {
+    background-color: rgb(30, 41, 59);
+    border-color: rgb(51, 65, 85);
 }
