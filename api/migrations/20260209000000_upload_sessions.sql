@@ -1,6 +1,5 @@
--- Add upload_sessions table
 CREATE TABLE IF NOT EXISTS upload_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY NOT NULL, -- SQLite compatibility: UUIDs as TEXT
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     file_name TEXT NOT NULL,
     file_type TEXT,
@@ -10,10 +9,10 @@ CREATE TABLE IF NOT EXISTS upload_sessions (
     total_size BIGINT NOT NULL,
     total_chunks INT NOT NULL,
     uploaded_chunks INT DEFAULT 0,
-    parts JSONB DEFAULT '[]'::jsonb, -- Store list of completed parts { "ETag": "...", "PartNumber": 1 }
+    parts TEXT DEFAULT '[]', -- SQLite compatibility: JSON as TEXT
     status TEXT NOT NULL DEFAULT 'pending', -- pending, completed, failed
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL
 );
 
 CREATE INDEX idx_upload_sessions_user_id ON upload_sessions(user_id);

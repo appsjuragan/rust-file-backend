@@ -80,7 +80,7 @@ const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: ()
                 <SvgIcon svgType="trash" size={20} className="text-white" />
             </div>
             <div
-                className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800"
+                className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 group"
                 style={{
                     transform: `translateX(${swipeX}px)`,
                     transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -95,6 +95,19 @@ const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: ()
             >
                 <SvgIcon svgType={fav.isDir ? "folder" : "file"} size={16} className="mr-2 opacity-70" />
                 <span className="flex-1 truncate">{fav.name}</span>
+
+                {/* Desktop-only remove icon */}
+                <button
+                    type="button"
+                    className="rfm-favorite-remove-btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove();
+                    }}
+                    title="Remove from Favorites"
+                >
+                    <SvgIcon svgType="trash" size={14} />
+                </button>
             </div>
         </div>
     );

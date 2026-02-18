@@ -279,6 +279,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {(file || selectedIds.length > 0) && (
                         <>
                             {(() => {
+                                const targetFiles = (file && selectedIds.includes(file.id) && selectedIds.length > 1)
+                                    ? fs.filter(f => selectedIds.includes(f.id))
+                                    : (file ? [file] : (selectedIds.length > 0 ? fs.filter(f => selectedIds.includes(f.id)) : []));
+
                                 const targetFile = file || (selectedIds.length === 1 ? fs.find(f => f.id === selectedIds[0]) : null);
                                 const isScanBusy = targetFile && (targetFile.scanStatus === 'pending' || targetFile.scanStatus === 'scanning');
 
@@ -340,18 +344,16 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
 
                                         {/* Favorites Toggle - For single or multiple selection */}
-                                        {(targetFile || selectedIds.length > 1) && (
+                                        {(targetFiles.length > 0) && (
                                             <div
                                                 className="rfm-context-menu-item"
                                                 onClick={() => {
-                                                    const itemsToToggle = targetFile ? [targetFile] : fs.filter(f => selectedIds.includes(f.id));
-                                                    toggleFavorite(itemsToToggle);
+                                                    toggleFavorite(targetFiles);
                                                     onClose();
                                                 }}
                                             >
                                                 {(() => {
-                                                    const itemsToCheck = targetFile ? [targetFile] : fs.filter(f => selectedIds.includes(f.id));
-                                                    const isAllFav = itemsToCheck.length > 0 && itemsToCheck.every(item => favorites.some(f => f.id === item.id));
+                                                    const isAllFav = targetFiles.length > 0 && targetFiles.every(item => item.isFavorite);
                                                     return (
                                                         <>
                                                             <SvgIcon

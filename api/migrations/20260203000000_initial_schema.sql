@@ -1,8 +1,8 @@
 -- Initial Schema for Rust File Backend
 -- Unified for PostgreSQL (Priority)
 
--- Extensions
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- Extensions (PostgreSQL only - commented for SQLite compatibility)
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     name TEXT,
     avatar_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- User Settings
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     user_id TEXT PRIMARY KEY NOT NULL,
     theme TEXT NOT NULL DEFAULT 'dark',
     view_style TEXT NOT NULL DEFAULT 'grid',
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS user_files (
     filename TEXT NOT NULL,
     file_signature TEXT, -- Obfuscated: was encryption_key
     expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE SET NULL
@@ -85,14 +85,14 @@ CREATE TABLE IF NOT EXISTS file_metadata (
     id TEXT PRIMARY KEY NOT NULL,
     storage_file_id TEXT NOT NULL,
     category TEXT NOT NULL,
-    metadata JSONB DEFAULT '{}',
+    metadata TEXT DEFAULT '{}',
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE CASCADE
 );
 
 -- Audit Logs
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     event_type TEXT NOT NULL,
     user_id TEXT,
     resource_id TEXT,
@@ -113,28 +113,28 @@ CREATE TABLE IF NOT EXISTS user_file_facts (
     document_count BIGINT DEFAULT 0,
     image_count BIGINT DEFAULT 0,
     others_count BIGINT DEFAULT 0,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Validation Tables
 CREATE TABLE IF NOT EXISTS allowed_mimes (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     mime_type TEXT UNIQUE NOT NULL,
     category TEXT NOT NULL,
     description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS magic_signatures (
-    id SERIAL PRIMARY KEY,
-    signature BYTEA NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signature BLOB NOT NULL,
     mime_type TEXT NOT NULL,
     description TEXT,
     UNIQUE (signature, mime_type)
 );
 
 CREATE TABLE IF NOT EXISTS blocked_extensions (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     extension TEXT UNIQUE NOT NULL,
     description TEXT
 );
@@ -149,7 +149,8 @@ CREATE INDEX IF NOT EXISTS idx_storage_files_hash_size ON storage_files(hash, si
 CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category);
 CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id);
 CREATE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub);
-CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops);
+-- GIN index (PostgreSQL only - commented for SQLite compatibility)
+-- CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops);
 
 -- Seed Initial System Data
 INSERT INTO allowed_mimes (mime_type, category) VALUES

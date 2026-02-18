@@ -224,6 +224,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         mimeType: item.mime_type,
                         hash: item.hash,
                         extraMetadata: item.extra_metadata,
+                        isFavorite: item.is_favorite,
                         path: item.path
                     }));
                     setSearchSuggestions(mappedResults);
@@ -535,7 +536,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     favorites={favorites}
                     onToggleFavorite={async (file) => {
                         const filesArray = Array.isArray(file) ? file : [file];
-                        await Promise.all(filesArray.map(f => fileService.toggleFavorite(f.id)));
+                        // If all items are already favorites, we are in "Remove from Favorites" mode.
+                        // Otherwise, we are in "Add to Favorites" mode.
+                        const allSelectedAreFavorites = filesArray.every(f => f.isFavorite);
+
+                        if (allSelectedAreFavorites) {
+                            // Removing: toggle all (they are all favorites)
+                            await Promise.all(filesArray.map(f => fileService.toggleFavorite(f.id)));
+                        } else {
+                            // Adding: only toggle those that are NOT yet favorites
+                            const toAdd = filesArray.filter(f => !f.isFavorite);
+                            await Promise.all(toAdd.map(f => fileService.toggleFavorite(f.id)));
+                        }
+
+                        // Optimistically refresh
                         fetchFiles(currentFolder, true);
                         fetchFavorites();
                     }}
