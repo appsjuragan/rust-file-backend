@@ -14,6 +14,9 @@
     transition-property: all;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms;
+    /* Prevent iOS page bounce when scrolling sidebar */
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .dark .rfm-sidebar {
@@ -42,6 +45,9 @@
         opacity: 1;
         border-right-width: 0;
         backdrop-filter: blur(10px);
+        /* iOS safe-area: prevent content from rendering under the notch */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .rfm-sidebar.is-hidden {
@@ -157,6 +163,8 @@
     font-weight: 600;
     margin-bottom: 0.25rem;
     border: 1px solid transparent;
+    /* Eliminate 300ms tap delay on iOS Safari */
+    touch-action: manipulation;
 }
 
 .rfm-sidebar-chevron {

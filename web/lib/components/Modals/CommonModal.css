@@ -303,7 +303,9 @@
         }
 
         .rfm-modal-body {
-            @apply p-10 pt-0 pb-20 w-full box-border;
+            @apply p-10 pt-0 w-full box-border;
+            /* iOS safe-area: add padding so content clears the home indicator */
+            padding-bottom: calc(5rem + env(safe-area-inset-bottom));
         }
 
         .rfm-preview-modal {

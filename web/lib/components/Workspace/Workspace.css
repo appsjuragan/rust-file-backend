@@ -16,6 +16,9 @@
     @apply flex flex-col gap-1 flex-1 overflow-y-auto overflow-x-hidden;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+    /* Prevent iOS page bounce when scrolling the file list */
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .rfm-workspace-file-listing::-webkit-scrollbar {
@@ -200,6 +203,8 @@
 
 .rfm-file-item {
     @apply relative transition-all duration-300 outline-none select-none active:scale-[0.96] active:brightness-95;
+    /* Eliminate 300ms tap delay on iOS Safari */
+    touch-action: manipulation;
 }
 
 /* Workspace Header & Icons */
@@ -281,6 +286,8 @@
     align-items: center;
     justify-content: center;
     @apply rounded-lg hover:bg-white/50 dark:hover:bg-slate-600/50;
+    /* Eliminate 300ms tap delay on iOS Safari */
+    touch-action: manipulation;
 }
 
 .rfm-header-icon--selected {
@@ -617,6 +624,9 @@
 /* Floating Action Button */
 .rfm-fab {
     @apply fixed bottom-8 right-8 z-[4500] w-14 h-14 bg-teal-600 text-white rounded-full shadow-xl flex items-center justify-center cursor-pointer transition-all active:scale-90 hover:bg-teal-700 hover:shadow-2xl ring-4 ring-transparent;
+    /* iOS safe-area: keep FAB above home indicator */
+    bottom: calc(2rem + env(safe-area-inset-bottom));
+    touch-action: manipulation;
 }
 
 .rfm-fab svg {
@@ -686,6 +696,8 @@
     @apply fixed bottom-8 left-1/2 -translate-x-1/2 z-[5000] bg-white/90 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl flex items-center gap-2 px-4 py-3 shadow-2xl border border-stone-200 dark:border-slate-800;
     animation: slide-up-selection 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     min-width: 280px;
+    /* iOS safe-area: keep selection bar above home indicator */
+    bottom: calc(2rem + env(safe-area-inset-bottom));
 }
 
 @keyframes slide-up-selection {
@@ -742,6 +754,11 @@
     @apply text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20;
 }
 
+.rfm-selection-action-btn.rfm-active-star {
+    @apply bg-amber-50 dark:bg-amber-900/40 text-amber-500 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30;
+    box-shadow: 0 0 15px -5px rgba(245, 158, 11, 0.4);
+}
+
 .rfm-selection-action-btn svg {
     @apply w-6 h-6;
 }
@@ -749,6 +766,8 @@
 @media (max-width: 768px) {
     .rfm-selection-bar {
         @apply bottom-6 w-[calc(100%-2rem)] max-w-[420px] px-3 py-2.5;
+        /* On mobile, account for home indicator */
+        bottom: calc(1.5rem + env(safe-area-inset-bottom));
     }
 
     .rfm-selection-action-btn {
@@ -756,10 +775,12 @@
     }
 
     .rfm-fab {
-        @apply bottom-6 right-6 w-16 h-16;
+        @apply right-6 w-16 h-16;
+        bottom: calc(1.5rem + env(safe-area-inset-bottom));
     }
 
     .rfm-fab-menu {
-        @apply bottom-24 right-6;
+        @apply right-6;
+        bottom: calc(6rem + env(safe-area-inset-bottom));
     }
 }

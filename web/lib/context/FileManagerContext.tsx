@@ -1,9 +1,10 @@
-import type { Dispatch } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection, IconSize } from "../types";
+import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection, IconSize, UserFacts } from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
+  filesByParent: Map<string, FileType[]>;
   currentFolder: string;
   setCurrentFolder: (id: string) => void;
   viewOnly?: boolean;
@@ -28,7 +29,7 @@ interface ProviderInterface {
   activeUploads: UploadStatus[];
   setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
   selectedIds: string[];
-  setSelectedIds: Dispatch<string[]>;
+  setSelectedIds: Dispatch<SetStateAction<string[]>>;
   clipboardIds: string[];
   setClipboardIds: Dispatch<string[]>;
   isCut: boolean;
@@ -79,16 +80,7 @@ interface ProviderInterface {
   }>;
   showAlert: (message: string, title?: string) => void;
   showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
-  userFacts?: {
-    total_files: number;
-    total_size: number;
-    video_count: number;
-    audio_count: number;
-    document_count: number;
-    image_count: number;
-    others_count: number;
-    updated_at: string;
-  };
+  userFacts?: UserFacts;
   highlightedId?: string | null;
   setHighlightedId?: Dispatch<string | null>;
   onLoadMore?: () => Promise<void>;

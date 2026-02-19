@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 // Context
 import { FileManagerContext } from "./context";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 // Components
 import {
   Navbar,
@@ -114,7 +115,18 @@ export const ReactFileManager = ({
   const [renameVisible, setRenameVisible] = useState<boolean>(false);
   const [renameFile, setRenameFile] = useState<FileType | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileType | null } | null>(null);
-  const [internalSidebarVisible, setInternalSidebarVisible] = useState<boolean>(() => window.innerWidth > 768);
+  // Responsive sidebar
+  const isDesktop = useMediaQuery("(min-width: 769px)");
+  const [internalSidebarVisible, setInternalSidebarVisible] = useState<boolean>(isDesktop);
+  const prevIsDesktop = useRef(isDesktop);
+
+  useEffect(() => {
+    if (prevIsDesktop.current !== isDesktop) {
+      setInternalSidebarVisible(isDesktop);
+      prevIsDesktop.current = isDesktop;
+    }
+  }, [isDesktop]);
+
   const sidebarVisible = propSidebarVisible ?? internalSidebarVisible;
   const setSidebarVisible = propSetSidebarVisible ?? setInternalSidebarVisible;
 
@@ -246,6 +258,21 @@ export const ReactFileManager = ({
     });
   }, [fs, sortField, sortDirection]);
 
+  const filesByParent = useMemo(() => {
+    const map = new Map<string, FileType[]>();
+    for (const f of sortedFs) {
+      if (f.name === "/") continue;
+      const pid = f.parentId || "0";
+      const list = map.get(pid);
+      if (list) {
+        list.push(f);
+      } else {
+        map.set(pid, [f]);
+      }
+    }
+    return map;
+  }, [sortedFs]);
+
   const [openUploadDummy, setOpenUploadDummy] = useState<number>(0);
   const openUploadRef = useRef<(() => void) | null>(null);
 
@@ -318,42 +345,72 @@ export const ReactFileManager = ({
     };
   }, [showAlert]);
 
-  const contextValue = useMemo(() => ({
+  // ─── Sub-memos: each slice only re-computes when its own state changes ───
+
+  // 1. File system + navigation (changes when files load or folder changes)
+  const fsValue = useMemo(() => ({
     fs: sortedFs,
-    viewStyle: viewStyle,
-    setViewStyle: setViewStyle,
+    filesByParent,
+    currentFolder,
+    setCurrentFolder,
+    viewOnly,
+    onDoubleClick,
+    onRefresh,
+    onUpload,
+    onCancelUpload,
+    onCreateFolder,
+    onDelete,
+    onMove,
+    onRename,
+    onBulkDelete,
+    onBulkMove,
+    onBulkCopy,
+    onLoadMore,
+    hasMore,
+    isLoadingMore,
+    highlightedId,
+    setHighlightedId,
+    folderTree,
+    refreshFolderTree,
+  }), [
+    sortedFs,
+    filesByParent,
+    currentFolder,
+    viewOnly, onDoubleClick, onRefresh, onUpload, onCancelUpload,
+    onCreateFolder, onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy,
+    onLoadMore, hasMore, isLoadingMore, highlightedId, folderTree, refreshFolderTree,
+  ]);
+
+  // 2. UI preferences (changes when user changes view/sort/size)
+  const uiValue = useMemo(() => ({
+    viewStyle,
+    setViewStyle,
     sortField,
     setSortField,
     sortDirection,
     setSortDirection,
     iconSize,
     setIconSize,
-    viewOnly: viewOnly,
-    currentFolder: currentFolder,
-    setCurrentFolder: setCurrentFolder,
-    onDoubleClick: onDoubleClick,
-    onRefresh: onRefresh,
-    onUpload: onUpload,
-    onCancelUpload,
-    onCreateFolder: onCreateFolder,
-    onDelete: onDelete,
-    onMove: onMove,
-    onRename: onRename,
-    onBulkDelete,
-    onBulkMove,
-    onBulkCopy,
-    uploadedFileData: uploadedFileData,
-    setUploadedFileData: setUploadedFileData,
-    activeUploads,
-    setActiveUploads,
+    sidebarVisible,
+    setSidebarVisible,
+    uploadedFileData,
+    setUploadedFileData,
+  }), [viewStyle, sortField, sortDirection, iconSize, sidebarVisible, uploadedFileData]);
+
+  // 3. Selection + clipboard (changes on every user selection action)
+  const selectionValue = useMemo(() => ({
     selectedIds,
     setSelectedIds,
     clipboardIds,
     setClipboardIds,
-    clipboardSourceFolder,
-    setClipboardSourceFolder,
     isCut,
     setIsCut,
+    clipboardSourceFolder,
+    setClipboardSourceFolder,
+  }), [selectedIds, clipboardIds, isCut, clipboardSourceFolder]);
+
+  // 4. Modals (changes when any modal opens/closes)
+  const modalValue = useMemo(() => ({
     newFolderModalVisible,
     setNewFolderModalVisible,
     previewVisible,
@@ -380,34 +437,42 @@ export const ReactFileManager = ({
     setDialogState,
     showAlert,
     showConfirm,
-    userFacts,
-    highlightedId,
-    setHighlightedId,
-    onLoadMore,
-    hasMore,
-    isLoadingMore,
+  }), [
+    newFolderModalVisible, previewVisible, previewFile, metadataVisible, metadataFile,
+    renameVisible, renameFile, contextMenu, triggerOpenUpload, registerOpenUpload,
+    modalPosition, isMoving, dialogState,
+  ]);
+
+  // 5. Uploads (changes when upload progress updates)
+  const uploadValue = useMemo(() => ({
+    activeUploads,
+    setActiveUploads,
     resetUploadToastCountdown,
-    resetSignal, // Exporting signal to let the toast consume it
-    folderTree,
-    refreshFolderTree,
-    sidebarVisible,
-    setSidebarVisible,
+    resetSignal,
+  }), [activeUploads, resetUploadToastCountdown, resetSignal]);
+
+  // 6. Sidebar extras: favorites, storage stats (changes infrequently)
+  const sidebarExtrasValue = useMemo(() => ({
+    userFacts,
     favorites,
     toggleFavorite,
     favoritesMinimized,
     setFavoritesMinimized,
     storageUsageMinimized,
-    setStorageUsageMinimized
-  }), [
-    sortedFs, viewStyle, viewOnly, currentFolder, onDoubleClick, onRefresh, onUpload, onCreateFolder,
-    onDelete, onMove, onRename, onBulkDelete, onBulkMove, onBulkCopy, onCancelUpload, uploadedFileData,
-    activeUploads, selectedIds, clipboardIds, clipboardSourceFolder, isCut, newFolderModalVisible, previewVisible,
-    previewFile, metadataVisible, metadataFile, renameVisible, renameFile, contextMenu,
-    triggerOpenUpload, registerOpenUpload, modalPosition, isMoving, dialogState, userFacts, highlightedId,
-    hasMore, isLoadingMore, propSetCurrentFolder, propSetActiveUploads, resetUploadToastCountdown, resetSignal,
-    folderTree, refreshFolderTree, sidebarVisible, sortField, sortDirection, iconSize,
-    favorites, toggleFavorite, favoritesMinimized, storageUsageMinimized
-  ]);
+    setStorageUsageMinimized,
+  }), [userFacts, favorites, toggleFavorite, favoritesMinimized, storageUsageMinimized]);
+
+  // Final context value: spread all sub-memos.
+  // Only re-creates when one of the 6 sub-objects changes reference.
+  const contextValue = useMemo(() => ({
+    ...fsValue,
+    ...uiValue,
+    ...selectionValue,
+    ...modalValue,
+    ...uploadValue,
+    ...sidebarExtrasValue,
+  }), [fsValue, uiValue, selectionValue, modalValue, uploadValue, sidebarExtrasValue]);
+
 
   return (
     <FileManagerContext.Provider value={contextValue}>

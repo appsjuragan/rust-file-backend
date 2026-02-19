@@ -4,6 +4,8 @@ import { useFileManager } from "../../context";
 import type { FileType } from "../../types";
 import { ViewStyle } from "../../types";
 import { isDescendantOrSelf, formatSize, formatMimeType } from "../../utils/fileUtils";
+import { useFileActions } from "../../hooks/useFileActions";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 
 // Components
 import FolderPath from "./FolderPath";
@@ -29,6 +31,7 @@ const Workspace = () => {
   const {
     currentFolder,
     fs,
+    filesByParent,
     viewStyle,
     viewOnly,
     setCurrentFolder,
@@ -73,7 +76,9 @@ const Workspace = () => {
     openUpload: triggerOpenUpload,
     clipboardSourceFolder,
     setClipboardSourceFolder,
-    iconSize
+    iconSize,
+    favorites,
+    toggleFavorite
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -88,6 +93,8 @@ const Workspace = () => {
   const [showHeader, setShowHeader] = useState(true);
   const lastScrollTopRef = React.useRef(0);
   const scrollThreshold = 10;
+
+  const { handlePaste } = useFileActions();
 
   useEffect(() => {
     setLastSelectedId(null);
@@ -144,7 +151,9 @@ const Workspace = () => {
     if (data) {
       const sourceIds = JSON.parse(data) as string[];
       if (folder.isDir) {
-        const invalidMoves = sourceIds.filter(id => isDescendantOrSelf(fs, id, folder.id));
+        // Build a map for O(1) lookups during the check
+        const fsMap = new Map(fs.map(f => [f.id, f]));
+        const invalidMoves = sourceIds.filter(id => isDescendantOrSelf(fsMap, id, folder.id));
         if (invalidMoves.length > 0) {
           console.warn("Circular move or move to self prevented");
           return;
@@ -162,17 +171,37 @@ const Workspace = () => {
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent, file: FileType | null) => {
-    e.preventDefault();
+  const isMobile = !useMediaQuery("(min-width: 769px)");
+
+  const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => {
+    if ('preventDefault' in e) e.preventDefault();
     if (viewOnly) return;
 
-    const isMobile = window.innerWidth <= 768;
-    if (isMobile) return;
+    if (file) {
+      const isAlreadySelected = selectedIds.includes(file.id);
 
-    if (file && !selectedIds.includes(file.id)) {
-      setSelectedIds([file.id]);
-    } else if (!file && selectedIds.length === 0) {
-      // Empty space context menu
+      if (isMobile) {
+        if (selectedIds.length === 0) {
+          // Entering selection mode: select only, no menu to allow easy multi-tap/long-press addition
+          setSelectedIds([file.id]);
+          if (navigator.vibrate) navigator.vibrate(50);
+        } else if (!isAlreadySelected) {
+          // Already in selection mode, long-press a new item: add to selection
+          setSelectedIds((prev: string[]) => [...prev, file.id]);
+          setLastSelectedId(file.id);
+          if (navigator.vibrate) navigator.vibrate(50);
+        } else {
+          // Long-press an already selected item: show menu for selection
+          setContextMenu({ x: e.clientX, y: e.clientY, file });
+        }
+        return;
+      }
+
+      // Desktop behavior: select if not already selected, then show menu
+      if (!isAlreadySelected) {
+        setSelectedIds([file.id]);
+        setLastSelectedId(file.id);
+      }
     }
 
     setContextMenu({
@@ -180,7 +209,7 @@ const Workspace = () => {
       y: e.clientY,
       file,
     });
-  };
+  }, [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds]);
 
   const handleDrop = useCallback(async (acceptedFiles: File[], _fileRejections: any[], event: any) => {
     if (viewOnly) return;
@@ -213,27 +242,11 @@ const Workspace = () => {
     noKeyboard: true
   });
 
-  const handlePaste = useCallback(async () => {
-    if (clipboardIds.length > 0) {
-      if (isCut) {
-        if (onBulkMove) {
-          await onBulkMove(clipboardIds, currentFolder);
-        } else if (onMove) {
-          for (const id of clipboardIds) {
-            await onMove(id, currentFolder);
-          }
-        }
-      } else {
-        if (onBulkCopy) {
-          await onBulkCopy(clipboardIds, currentFolder);
-        }
-      }
-      setClipboardIds([]);
-      setIsCut(false);
-      setClipboardSourceFolder(null);
-      if (onRefresh) await onRefresh(currentFolder);
-    }
-  }, [clipboardIds, isCut, onBulkMove, onMove, currentFolder, setClipboardIds, setIsCut, setClipboardSourceFolder, onBulkCopy, onRefresh]);
+  // handlePaste is now provided by useFileActions hook
+  // Keyboard shortcut effect for paste would invoke handlePaste() directly if needed here
+  // But wait, handlePaste was previously defined with useCallback here.
+  // We need to ensure the hook's handlePaste is stable or wrapped if passed to deps.
+  // Since useFileActions creates stable callbacks, we can just remove the local definition.
 
   useEffect(() => {
     if (setOpenUpload) {
@@ -242,8 +255,8 @@ const Workspace = () => {
   }, [open, setOpenUpload]);
 
   const currentFolderFiles = useMemo(() => {
-    return fs.filter((f) => (f.parentId || "0") === currentFolder && f.name !== "/");
-  }, [fs, currentFolder]);
+    return filesByParent?.get(currentFolder) || [];
+  }, [filesByParent, currentFolder]);
 
   const columns = useMemo(() => getColumns(), []);
 
@@ -260,8 +273,6 @@ const Workspace = () => {
 
     // Call reset countdown on any item click as well
     if (resetUploadToastCountdown) resetUploadToastCountdown();
-
-    const isMobile = window.innerWidth <= 768;
 
     if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(file.id)) {
@@ -703,6 +714,19 @@ const Workspace = () => {
               title="Move"
             >
               <SvgIcon svgType="scissors" />
+            </div>
+
+            <div
+              className={`rfm-selection-action-btn ${selectedIds.every(id => favorites.some(f => f.id === id)) ? 'rfm-active-star' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                const filesToToggle = currentFolderFiles.filter(f => selectedIds.includes(f.id));
+                if (toggleFavorite) toggleFavorite(filesToToggle);
+                if (navigator.vibrate) navigator.vibrate(50);
+              }}
+              title="Toggle Favorite"
+            >
+              <SvgIcon svgType="star" />
             </div>
 
             <div

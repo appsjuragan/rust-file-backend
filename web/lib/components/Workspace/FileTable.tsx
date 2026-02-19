@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { flexRender, Table } from '@tanstack/react-table';
+import { flexRender, Table, Row } from '@tanstack/react-table';
 import { FileType, IconSize } from "../../types";
 import SvgIcon from '../Icons/SvgIcon';
+import { useLongPress } from '../../hooks/useLongPress';
 
 interface FileTableProps {
     table: Table<FileType>;
@@ -12,13 +13,95 @@ interface FileTableProps {
     handleDragOver: (e: React.DragEvent, folder: FileType) => void;
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
-    handleContextMenu: (e: React.MouseEvent, file: FileType | null) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
     handleItemClick: (file: FileType, e: React.MouseEvent) => void;
     handleDoubleClick: (file: FileType) => void;
     currentFolderFiles: FileType[];
     columnsCount: number;
     iconSize?: IconSize;
 }
+
+interface FileTableItemProps {
+    row: Row<FileType>;
+    isSelected: boolean;
+    isDragOver: boolean;
+    isHighlighted: boolean;
+    handleTap: (f: FileType, e: React.MouseEvent) => void;
+    handleDoubleClick: (file: FileType) => void;
+    handleDragStart: (e: React.DragEvent, file: FileType) => void;
+    handleDragOver: (e: React.DragEvent, folder: FileType) => void;
+    handleDragLeave: () => void;
+    handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
+}
+
+const FileTableItem = React.memo(({
+    row,
+    isSelected,
+    isDragOver,
+    isHighlighted,
+    handleTap,
+    handleDoubleClick,
+    handleDragStart,
+    handleDragOver,
+    handleDragLeave,
+    handleDropOnFolder,
+    handleContextMenu
+}: FileTableItemProps) => {
+    const isPending = row.original.scanStatus === 'pending' || row.original.scanStatus === 'scanning';
+    const isInfected = row.original.scanStatus === 'infected';
+
+    const longPressProps = useLongPress(
+        (e) => {
+            let clientX = 0;
+            let clientY = 0;
+            if ('touches' in e && e.touches.length > 0) {
+                clientX = e.touches[0]!.clientX;
+                clientY = e.touches[0]!.clientY;
+            } else {
+                const mouseEvent = e as unknown as React.MouseEvent;
+                clientX = mouseEvent.clientX;
+                clientY = mouseEvent.clientY;
+            }
+            handleContextMenu({ clientX, clientY }, row.original);
+            if (navigator.vibrate) navigator.vibrate(50);
+        },
+        (e) => handleTap(row.original, e as React.MouseEvent),
+        { delay: 400 }
+    );
+
+    return (
+        <tr
+            {...longPressProps}
+            onClick={(e) => e.stopPropagation()}
+            data-id={row.original.id}
+            draggable={!isInfected}
+            onDragStart={(e) => !isInfected && handleDragStart(e, row.original)}
+            onDragOver={(e) => !isInfected && handleDragOver(e, row.original)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => !isInfected && handleDropOnFolder(e, row.original)}
+            onDoubleClick={() => !isInfected && handleDoubleClick(row.original)}
+            className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? 'rfm-pending' : ''} ${isInfected ? 'rfm-suspicious opacity-60 grayscale' : ''} ${isSelected ? "rfm-selected" : ""} ${isDragOver ? "rfm-drag-over" : ""} ${isHighlighted ? "rfm-highlighted" : ""}`}
+            onContextMenu={(e) => {
+                const isMobile = window.innerWidth <= 768;
+                if (isMobile) {
+                    e.preventDefault();
+                    return;
+                }
+                e.stopPropagation();
+                handleContextMenu(e, row.original);
+            }}
+        >
+            {row.getVisibleCells().map((cell: any) => (
+                <td className="rfm-workspace-list-align-txt" key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+            ))}
+        </tr>
+    );
+});
+
+FileTableItem.displayName = 'FileTableItem';
 
 export const FileTable: React.FC<FileTableProps> = ({
     table,
@@ -36,42 +119,9 @@ export const FileTable: React.FC<FileTableProps> = ({
     columnsCount,
     iconSize
 }) => {
-    const longPressTimer = React.useRef<any>(null);
-    const [isLongPress, setIsLongPress] = useState(false);
+    const isMobile = window.innerWidth <= 768;
 
-    const startLongPress = (f: FileType, e: React.PointerEvent) => {
-        setIsLongPress(false);
-        if (f.scanStatus === 'pending' || f.scanStatus === 'scanning') return;
-
-        longPressTimer.current = setTimeout(() => {
-            setIsLongPress(true);
-            handleItemClick(f, e as unknown as React.MouseEvent);
-            try {
-                if (navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
-            } catch (err) {
-                // Ignore vibration errors as they are non-critical interventions
-                console.debug("Vibration blocked or not supported:", err);
-            }
-        }, 400);
-    };
-
-    const endLongPress = () => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    };
-
-    const handleTap = (f: FileType, e: React.MouseEvent) => {
-        if (isLongPress) {
-            setIsLongPress(false);
-            return;
-        }
-
-        const isMobile = window.innerWidth <= 768;
-
+    const handleTap = React.useCallback((f: FileType, e: React.MouseEvent) => {
         if (isMobile) {
             if (selectedIds.length > 0) {
                 handleItemClick(f, e);
@@ -83,7 +133,7 @@ export const FileTable: React.FC<FileTableProps> = ({
         } else {
             handleItemClick(f, e);
         }
-    };
+    }, [isMobile, selectedIds, handleItemClick, handleDoubleClick]);
 
     return (
         <table className={`w-full rfm-file-table ${iconSize ? `size-${iconSize}` : ''}`}>
@@ -106,51 +156,30 @@ export const FileTable: React.FC<FileTableProps> = ({
                 ))}
             </thead>
             <tbody>
-                {table.getRowModel().rows.map(row => {
-                    const isSelected = selectedIds.includes(row.original.id);
-                    const isPending = row.original.scanStatus === 'pending' || row.original.scanStatus === 'scanning';
-                    const isInfected = row.original.scanStatus === 'infected';
-                    return (
-                        <tr
-                            key={row.id}
-                            data-id={row.original.id}
-                            draggable={!isInfected}
-                            onDragStart={(e) => !isInfected && handleDragStart(e, row.original)}
-                            onDragOver={(e) => !isInfected && handleDragOver(e, row.original)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => !isInfected && handleDropOnFolder(e, row.original)}
-                            onClick={(e) => handleTap(row.original, e)}
-                            onDoubleClick={() => !isInfected && handleDoubleClick(row.original)}
-                            onPointerDown={(e) => startLongPress(row.original, e)}
-                            onPointerUp={endLongPress}
-                            onPointerLeave={endLongPress}
-                            className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? 'rfm-pending' : ''} ${isInfected ? 'rfm-suspicious opacity-60 grayscale' : ''} ${isSelected ? "rfm-selected" : ""} ${dragOverId === row.original.id ? "rfm-drag-over" : ""} ${highlightedId === row.original.id ? "rfm-highlighted" : ""}`}
-                            onContextMenu={(e) => {
-                                const isMobile = window.innerWidth <= 768;
-                                if (isMobile) {
-                                    e.preventDefault();
-                                    return;
-                                }
-                                e.stopPropagation();
-                                handleContextMenu(e, row.original);
-                            }}
-                        >
-                            {row.getVisibleCells().map(cell => (
-                                <td className="rfm-workspace-list-align-txt" key={cell.id}>
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </td>
-                            ))}
-                        </tr>
-                    );
-                })}
+                {table.getRowModel().rows.map(row => (
+                    <FileTableItem
+                        key={row.id}
+                        row={row}
+                        isSelected={selectedIds.includes(row.original.id)}
+                        isDragOver={dragOverId === row.original.id}
+                        isHighlighted={highlightedId === row.original.id}
+                        handleTap={handleTap}
+                        handleDoubleClick={handleDoubleClick}
+                        handleDragStart={handleDragStart}
+                        handleDragOver={handleDragOver}
+                        handleDragLeave={handleDragLeave}
+                        handleDropOnFolder={handleDropOnFolder}
+                        handleContextMenu={handleContextMenu}
+                    />
+                ))}
                 {currentFolderFiles.length === 0 && (
                     <tr>
                         <td colSpan={columnsCount} className="py-10 text-center">
                             <div
                                 className="rfm-empty-folder"
                                 onContextMenu={(e) => {
-                                    const isMobile = window.innerWidth <= 768;
-                                    if (isMobile) {
+                                    const isMobileVisible = window.innerWidth <= 768;
+                                    if (isMobileVisible) {
                                         e.preventDefault();
                                         return;
                                     }

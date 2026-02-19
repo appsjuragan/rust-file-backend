@@ -8,6 +8,40 @@ export type UploadStatus = {
   uploadId?: string;
 };
 
+export interface UserFacts {
+  total_files: number;
+  total_size: number;
+  video_count: number;
+  audio_count: number;
+  document_count: number;
+  image_count: number;
+  others_count: number;
+  storage_limit?: number;
+  updated_at: string;
+}
+
+export interface BackendFile {
+  id: string;
+  filename?: string;
+  name?: string;
+  is_folder?: boolean;
+  isDir?: boolean;
+  parent_id?: string;
+  parentId?: string;
+  size?: string | number;
+  updated_at?: string;
+  created_at?: string;
+  mime_type?: string;
+  mimeType?: string;
+  scan_status?: FileType["scanStatus"];
+  scanStatus?: FileType["scanStatus"];
+  hash?: string;
+  is_favorite?: boolean;
+  isFavorite?: boolean;
+  extra_metadata?: any;
+  extraMetadata?: any;
+}
+
 // Be careful: even a folder is a file!
 export type FileType = {
   id: string; // Unique ID given to this file

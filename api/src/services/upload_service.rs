@@ -339,8 +339,8 @@ impl UploadService {
             name: file.filename,
             is_folder: file.is_folder,
             size: Some(session_total_size),
-            created_at: file.created_at.unwrap_or(Utc::now()),
-            updated_at: Utc::now(),
+            created_at: file.created_at.unwrap_or(Utc::now().into()),
+            updated_at: Utc::now().into(),
             mime_type: file_type,
             parent_id: file.parent_id,
         })
