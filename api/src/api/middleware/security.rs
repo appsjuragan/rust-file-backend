@@ -1,4 +1,4 @@
-use axum::{extract::Request, middleware::Next, response::Response, http::header};
+use axum::{extract::Request, http::header, middleware::Next, response::Response};
 
 pub async fn security_headers(req: Request, next: Next) -> Response {
     // 1. Reject TRACE and TRACK methods (OWASP Finding: Proxy Disclosure)
@@ -69,19 +69,13 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
             header::HeaderValue::from_static("no-cache, no-store, must-revalidate"),
         );
     }
-    
+
     if !headers.contains_key(header::PRAGMA) {
-        headers.insert(
-            header::PRAGMA,
-            header::HeaderValue::from_static("no-cache"),
-        );
+        headers.insert(header::PRAGMA, header::HeaderValue::from_static("no-cache"));
     }
-    
+
     if !headers.contains_key(header::EXPIRES) {
-        headers.insert(
-            header::EXPIRES,
-            header::HeaderValue::from_static("0"),
-        );
+        headers.insert(header::EXPIRES, header::HeaderValue::from_static("0"));
     }
 
     response

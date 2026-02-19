@@ -62,12 +62,13 @@ impl FileService {
         let header = &header_buffer[..n];
 
         // 2. Load Validation Rules from DB
-        let rules =
-            crate::utils::validation::ValidationRules::load(&self.db, self.config.max_file_size, self.config.chunk_size)
-                .await
-                .map_err(|e| {
-                    AppError::Internal(format!("Failed to load validation rules: {}", e))
-                })?;
+        let rules = crate::utils::validation::ValidationRules::load(
+            &self.db,
+            self.config.max_file_size,
+            self.config.chunk_size,
+        )
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
         // 3. Early Validation
         validate_upload(
@@ -233,13 +234,20 @@ impl FileService {
 
                         // Mark as scanning immediately in the DB to claim the task
                         let _ = storage_files::Entity::update_many()
-                            .col_expr(storage_files::Column::ScanStatus, sea_orm::sea_query::Expr::value("scanning"))
+                            .col_expr(
+                                storage_files::Column::ScanStatus,
+                                sea_orm::sea_query::Expr::value("scanning"),
+                            )
                             .filter(storage_files::Column::Id.eq(file_id.clone()))
                             .exec(&self.db)
                             .await;
 
                         tokio::spawn(async move {
-                            tracing::info!("🚀 Starting immediate virus scan for file: {} (S3: {})", file_id, s3_key);
+                            tracing::info!(
+                                "🚀 Starting immediate virus scan for file: {} (S3: {})",
+                                file_id,
+                                s3_key
+                            );
 
                             let scan_res = if let Some(ref path) = temp_path_opt
                                 && let Ok(file) = tokio::fs::File::open(&path).await
@@ -801,16 +809,26 @@ impl FileService {
                 format!("{} - Copy", item.filename)
             } else {
                 let path = std::path::Path::new(&item.filename);
-                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(&item.filename);
+                let stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&item.filename);
                 let extension = path.extension().and_then(|e| e.to_str());
-                
+
                 match extension {
                     Some(ext) => format!("{} - Copy.{}", stem, ext),
                     None => format!("{} - Copy", item.filename),
                 }
             };
 
-            self.copy_recursive(&txn, user_id, &item, new_parent_id.clone(), Some(new_filename)).await?;
+            self.copy_recursive(
+                &txn,
+                user_id,
+                &item,
+                new_parent_id.clone(),
+                Some(new_filename),
+            )
+            .await?;
             copied_count += 1;
         }
 
@@ -837,7 +855,7 @@ impl FileService {
         new_name: Option<String>,
     ) -> Result<(), AppError> {
         let new_id = Uuid::new_v4().to_string();
-        
+
         // 1. Clone the item record
         let new_item = user_files::ActiveModel {
             id: Set(new_id.clone()),
@@ -849,22 +867,26 @@ impl FileService {
             created_at: Set(Some(Utc::now())),
             ..Default::default()
         };
-        
-        new_item.insert(txn).await.map_err(|e| AppError::Internal(e.to_string()))?;
+
+        new_item
+            .insert(txn)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
 
         // 2. Increment ref count if it's a file
-        if !item.is_folder {
-            if let Some(ref sid) = item.storage_file_id {
+        if !item.is_folder
+            && let Some(ref sid) = item.storage_file_id {
                 let sf = storage_files::Entity::find_by_id(sid.clone())
                     .one(txn)
                     .await?
-                    .ok_or_else(|| AppError::NotFound("Storage file missing during copy".to_string()))?;
-                
+                    .ok_or_else(|| {
+                        AppError::NotFound("Storage file missing during copy".to_string())
+                    })?;
+
                 let mut active_sf: storage_files::ActiveModel = sf.into();
                 active_sf.ref_count = Set(active_sf.ref_count.unwrap() + 1);
                 active_sf.update(txn).await?;
             }
-        }
 
         // 3. If folder, copy children (keeping original names)
         if item.is_folder {
@@ -874,13 +896,13 @@ impl FileService {
                 .filter(user_files::Column::DeletedAt.is_null())
                 .all(txn)
                 .await?;
-            
+
             for child in children {
-                self.copy_recursive(txn, user_id, &child, Some(new_id.clone()), None).await?;
+                self.copy_recursive(txn, user_id, &child, Some(new_id.clone()), None)
+                    .await?;
             }
         }
 
         Ok(())
     }
 }
-

@@ -333,10 +333,13 @@ pub fn inspect_content_security(header: &[u8], mime_type: &str) -> Result<()> {
     // We check the first 2KB which usually contains the header/metadata
     let check_len = std::cmp::min(header.len(), 2048);
     let sample = &header[..check_len];
-    
+
     // Convert to lowercase roughly for pattern matching (not perfect for full unicode but good for keywords)
     // We use lossy conversion to simple ASCII lowercase for checking standard tags
-    let sample_lower = sample.iter().map(|b| b.to_ascii_lowercase()).collect::<Vec<u8>>();
+    let sample_lower = sample
+        .iter()
+        .map(|b| b.to_ascii_lowercase())
+        .collect::<Vec<u8>>();
     let sample_str = String::from_utf8_lossy(&sample_lower);
 
     // Block common XSS vectors in uploaded files
@@ -353,28 +356,35 @@ pub fn inspect_content_security(header: &[u8], mime_type: &str) -> Result<()> {
 
     for pattern in dangerous_patterns {
         if sample_str.contains(pattern) {
-             return Err(anyhow!(ValidationError {
+            return Err(anyhow!(ValidationError {
                 code: "POTENTIAL_SCRIPT_INJECTION",
-                message: format!("File contains potentially malicious script pattern: '{}'", pattern),
+                message: format!(
+                    "File contains potentially malicious script pattern: '{}'",
+                    pattern
+                ),
             }));
         }
     }
 
     // Entropy Check
-    // Text files should have relatively low entropy (< 6.0 usually). 
+    // Text files should have relatively low entropy (< 6.0 usually).
     // If a text file has very high entropy (> 7.5), it might be encrypted/packed code hiding as text.
     if mime_type.starts_with("text/") {
         let entropy = calculate_entropy(sample);
         if entropy > 7.5 {
-             tracing::warn!("High entropy ({:.2}) detected in text file. Potential embedded code/obfuscation.", entropy);
-             // We generally allow it but warn, unless strict mode is on.
-             // For this implementation, we'll strict fail on extremely high entropy for text to be safe
-             if entropy > 7.9 {
-                 return Err(anyhow!(ValidationError {
+            tracing::warn!(
+                "High entropy ({:.2}) detected in text file. Potential embedded code/obfuscation.",
+                entropy
+            );
+            // We generally allow it but warn, unless strict mode is on.
+            // For this implementation, we'll strict fail on extremely high entropy for text to be safe
+            if entropy > 7.9 {
+                return Err(anyhow!(ValidationError {
                     code: "SUSPICIOUS_ENTROPY",
-                    message: "Text file has suspiciously high entropy, resembling encrypted data.".to_string(),
+                    message: "Text file has suspiciously high entropy, resembling encrypted data."
+                        .to_string(),
                 }));
-             }
+            }
         }
     }
 
@@ -410,6 +420,7 @@ mod tests {
                 (vec![0x50, 0x4B, 0x03, 0x04], "application/zip".to_string()),
             ],
             max_file_size: MAX_FILE_SIZE,
+            chunk_size: 10 * 1024 * 1024, // 10 MB
         }
     }
 

@@ -7,7 +7,7 @@ use argon2::{
 };
 use axum::{
     Extension, Json,
-    extract::{Multipart, Query, State, Path},
+    extract::{Multipart, Path, Query, State},
     response::IntoResponse,
 };
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
@@ -96,12 +96,10 @@ pub async fn update_profile(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<UpdateProfileRequest>,
 ) -> Result<Json<UserProfileResponse>, AppError> {
-    payload
-        .validate()
-        .map_err(|e| {
-            tracing::error!("Validation failed for update_profile: {}", e);
-            AppError::BadRequest(e.to_string())
-        })?;
+    payload.validate().map_err(|e| {
+        tracing::error!("Validation failed for update_profile: {}", e);
+        AppError::BadRequest(e.to_string())
+    })?;
 
     let user = Users::find_by_id(&claims.sub)
         .one(&state.db)

@@ -3,19 +3,19 @@ use crate::config::SecurityConfig;
 use crate::entities::upload_sessions;
 use crate::services::file_service::{FileService, StagedFile};
 use crate::services::storage::StorageService;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, ModelTrait
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
+use utoipa::ToSchema;
 use uuid::Uuid;
 use xxhash_rust::xxh3::Xxh3;
-use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct InitUploadRequest {
@@ -101,7 +101,10 @@ impl UploadService {
         req: InitUploadRequest,
     ) -> Result<InitUploadResponse> {
         if req.total_size > self.config.max_file_size as i64 {
-            return Err(anyhow!("File too large. Max: {} bytes", self.config.max_file_size));
+            return Err(anyhow!(
+                "File too large. Max: {} bytes",
+                self.config.max_file_size
+            ));
         }
 
         let chunk_size = self.config.chunk_size as i64;
@@ -166,12 +169,10 @@ impl UploadService {
         // Update DB with transaction to avoid race conditions during parallel uploads
         use sea_orm::TransactionTrait;
         let db = self.db.clone();
-        
+
         db.transaction::<_, (), anyhow::Error>(|txn| {
-            let session_id = session_id;
             let user_id = user_id.clone();
             let etag = etag.clone();
-            let part_number = part_number;
             Box::pin(async move {
                 use sea_orm::QuerySelect;
                 let session = upload_sessions::Entity::find_by_id(session_id)
@@ -182,25 +183,26 @@ impl UploadService {
                     .ok_or_else(|| anyhow!("Upload session not found"))?;
 
                 let mut parts: Vec<PartInfo> = serde_json::from_value(session.parts.clone())?;
-                
+
                 // Remove if existing (retry)
                 parts.retain(|p| p.part_number != part_number);
                 parts.push(PartInfo {
                     part_number,
-                    etag: etag,
+                    etag,
                 });
-                
+
                 // Sort by part number for tidiness
                 parts.sort_by_key(|p| p.part_number);
 
                 let mut active: upload_sessions::ActiveModel = session.into();
                 active.parts = Set(json!(parts));
                 active.uploaded_chunks = Set(parts.len() as i32);
-                
+
                 active.update(txn).await?;
                 Ok(())
             })
-        }).await?;
+        })
+        .await?;
 
         Ok(UploadPartResponse { etag })
     }
@@ -211,7 +213,7 @@ impl UploadService {
         session_id: Uuid,
         req: CompleteUploadRequest,
     ) -> Result<FileResponse> {
-         let session = upload_sessions::Entity::find_by_id(session_id)
+        let session = upload_sessions::Entity::find_by_id(session_id)
             .filter(upload_sessions::Column::UserId.eq(user_id.clone()))
             .one(&self.db)
             .await?
@@ -223,27 +225,50 @@ impl UploadService {
 
         let parts: Vec<PartInfo> = serde_json::from_value(session.parts.clone())?;
         if parts.len() as i32 != session.total_chunks {
-            return Err(anyhow!("Incomplete upload. Expected {} chunks, got {}", session.total_chunks, parts.len()));
+            return Err(anyhow!(
+                "Incomplete upload. Expected {} chunks, got {}",
+                session.total_chunks,
+                parts.len()
+            ));
         }
 
         // 1. Complete S3 Multipart
-        let s3_parts: Vec<(i32, String)> = parts.iter().map(|p| (p.part_number, p.etag.clone())).collect();
-        self.storage.complete_multipart_upload(&session.s3_key, &session.upload_id, s3_parts).await?;
+        let s3_parts: Vec<(i32, String)> = parts
+            .iter()
+            .map(|p| (p.part_number, p.etag.clone()))
+            .collect();
+        self.storage
+            .complete_multipart_upload(&session.s3_key, &session.upload_id, s3_parts)
+            .await?;
 
         // 2. Determine initial hash — use client-provided for fast response, verify async
         let client_hash = req.hash.clone();
         let hash = if let Some(ref h) = client_hash {
-            tracing::info!("Using client-provided hash (will verify async): {} for session: {}", h, session_id);
+            tracing::info!(
+                "Using client-provided hash (will verify async): {} for session: {}",
+                h,
+                session_id
+            );
             h.clone()
         } else {
             // No client hash provided — must compute synchronously
-            tracing::info!("No client hash provided, calculating synchronously for session: {}", session_id);
+            tracing::info!(
+                "No client hash provided, calculating synchronously for session: {}",
+                session_id
+            );
             let mut hasher = Xxh3::new();
-            let mut stream = self.storage.get_object_stream(&session.s3_key).await?.body.into_async_read();
+            let mut stream = self
+                .storage
+                .get_object_stream(&session.s3_key)
+                .await?
+                .body
+                .into_async_read();
             let mut buffer = [0u8; 8192];
             loop {
                 let n = stream.read(&mut buffer).await?;
-                if n == 0 { break; }
+                if n == 0 {
+                    break;
+                }
                 hasher.update(&buffer[..n]);
             }
             let h = format!("{:032x}", hasher.digest128());
@@ -261,15 +286,22 @@ impl UploadService {
         };
 
         tracing::info!("Delegating chunked file completion to FileService for processing...");
-        let (file_id, _) = self.file_service.process_upload(
-            staged_file,
-            session.file_name.clone(),
-            user_id.clone(),
-            req.parent_id.map(|id| id.to_string()),
-            None, // expiration
-            Some(session.total_size as u64),
-        ).await.map_err(|e| anyhow!("File processing failed: {}", e))?;
-        tracing::info!("File successfully processed by FileService. FileID: {}", file_id);
+        let (file_id, _) = self
+            .file_service
+            .process_upload(
+                staged_file,
+                session.file_name.clone(),
+                user_id.clone(),
+                req.parent_id.map(|id| id.to_string()),
+                None, // expiration
+                Some(session.total_size as u64),
+            )
+            .await
+            .map_err(|e| anyhow!("File processing failed: {}", e))?;
+        tracing::info!(
+            "File successfully processed by FileService. FileID: {}",
+            file_id
+        );
 
         // 4. Mark session completed
         let file_type = session.file_type.clone();
@@ -294,7 +326,9 @@ impl UploadService {
             let storage_file_id = file.storage_file_id.clone();
 
             tokio::spawn(async move {
-                if let Err(e) = verify_hash_async(db, storage, storage_file_id, client_hash_val).await {
+                if let Err(e) =
+                    verify_hash_async(db, storage, storage_file_id, client_hash_val).await
+                {
                     tracing::error!("❌ Async hash verification failed: {}", e);
                 }
             });
@@ -305,15 +339,15 @@ impl UploadService {
             name: file.filename,
             is_folder: file.is_folder,
             size: Some(session_total_size),
-            created_at: file.created_at.unwrap_or(Utc::now().into()),
-            updated_at: Utc::now().into(), 
-            mime_type: file_type, 
+            created_at: file.created_at.unwrap_or(Utc::now()),
+            updated_at: Utc::now(),
+            mime_type: file_type,
             parent_id: file.parent_id,
         })
     }
 
     pub async fn abort_upload(&self, user_id: String, session_id: Uuid) -> Result<()> {
-         let session = upload_sessions::Entity::find_by_id(session_id)
+        let session = upload_sessions::Entity::find_by_id(session_id)
             .filter(upload_sessions::Column::UserId.eq(user_id))
             .one(&self.db)
             .await?
@@ -324,7 +358,9 @@ impl UploadService {
         }
 
         // Abort S3
-        self.storage.abort_multipart_upload(&session.s3_key, &session.upload_id).await?;
+        self.storage
+            .abort_multipart_upload(&session.s3_key, &session.upload_id)
+            .await?;
 
         // Delete from DB
         session.delete(&self.db).await?;
@@ -332,7 +368,10 @@ impl UploadService {
         Ok(())
     }
 
-    pub async fn list_pending_sessions(&self, user_id: String) -> Result<Vec<PendingSessionResponse>> {
+    pub async fn list_pending_sessions(
+        &self,
+        user_id: String,
+    ) -> Result<Vec<PendingSessionResponse>> {
         let sessions = upload_sessions::Entity::find()
             .filter(upload_sessions::Column::UserId.eq(user_id))
             .filter(upload_sessions::Column::Status.eq("pending"))
@@ -376,31 +415,51 @@ async fn verify_hash_async(
         .await?
         .ok_or_else(|| anyhow!("Storage file not found: {}", sf_id))?;
 
-    tracing::info!("🔐 Async hash verification started for storage_file: {} (s3: {})", sf_id, sf.s3_key);
+    tracing::info!(
+        "🔐 Async hash verification started for storage_file: {} (s3: {})",
+        sf_id,
+        sf.s3_key
+    );
 
     let mut hasher = Xxh3::new();
-    let mut stream = storage.get_object_stream(&sf.s3_key).await?.body.into_async_read();
+    let mut stream = storage
+        .get_object_stream(&sf.s3_key)
+        .await?
+        .body
+        .into_async_read();
     let mut buffer = [0u8; 65536]; // 64KB buffer for faster streaming
 
     loop {
         let n = stream.read(&mut buffer).await?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buffer[..n]);
     }
 
     let server_hash = format!("{:032x}", hasher.digest128());
 
     if server_hash == client_hash {
-        tracing::info!("✅ Hash verified for storage_file {}: {}", sf_id, server_hash);
+        tracing::info!(
+            "✅ Hash verified for storage_file {}: {}",
+            sf_id,
+            server_hash
+        );
     } else {
         tracing::warn!(
             "⚠️ Hash MISMATCH for storage_file {}! Client: {} | Server: {} — updating record.",
-            sf_id, client_hash, server_hash
+            sf_id,
+            client_hash,
+            server_hash
         );
         let mut active: storage_files::ActiveModel = sf.into();
         active.hash = Set(server_hash.clone());
         active.update(&db).await?;
-        tracing::info!("✅ Hash corrected for storage_file {} to: {}", sf_id, server_hash);
+        tracing::info!(
+            "✅ Hash corrected for storage_file {} to: {}",
+            sf_id,
+            server_hash
+        );
     }
 
     Ok(())

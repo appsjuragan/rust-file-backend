@@ -68,12 +68,14 @@ async fn test_security_upload_restrictions() {
         sec_config.clone(),
     ));
 
-    let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
-        db.clone(),
-        storage_service.clone(),
-        sec_config.clone(),
-        file_service.clone(),
-    ));
+    let upload_service = Arc::new(
+        rust_file_backend::services::upload_service::UploadService::new(
+            db.clone(),
+            storage_service.clone(),
+            sec_config.clone(),
+            file_service.clone(),
+        ),
+    );
 
     let state = AppState {
         db: db.clone(),
@@ -89,17 +91,23 @@ async fn test_security_upload_restrictions() {
 
     // Add a bypass CAPTCHA for testing register
     let captcha_id_reg = "test-captcha-reg".to_string();
-    state.captchas.insert(captcha_id_reg.clone(), rust_file_backend::api::handlers::captcha::CaptchaChallenge {
-        answer: 42,
-        created_at: chrono::Utc::now(),
-    });
+    state.captchas.insert(
+        captcha_id_reg.clone(),
+        rust_file_backend::api::handlers::captcha::CaptchaChallenge {
+            answer: 42,
+            created_at: chrono::Utc::now(),
+        },
+    );
 
     // Add a bypass CAPTCHA for testing login
     let captcha_id_login = "test-captcha-login".to_string();
-    state.captchas.insert(captcha_id_login.clone(), rust_file_backend::api::handlers::captcha::CaptchaChallenge {
-        answer: 43,
-        created_at: chrono::Utc::now(),
-    });
+    state.captchas.insert(
+        captcha_id_login.clone(),
+        rust_file_backend::api::handlers::captcha::CaptchaChallenge {
+            answer: 43,
+            created_at: chrono::Utc::now(),
+        },
+    );
 
     let app = create_app(state);
 
@@ -119,14 +127,23 @@ async fn test_security_upload_restrictions() {
         )
         .await
         .unwrap();
-    
+
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_str = String::from_utf8_lossy(&body);
-    assert_eq!(status, StatusCode::CREATED, "Register failed with status {}. Body: {}", status, body_str);
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "Register failed with status {}. Body: {}",
+        status,
+        body_str
+    );
 
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    let token = json["token"].as_str().expect(&format!("Token missing in registration response: {}", body_str));
+    let token = json["token"].as_str().expect(&format!(
+        "Token missing in registration response: {}",
+        body_str
+    ));
 
     // 2. Test Path Traversal
     let boundary = "---------------------------123456789012345678901234567";
@@ -207,12 +224,14 @@ async fn test_security_headers_present() {
         config.clone(),
     ));
 
-    let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
-        db.clone(),
-        storage_service.clone(),
-        config.clone(),
-        file_service.clone(),
-    ));
+    let upload_service = Arc::new(
+        rust_file_backend::services::upload_service::UploadService::new(
+            db.clone(),
+            storage_service.clone(),
+            config.clone(),
+            file_service.clone(),
+        ),
+    );
 
     let state = AppState {
         db,
@@ -244,8 +263,18 @@ async fn test_security_headers_present() {
 
     assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
     assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
-    assert!(headers.get("content-security-policy").unwrap().to_str().unwrap().contains("default-src 'none'"));
-    assert_eq!(headers.get("referrer-policy").unwrap(), "strict-origin-when-cross-origin");
+    assert!(
+        headers
+            .get("content-security-policy")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("default-src 'none'")
+    );
+    assert_eq!(
+        headers.get("referrer-policy").unwrap(),
+        "strict-origin-when-cross-origin"
+    );
     assert_eq!(headers.get("server").unwrap(), "rust-file-backend");
 }
 
@@ -260,8 +289,25 @@ async fn test_reject_trace_method() {
         db: db.clone(),
         storage: storage_service.clone(),
         scanner: scanner_service,
-        file_service: Arc::new(FileService::new(db.clone(), storage_service.clone(), Arc::new(NoOpScanner), config.clone())),
-        upload_service: Arc::new(rust_file_backend::services::upload_service::UploadService::new(db.clone(), storage_service.clone(), config.clone(), Arc::new(FileService::new(db.clone(), storage_service.clone(), Arc::new(NoOpScanner), config.clone())))),
+        file_service: Arc::new(FileService::new(
+            db.clone(),
+            storage_service.clone(),
+            Arc::new(NoOpScanner),
+            config.clone(),
+        )),
+        upload_service: Arc::new(
+            rust_file_backend::services::upload_service::UploadService::new(
+                db.clone(),
+                storage_service.clone(),
+                config.clone(),
+                Arc::new(FileService::new(
+                    db.clone(),
+                    storage_service.clone(),
+                    Arc::new(NoOpScanner),
+                    config.clone(),
+                )),
+            ),
+        ),
         config,
         download_tickets: Arc::new(dashmap::DashMap::new()),
         captchas: Arc::new(dashmap::DashMap::new()),

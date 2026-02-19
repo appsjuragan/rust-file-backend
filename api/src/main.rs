@@ -1,5 +1,7 @@
 use clap::Parser;
+use dashmap::DashMap;
 use dotenvy::dotenv;
+use rust_file_backend::api::handlers::captcha::{CaptchaChallenge, CooldownEntry, cleanup_expired};
 use rust_file_backend::infrastructure::{database, scanner, storage};
 use rust_file_backend::services::file_service::FileService;
 use rust_file_backend::{AppState, create_app};
@@ -9,8 +11,6 @@ use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use dashmap::DashMap;
-use rust_file_backend::api::handlers::captcha::{CaptchaChallenge, CooldownEntry, cleanup_expired};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -90,12 +90,14 @@ async fn main() -> anyhow::Result<()> {
             security_config.clone(),
         ));
 
-        let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
-            db.clone(),
-            storage_service.clone(),
-            security_config.clone(),
-            file_service.clone(),
-        ));
+        let upload_service = Arc::new(
+            rust_file_backend::services::upload_service::UploadService::new(
+                db.clone(),
+                storage_service.clone(),
+                security_config.clone(),
+                file_service.clone(),
+            ),
+        );
 
         let captchas: Arc<DashMap<String, CaptchaChallenge>> = Arc::new(DashMap::new());
         let cooldowns: Arc<DashMap<String, CooldownEntry>> = Arc::new(DashMap::new());
@@ -120,10 +122,7 @@ async fn main() -> anyhow::Result<()> {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
                 loop {
                     interval.tick().await;
-                    cleanup_expired(
-                        &cleanup_captchas,
-                        &cleanup_cooldowns,
-                    );
+                    cleanup_expired(&cleanup_captchas, &cleanup_cooldowns);
                 }
             });
         }
@@ -163,7 +162,10 @@ async fn main() -> anyhow::Result<()> {
         let listener = tokio::net::TcpListener::bind(addr).await?;
 
         info!("✅ API Server listening on: http://0.0.0.0:{}", args.port);
-        info!("📖 Swagger UI documentation: http://localhost:{}/swagger-ui", args.port);
+        info!(
+            "📖 Swagger UI documentation: http://localhost:{}/swagger-ui",
+            args.port
+        );
 
         let server_handle = tokio::spawn(async move {
             if let Err(e) = axum::serve(listener, app)
@@ -190,7 +192,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     info!("🛑 Shutting down backend services...");
-    
+
     // Optional: Wait for tasks to complete
     // for handle in handles { let _ = handle.await; }
 
@@ -225,4 +227,3 @@ async fn shutdown_signal() {
         },
     }
 }
-

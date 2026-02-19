@@ -98,7 +98,7 @@ impl VirusScanner for ClamAvScanner {
                                 if !write_done {
                                      tracing::debug!("ClamAV sent early response: '{}', stopping stream.", resp_str.trim());
                                 }
-                                break; 
+                                break;
                             }
                         }
                         Err(e) => {
@@ -160,14 +160,20 @@ impl VirusScanner for ClamAvScanner {
         if !read_done {
             let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
                 while let Ok(n) = stream.read(&mut read_buf).await {
-                    if n == 0 { break; }
+                    if n == 0 {
+                        break;
+                    }
                     response.extend_from_slice(&read_buf[..n]);
                     let resp_str = String::from_utf8_lossy(&response);
-                    if resp_str.contains("FOUND") || resp_str.contains("ERROR") || resp_str.ends_with("OK") {
+                    if resp_str.contains("FOUND")
+                        || resp_str.contains("ERROR")
+                        || resp_str.ends_with("OK")
+                    {
                         break;
                     }
                 }
-            }).await;
+            })
+            .await;
         }
 
         if !response.is_empty() {
@@ -190,7 +196,10 @@ impl VirusScanner for ClamAvScanner {
                 });
             } else if response_str.contains("ERROR") {
                 let reason = if response_str.contains("size limit exceeded") {
-                    format!("ClamAV limit exceeded: {}. Please increase StreamMaxLength in clamd.conf", response_str)
+                    format!(
+                        "ClamAV limit exceeded: {}. Please increase StreamMaxLength in clamd.conf",
+                        response_str
+                    )
                 } else {
                     response_str.to_string()
                 };
@@ -201,16 +210,26 @@ impl VirusScanner for ClamAvScanner {
         // Handle failure cases where no valid response was parsed
         if let Some(e) = read_error {
             if let Some(we) = write_error {
-                return Err(anyhow!("ClamAV connection failed (ReadError: {}, WriteError: {}). No result received.", e, we));
+                return Err(anyhow!(
+                    "ClamAV connection failed (ReadError: {}, WriteError: {}). No result received.",
+                    e,
+                    we
+                ));
             }
             return Err(anyhow!("ClamAV read error: {}", e));
         }
 
         if let Some(e) = write_error {
-            return Err(anyhow!("ClamAV write error: {}. ClamAV closed connection without sending a result.", e));
+            return Err(anyhow!(
+                "ClamAV write error: {}. ClamAV closed connection without sending a result.",
+                e
+            ));
         }
 
-        Err(anyhow!("ClamAV returned no response (total sent: {} bytes)", total_sent))
+        Err(anyhow!(
+            "ClamAV returned no response (total sent: {} bytes)",
+            total_sent
+        ))
     }
 
     async fn health_check(&self) -> bool {
