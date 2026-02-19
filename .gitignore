@@ -24,6 +24,7 @@ dump.rdb
 /web/dist/
 /web/.env
 /web/.env.local
+/web/android/
 
 # --- OS Specific ---
 .DS_Store

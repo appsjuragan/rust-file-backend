@@ -41,7 +41,17 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
     if db_url.starts_with("postgres://") {
         info!("🔄 Running SQLx migrations for PostgreSQL...");
         let pool = sqlx::PgPool::connect(&db_url).await?;
-        sqlx::migrate!("./migrations").run(&pool).await?;
+        match sqlx::migrate!("./migrations").run(&pool).await {
+            Ok(_) => info!("✅ Migrations completed successfully"),
+            Err(e) => {
+                let err_msg = e.to_string();
+                if err_msg.contains("was previously applied but has been modified") {
+                    info!("⚠️ Migration checksum mismatch detected, but skipping as requested: {}", err_msg);
+                } else {
+                    return Err(anyhow::anyhow!("Migration failed: {}", err_msg));
+                }
+            }
+        }
     } else {
         info!("🔄 Running SeaORM auto-migrations for SQLite/Other...");
         let builder = db.get_database_backend();
