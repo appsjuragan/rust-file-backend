@@ -6,5 +6,5 @@ pub mod metadata;
 pub mod scanner;
 pub mod storage;
 pub mod storage_lifecycle;
-pub mod worker;
 pub mod upload_service;
+pub mod worker;

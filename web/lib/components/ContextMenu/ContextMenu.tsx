@@ -3,6 +3,8 @@ import { useFileManager } from "../../context";
 import { FileType } from "../../types";
 import SvgIcon from "../Icons/SvgIcon";
 import { fileService } from "../../../src/services/fileService";
+import { useFileActions } from "../../hooks/useFileActions";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 
 interface IContextMenuProps {
     x: number;
@@ -48,14 +50,11 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         favorites,
         toggleFavorite,
     } = useFileManager();
-    const menuRef = useRef<HTMLDivElement>(null);
-    const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
 
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth <= 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const { handleCopy: hookHandleCopy, handleCut: hookHandleCut, handleDelete: hookHandleDelete, handlePaste: hookHandlePaste } = useFileActions();
+
+    const menuRef = useRef<HTMLDivElement>(null);
+    const isMobile = !useMediaQuery("(min-width: 769px)");
 
     const mountTime = useRef(Date.now());
     const onCloseRef = useRef(onClose);
@@ -161,32 +160,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     const handleDelete = async () => {
         const action = () => {
             if (selectedIds.length > 0) {
-                setDialogState({
-                    isVisible: true,
-                    title: "Confirm Delete",
-                    message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
-                    type: "confirm",
-                    onConfirm: async () => {
-                        if (onBulkDelete) {
-                            await onBulkDelete(selectedIds);
-                        } else if (onDelete) {
-                            for (const id of selectedIds) {
-                                await onDelete(id);
-                            }
-                        }
-                        setSelectedIds([]);
-                    }
-                });
-            } else if (file && onDelete) {
-                setDialogState({
-                    isVisible: true,
-                    title: "Confirm Delete",
-                    message: `Are you sure you want to delete ${file.name}?`,
-                    type: "confirm",
-                    onConfirm: async () => {
-                        await onDelete(file.id);
-                    }
-                });
+                hookHandleDelete();
+            } else if (file) {
+                hookHandleDelete([file.id], file.name);
             }
         };
 
@@ -195,54 +171,24 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
     const handleCopy = () => {
         if (selectedIds.length > 0) {
-            setClipboardIds(selectedIds);
-            setIsCut(false);
-            setClipboardSourceFolder(currentFolder);
+            hookHandleCopy();
         } else if (file) {
-            setClipboardIds([file.id]);
-            setIsCut(false);
-            setClipboardSourceFolder(currentFolder);
+            hookHandleCopy([file.id]);
         }
-        setSelectedIds([]);
-        if (navigator.vibrate) navigator.vibrate(50);
         onClose();
     };
 
     const handleCut = () => {
         if (selectedIds.length > 0) {
-            setClipboardIds(selectedIds);
-            setIsCut(true);
-            setClipboardSourceFolder(currentFolder);
+            hookHandleCut();
         } else if (file) {
-            setClipboardIds([file.id]);
-            setIsCut(true);
-            setClipboardSourceFolder(currentFolder);
+            hookHandleCut([file.id]);
         }
-        setSelectedIds([]);
-        if (navigator.vibrate) navigator.vibrate(50);
         onClose();
     };
 
     const handlePaste = async () => {
-        if (clipboardIds.length > 0) {
-            if (isCut) {
-                if (onBulkMove) {
-                    await onBulkMove(clipboardIds, currentFolder);
-                } else if (onMove) {
-                    for (const id of clipboardIds) {
-                        await onMove(id, currentFolder);
-                    }
-                }
-            } else {
-                if (onBulkCopy) {
-                    await onBulkCopy(clipboardIds, currentFolder);
-                }
-            }
-            setClipboardIds([]);
-            setIsCut(false);
-            setClipboardSourceFolder(null);
-            if (onRefresh) await onRefresh(currentFolder);
-        }
+        await hookHandlePaste();
         onClose();
     };
 

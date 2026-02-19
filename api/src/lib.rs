@@ -10,19 +10,19 @@ use crate::config::SecurityConfig;
 use crate::services::file_service::FileService;
 use crate::services::scanner::VirusScanner;
 use crate::services::storage::StorageService;
+use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
 use axum::{
     Router,
     middleware::{from_fn, from_fn_with_state},
     routing::{get, post},
 };
+use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use dashmap::DashMap;
-use chrono::{DateTime, Utc};
-use api::handlers::captcha::{CaptchaChallenge, CooldownEntry};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -135,7 +135,10 @@ pub fn create_app(state: AppState) -> Router {
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
         .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))
-        .route("/auth/oidc/callback", get(api::handlers::auth::callback_oidc))
+        .route(
+            "/auth/oidc/callback",
+            get(api::handlers::auth::callback_oidc),
+        )
         .route(
             "/download/:ticket",
             get(api::handlers::files::download_file_with_ticket),
@@ -187,7 +190,10 @@ pub fn create_app(state: AppState) -> Router {
             "/files/:id/rename",
             axum::routing::put(api::handlers::files::rename_item),
         )
-        .route("/files/:id/path", get(api::handlers::files::get_folder_path))
+        .route(
+            "/files/:id/path",
+            get(api::handlers::files::get_folder_path),
+        )
         .route(
             "/files/:id/zip-contents",
             get(api::handlers::files::get_zip_contents),
@@ -195,7 +201,10 @@ pub fn create_app(state: AppState) -> Router {
         .route("/files", get(api::handlers::files::list_files))
         .route("/folders", post(api::handlers::files::create_folder))
         .route("/folders/tree", get(api::handlers::files::folder_tree))
-        .route("/files/bulk-delete", post(api::handlers::files::bulk_delete))
+        .route(
+            "/files/bulk-delete",
+            post(api::handlers::files::bulk_delete),
+        )
         .route("/files/bulk-move", post(api::handlers::files::bulk_move))
         .route("/files/bulk-copy", post(api::handlers::files::bulk_copy))
         .route(
@@ -232,9 +241,12 @@ pub fn create_app(state: AppState) -> Router {
             .iter()
             .filter_map(|s| s.parse().ok())
             .collect();
-        
-        tracing::info!("CORS configured for origins: {:?}", state.config.allowed_origins);
-        
+
+        tracing::info!(
+            "CORS configured for origins: {:?}",
+            state.config.allowed_origins
+        );
+
         CorsLayer::new()
             .allow_origin(origins)
             .allow_methods([
@@ -281,4 +293,3 @@ pub fn create_app(state: AppState) -> Router {
         .layer(cors_layer)
         .with_state(state)
 }
-

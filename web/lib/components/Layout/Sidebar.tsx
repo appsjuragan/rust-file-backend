@@ -3,12 +3,15 @@ import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType, FolderNode } from "../../types";
 import { isDescendantOrSelf, formatSize } from "../../utils/fileUtils";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 
 // Build a map of parentId -> children for O(1) child lookups
 const buildChildrenMap = (tree: FolderNode[]): Map<string, FolderNode[]> => {
     const map = new Map<string, FolderNode[]>();
     for (const node of tree) {
-        const key = node.parent_id ?? "0";
+        let key = node.parent_id || "0";
+        if (key === "root") key = "0";
+
         const list = map.get(key);
         if (list) {
             list.push(node);
@@ -34,6 +37,7 @@ interface FolderTreeItemProps {
     level: number;
     expandedIds: Set<string>;
     onToggle: (id: string) => void;
+    idToNodeMap: Map<string, FolderNode>;
 }
 
 const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: () => void, onSelect: (f: FileType) => void }) => {
@@ -113,16 +117,19 @@ const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: ()
     );
 };
 
-const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle }: FolderTreeItemProps) => {
+const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle, idToNodeMap }: FolderTreeItemProps) => {
     const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, setSidebarVisible } = useFileManager();
     const [isDragOver, setIsDragOver] = useState(false);
+    const isMobile = !useMediaQuery("(min-width: 769px)");
 
     const children = childrenMap.get(node.id) ?? [];
     const hasChildren = children.length > 0;
     const isExpanded = expandedIds.has(node.id);
 
     const handleDragOver = (e: React.DragEvent) => {
-        const canDrop = !selectedIds.some(id => isDescendantOrSelf(fs, id, node.id));
+        // Use O(1) lookup via callback
+        const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
+        const canDrop = !selectedIds.some(id => isDescendantOrSelf(getParentId, id, node.id));
         if (canDrop) {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
@@ -144,7 +151,9 @@ const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle }: Fol
 
         try {
             const idsToMove = JSON.parse(data);
-            const validIds = idsToMove.filter((id: string) => !isDescendantOrSelf(fs, id, node.id));
+            // Use O(1) lookup via callback
+            const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
+            const validIds = idsToMove.filter((id: string) => !isDescendantOrSelf(getParentId, id, node.id));
             if (validIds.length > 0) {
                 setIsMoving(true);
                 if (onBulkMove) {
@@ -180,7 +189,7 @@ const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle }: Fol
         }
 
         // 4. Handle mobile sidebar auto-hide
-        if (window.innerWidth <= 768 && setSidebarVisible) {
+        if (isMobile && setSidebarVisible) {
             // Only hide if we aren't drilling down into a sub-tree
             if (!isExpanding) {
                 setTimeout(() => setSidebarVisible(false), 50);
@@ -235,6 +244,7 @@ const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle }: Fol
                             level={level + 1}
                             expandedIds={expandedIds}
                             onToggle={onToggle}
+                            idToNodeMap={idToNodeMap}
                         />
                     ))}
                 </div>
@@ -267,6 +277,7 @@ const Sidebar = () => {
     } = useFileManager();
     const [isDragOverRoot, setIsDragOverRoot] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set<string>());
+    const isMobile = !useMediaQuery("(min-width: 769px)");
 
     // Build the children lookup map from the dedicated folder tree
     const childrenMap = useMemo(() => buildChildrenMap(folderTree), [folderTree]);
@@ -363,13 +374,13 @@ const Sidebar = () => {
     const handleRootClick = () => {
         setCurrentFolder("0");
         // Always close on mobile when going home
-        if (window.innerWidth <= 768 && setSidebarVisible) {
+        if (isMobile && setSidebarVisible) {
             setSidebarVisible(false);
         }
     };
 
     // Calculate facts for storage stats
-    const totalStorage = 5 * 1024 * 1024 * 1024; // 5GB baseline
+    const totalStorage = userFacts?.storage_limit || (5 * 1024 * 1024 * 1024); // Dynamic limit with 5GB fallback
     const usedStorage = userFacts?.total_size || 0;
     const storagePercentage = Math.min(100, Math.round((usedStorage / totalStorage) * 100));
 
@@ -422,6 +433,7 @@ const Sidebar = () => {
                             level={1}
                             expandedIds={expandedIds}
                             onToggle={handleToggle}
+                            idToNodeMap={idToNodeMap}
                         />
                     ))}
                 </div>
@@ -458,7 +470,7 @@ const Sidebar = () => {
                                                     if (item.isDir) {
                                                         setCurrentFolder(item.id);
                                                         // Always close on mobile for favorite selection
-                                                        if (window.innerWidth <= 768 && setSidebarVisible) {
+                                                        if (isMobile && setSidebarVisible) {
                                                             setSidebarVisible(false);
                                                         }
                                                     } else {
@@ -469,7 +481,7 @@ const Sidebar = () => {
                                                                     setHighlightedId(item.id);
                                                                 }
                                                             }, 100);
-                                                            if (window.innerWidth <= 768 && setSidebarVisible) {
+                                                            if (isMobile && setSidebarVisible) {
                                                                 setSidebarVisible(false);
                                                             }
                                                         }

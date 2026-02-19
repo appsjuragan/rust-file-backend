@@ -3,7 +3,7 @@ use crate::entities::{
     storage_files, tags, tokens, upload_sessions, user_file_facts, user_files, user_settings,
     users,
 };
-use sea_orm::{ConnectOptions, Database, DatabaseConnection, Schema, ConnectionTrait};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Schema};
 use std::env;
 use std::time::Duration;
 use tracing::info;
@@ -37,7 +37,7 @@ pub async fn setup_database() -> anyhow::Result<DatabaseConnection> {
 
 pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
     let db_url = env::var("DATABASE_URL")?;
-    
+
     if db_url.starts_with("postgres://") {
         info!("🔄 Running SQLx migrations for PostgreSQL...");
         let pool = sqlx::PgPool::connect(&db_url).await?;
@@ -46,22 +46,64 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         info!("🔄 Running SeaORM auto-migrations for SQLite/Other...");
         let builder = db.get_database_backend();
         let schema = Schema::new(builder);
-        
+
         let stmts = vec![
-            schema.create_table_from_entity(users::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(user_settings::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(tokens::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(storage_files::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(user_files::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(tags::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(file_metadata::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(file_tags::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(audit_logs::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(user_file_facts::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(allowed_mimes::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(magic_signatures::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(blocked_extensions::Entity).if_not_exists().to_owned(),
-            schema.create_table_from_entity(upload_sessions::Entity).if_not_exists().to_owned(),
+            schema
+                .create_table_from_entity(users::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(user_settings::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(tokens::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(storage_files::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(user_files::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(tags::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(file_metadata::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(file_tags::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(audit_logs::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(user_file_facts::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(allowed_mimes::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(magic_signatures::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(blocked_extensions::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(upload_sessions::Entity)
+                .if_not_exists()
+                .to_owned(),
         ];
 
         for stmt in stmts {
@@ -70,11 +112,13 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         }
 
         // Manual check for is_favorite column in user_files (added in migration 20260217000000)
-        let _ = db.execute(sea_orm::Statement::from_string(
-            builder,
-            "ALTER TABLE user_files ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE;".to_string(),
-        )).await;
-        
+        let _ = db
+            .execute(sea_orm::Statement::from_string(
+                builder,
+                "ALTER TABLE user_files ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE;".to_string(),
+            ))
+            .await;
+
         // Manual check for missing indexes if any
         let _ = db.execute(sea_orm::Statement::from_string(
             builder,
@@ -84,6 +128,6 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
         // Seed validation data for SQLite
         crate::infrastructure::seed::seed_validation_data_sqlite(db).await?;
     }
-    
+
     Ok(())
 }

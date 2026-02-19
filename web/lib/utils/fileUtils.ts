@@ -4,19 +4,40 @@ import type { FileType } from "../types";
  * Checks if a target folder is a descendant of (or the same as) a source folder.
  * This is used to prevent circular moves in the file system.
  */
-export const isDescendantOrSelf = (fs: FileType[], sourceId: string, targetId: string): boolean => {
+/**
+ * Checks if a target folder is a descendant of (or the same as) a source folder.
+ * Optimized to use an optional pre-computed map or lookup function for O(1) lookups.
+ */
+export const isDescendantOrSelf = (
+    fs: FileType[] | Map<string, FileType> | ((id: string) => string | undefined | null),
+    sourceId: string,
+    targetId: string
+): boolean => {
     if (sourceId === targetId) return true;
 
+    // Fast path: use map/function if provided
+    const getParentId = (id: string): string | undefined => {
+        if (typeof fs === 'function') {
+            const pid = fs(id);
+            return pid ?? undefined;
+        }
+        if (fs instanceof Map) {
+            return fs.get(id)?.parentId;
+        }
+        return fs.find(f => f.id === id)?.parentId;
+    };
+
     let currentId: string | undefined = targetId;
-    const visited = new Set<string>(); // Prevent infinite loops if cycles already exist
+    const visited = new Set<string>();
 
     while (currentId && currentId !== "0" && !visited.has(currentId)) {
         visited.add(currentId);
-        const item = fs.find(f => f.id === currentId);
-        if (!item || !item.parentId) break;
+        const parentId = getParentId(currentId);
 
-        if (item.parentId === sourceId) return true;
-        currentId = item.parentId;
+        if (!parentId) break;
+        if (parentId === sourceId) return true;
+
+        currentId = parentId;
     }
 
     return false;

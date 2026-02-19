@@ -1,7 +1,10 @@
 use crate::entities::prelude::*;
-use crate::entities::{users, allowed_mimes, magic_signatures, blocked_extensions};
+use crate::entities::{allowed_mimes, blocked_extensions, magic_signatures, users};
 use argon2::PasswordHasher;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, PaginatorTrait, Set, ColumnTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    Set,
+};
 use tracing::info;
 use uuid::Uuid;
 
@@ -12,9 +15,11 @@ pub async fn seed_initial_data(db: &DatabaseConnection) -> anyhow::Result<()> {
     let user_count = Users::find().count(db).await?;
     if user_count == 0 {
         info!("👤 Creating initial admin user...");
-        
+
         let argon2 = argon2::Argon2::default();
-        let salt = argon2::password_hash::SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
+        let salt = argon2::password_hash::SaltString::generate(
+            &mut argon2::password_hash::rand_core::OsRng,
+        );
         let password_hash = argon2
             .hash_password("admin123456".as_bytes(), &salt)
             .map_err(|e| anyhow::anyhow!(e.to_string()))?
@@ -27,7 +32,7 @@ pub async fn seed_initial_data(db: &DatabaseConnection) -> anyhow::Result<()> {
             name: Set(Some("Administrator".to_string())),
             ..Default::default()
         };
-        
+
         admin.insert(db).await?;
         info!("✅ Admin user created (admin / admin123456)");
     }
@@ -43,7 +48,10 @@ pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Res
     let mimes = vec![
         ("application/pdf", "Documents"),
         ("application/msword", "Documents"),
-        ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Documents"),
+        (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Documents",
+        ),
         ("image/jpeg", "Images"),
         ("image/png", "Images"),
         ("audio/mpeg", "Audio"),

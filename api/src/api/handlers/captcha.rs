@@ -1,9 +1,9 @@
 use crate::api::error::AppError;
 use axum::{Json, extract::State, http::HeaderMap};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
-use rand::Rng;
 
 /// CAPTCHA challenge data stored server-side
 #[derive(Clone, Debug)]
@@ -73,10 +73,7 @@ pub fn check_cooldown(
 }
 
 /// Record a failed attempt and potentially apply cooldown
-pub fn record_failed_attempt(
-    cooldowns: &dashmap::DashMap<String, CooldownEntry>,
-    ip: &str,
-) {
+pub fn record_failed_attempt(cooldowns: &dashmap::DashMap<String, CooldownEntry>, ip: &str) {
     let now = chrono::Utc::now();
     let mut entry = cooldowns.entry(ip.to_string()).or_insert(CooldownEntry {
         failed_attempts: 0,
@@ -97,29 +94,42 @@ pub fn record_failed_attempt(
     match entry.failed_attempts {
         3..=4 => {
             entry.locked_until = Some(now + chrono::Duration::seconds(10));
-            tracing::warn!("IP {} hit 10s cooldown after {} attempts", ip, entry.failed_attempts);
+            tracing::warn!(
+                "IP {} hit 10s cooldown after {} attempts",
+                ip,
+                entry.failed_attempts
+            );
         }
         5..=7 => {
             entry.locked_until = Some(now + chrono::Duration::seconds(30));
-            tracing::warn!("IP {} hit 30s cooldown after {} attempts", ip, entry.failed_attempts);
+            tracing::warn!(
+                "IP {} hit 30s cooldown after {} attempts",
+                ip,
+                entry.failed_attempts
+            );
         }
         8..=10 => {
             entry.locked_until = Some(now + chrono::Duration::seconds(60));
-            tracing::warn!("IP {} hit 60s cooldown after {} attempts", ip, entry.failed_attempts);
+            tracing::warn!(
+                "IP {} hit 60s cooldown after {} attempts",
+                ip,
+                entry.failed_attempts
+            );
         }
         n if n > 10 => {
             entry.locked_until = Some(now + chrono::Duration::seconds(300));
-            tracing::warn!("IP {} hit 5min cooldown after {} attempts", ip, entry.failed_attempts);
+            tracing::warn!(
+                "IP {} hit 5min cooldown after {} attempts",
+                ip,
+                entry.failed_attempts
+            );
         }
         _ => {}
     }
 }
 
 /// Clear failed attempts on success
-pub fn clear_cooldown(
-    cooldowns: &dashmap::DashMap<String, CooldownEntry>,
-    ip: &str,
-) {
+pub fn clear_cooldown(cooldowns: &dashmap::DashMap<String, CooldownEntry>, ip: &str) {
     cooldowns.remove(ip);
 }
 
@@ -183,7 +193,12 @@ pub async fn generate_captcha(
         },
     );
 
-    tracing::debug!("CAPTCHA generated: id={}, question='{}', answer={}", captcha_id, question, answer);
+    tracing::debug!(
+        "CAPTCHA generated: id={}, question='{}', answer={}",
+        captcha_id,
+        question,
+        answer
+    );
 
     Ok(Json(CaptchaResponse {
         captcha_id,
@@ -209,20 +224,26 @@ pub fn validate_captcha(
         .map(|(_, v)| v)
         .ok_or_else(|| {
             record_failed_attempt(cooldowns, ip);
-            AppError::BadRequest("Invalid or expired CAPTCHA. Please request a new one.".to_string())
+            AppError::BadRequest(
+                "Invalid or expired CAPTCHA. Please request a new one.".to_string(),
+            )
         })?;
 
     // Check expiration (2 minutes)
     let age = chrono::Utc::now() - challenge.created_at;
     if age.num_seconds() > 120 {
         record_failed_attempt(cooldowns, ip);
-        return Err(AppError::BadRequest("CAPTCHA expired. Please request a new one.".to_string()));
+        return Err(AppError::BadRequest(
+            "CAPTCHA expired. Please request a new one.".to_string(),
+        ));
     }
 
     // Validate answer
     if captcha_answer != challenge.answer {
         record_failed_attempt(cooldowns, ip);
-        return Err(AppError::BadRequest("Incorrect CAPTCHA answer. Please try again.".to_string()));
+        return Err(AppError::BadRequest(
+            "Incorrect CAPTCHA answer. Please try again.".to_string(),
+        ));
     }
 
     // Success — clear any cooldown for this IP

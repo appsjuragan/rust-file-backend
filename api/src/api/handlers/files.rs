@@ -11,12 +11,13 @@ use axum::{
 };
 use chrono::Utc;
 use futures::TryStreamExt;
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, sea_query::{Expr, Func},
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set,
+    sea_query::{Expr, Func},
 };
 use serde::{Deserialize, Serialize};
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use tokio_util::io::{ReaderStream, StreamReader};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -54,7 +55,6 @@ pub struct FolderTreeEntry {
     pub filename: String,
     pub parent_id: Option<String>,
 }
-
 
 #[derive(Deserialize, ToSchema, Validate)]
 
@@ -211,10 +211,13 @@ pub async fn link_file(
     Extension(claims): Extension<Claims>,
     Json(req): Json<LinkFileRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
-    let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules = crate::utils::validation::ValidationRules::load(
+        &state.db,
+        state.config.max_file_size,
+        state.config.chunk_size,
+    )
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let sanitized_filename = crate::utils::validation::sanitize_filename(&req.filename, &rules)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -457,10 +460,14 @@ pub async fn list_files(
         } else {
             cond = cond.add(user_files::Column::ParentId.eq(parent));
         }
-    } else if query.search.is_none() && query.tags.is_none() && query.category.is_none() && query.is_favorite.is_none() {
+    } else if query.search.is_none()
+        && query.tags.is_none()
+        && query.category.is_none()
+        && query.is_favorite.is_none()
+    {
         cond = cond.add(user_files::Column::ParentId.is_null());
     }
-    
+
     if let Some(fav) = query.is_favorite {
         cond = cond.add(user_files::Column::IsFavorite.eq(fav));
     }
@@ -484,10 +491,10 @@ pub async fn list_files(
         } else {
             // Case-insensitive search using ILIKE (Postgres) or LOWER LIKE (SQLite)
             if state.db.get_database_backend() == sea_orm::DatabaseBackend::Postgres {
-                cond = cond.add(
-                    Expr::col(user_files::Column::Filename)
-                        .binary(sea_orm::sea_query::BinOper::Custom("ILIKE"), Expr::val(format!("%{}%", search))),
-                );
+                cond = cond.add(Expr::col(user_files::Column::Filename).binary(
+                    sea_orm::sea_query::BinOper::Custom("ILIKE"),
+                    Expr::val(format!("%{}%", search)),
+                ));
             } else {
                 cond = cond.add(
                     Expr::expr(Func::lower(Expr::col(user_files::Column::Filename)))
@@ -636,10 +643,13 @@ pub async fn create_folder(
 ) -> Result<Json<FileMetadataResponse>, AppError> {
     let id = Uuid::new_v4().to_string();
 
-    let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules = crate::utils::validation::ValidationRules::load(
+        &state.db,
+        state.config.max_file_size,
+        state.config.chunk_size,
+    )
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let sanitized_name =
         sanitize_filename(&req.name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -799,7 +809,9 @@ pub async fn toggle_favorite(
 
     // Manual mapping for now to include metadata
     let storage_file: Option<storage_files::Model> = if let Some(ref sf_id) = res.storage_file_id {
-        StorageFiles::find_by_id(sf_id.clone()).one(&state.db).await?
+        StorageFiles::find_by_id(sf_id.clone())
+            .one(&state.db)
+            .await?
     } else {
         None
     };
@@ -870,10 +882,13 @@ pub async fn rename_item(
             "Item not found or already deleted".to_string(),
         ))?;
 
-    let rules =
-        crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
+    let rules = crate::utils::validation::ValidationRules::load(
+        &state.db,
+        state.config.max_file_size,
+        state.config.chunk_size,
+    )
+    .await
+    .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
     let target_filename = if let Some(name) = req.name.clone() {
         sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?
@@ -893,20 +908,20 @@ pub async fn rename_item(
                         "Invalid parent_id format. Must be a valid UUID.".to_string(),
                     ));
                 }
-                
+
                 // Verify the parent folder exists and belongs to the user
                 let parent_folder = UserFiles::find_by_id(&p)
                     .filter(user_files::Column::UserId.eq(&claims.sub))
                     .filter(user_files::Column::DeletedAt.is_null())
                     .one(&state.db)
                     .await?;
-                
+
                 if parent_folder.is_none() {
                     return Err(AppError::NotFound(
                         "Parent folder not found or access denied".to_string(),
                     ));
                 }
-                
+
                 // Verify it's actually a folder
                 if let Some(ref parent) = parent_folder {
                     if !parent.is_folder {
@@ -997,12 +1012,13 @@ pub async fn rename_item(
 
     let mut active: user_files::ActiveModel = item.clone().into();
     if let Some(name) = req.name {
-        let rules =
-            crate::utils::validation::ValidationRules::load(&state.db, state.config.max_file_size, state.config.chunk_size)
-                .await
-                .map_err(|e| {
-                    AppError::Internal(format!("Failed to load validation rules: {}", e))
-                })?;
+        let rules = crate::utils::validation::ValidationRules::load(
+            &state.db,
+            state.config.max_file_size,
+            state.config.chunk_size,
+        )
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to load validation rules: {}", e)))?;
 
         let sanitized_name =
             sanitize_filename(&name, &rules).map_err(|e| AppError::BadRequest(e.to_string()))?;

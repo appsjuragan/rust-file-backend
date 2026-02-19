@@ -1,10 +1,12 @@
 use crate::api::error::AppError;
-use crate::services::upload_service::{InitUploadRequest, InitUploadResponse, UploadPartResponse, CompleteUploadRequest, FileResponse, PendingSessionResponse};
+use crate::services::upload_service::{
+    CompleteUploadRequest, FileResponse, InitUploadRequest, InitUploadResponse,
+    PendingSessionResponse, UploadPartResponse,
+};
 use crate::utils::auth::Claims;
 use axum::{
+    Extension, Json,
     extract::{Path, State},
-    Json,
-    Extension,
 };
 use uuid::Uuid;
 
@@ -26,7 +28,11 @@ pub async fn init_upload_handler(
     Json(req): Json<InitUploadRequest>,
 ) -> Result<Json<InitUploadResponse>, AppError> {
     // let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-    let res: InitUploadResponse = state.upload_service.init_upload(claims.sub, req).await.map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
+    let res: InitUploadResponse = state
+        .upload_service
+        .init_upload(claims.sub, req)
+        .await
+        .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
     Ok(Json(res))
 }
 
@@ -45,7 +51,10 @@ pub async fn list_pending_sessions_handler(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
 ) -> Result<Json<Vec<PendingSessionResponse>>, AppError> {
-    let sessions = state.upload_service.list_pending_sessions(claims.sub).await
+    let sessions = state
+        .upload_service
+        .list_pending_sessions(claims.sub)
+        .await
         .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
     Ok(Json(sessions))
 }
@@ -73,12 +82,16 @@ pub async fn upload_chunk_handler(
     body: axum::body::Bytes,
 ) -> Result<Json<UploadPartResponse>, AppError> {
     // let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-    let session_id = Uuid::parse_str(&upload_id).map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
+    let session_id = Uuid::parse_str(&upload_id)
+        .map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
 
     // Validate size? The service handles part uploading to S3.
     // 10MB chunk is fine in memory.
 
-    let res: UploadPartResponse = state.upload_service.upload_chunk(claims.sub, session_id, part_number, body.to_vec()).await
+    let res: UploadPartResponse = state
+        .upload_service
+        .upload_chunk(claims.sub, session_id, part_number, body.to_vec())
+        .await
         .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
 
     Ok(Json(res))
@@ -106,9 +119,13 @@ pub async fn complete_upload_handler(
     Json(req): Json<CompleteUploadRequest>,
 ) -> Result<Json<FileResponse>, AppError> {
     // let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-    let session_id = Uuid::parse_str(&upload_id).map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
+    let session_id = Uuid::parse_str(&upload_id)
+        .map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
 
-    let res: FileResponse = state.upload_service.complete_upload(claims.sub, session_id, req).await
+    let res: FileResponse = state
+        .upload_service
+        .complete_upload(claims.sub, session_id, req)
+        .await
         .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
 
     Ok(Json(res))
@@ -134,9 +151,13 @@ pub async fn abort_upload_handler(
     Path(upload_id): Path<String>,
 ) -> Result<axum::http::StatusCode, AppError> {
     // let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-    let session_id = Uuid::parse_str(&upload_id).map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
+    let session_id = Uuid::parse_str(&upload_id)
+        .map_err(|_| AppError::BadRequest("Invalid session ID".to_string()))?;
 
-    state.upload_service.abort_upload(claims.sub, session_id).await
+    state
+        .upload_service
+        .abort_upload(claims.sub, session_id)
+        .await
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     Ok(axum::http::StatusCode::NO_CONTENT)

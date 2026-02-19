@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
-use xxhash_rust::xxh3::Xxh3;
 use tokio::io::{AsyncRead, AsyncReadExt};
+use xxhash_rust::xxh3::Xxh3;
 
 pub struct UploadResult {
     pub hash: String,

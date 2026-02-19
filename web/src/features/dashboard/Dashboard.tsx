@@ -4,6 +4,8 @@ import { fileService } from "../../services/fileService";
 import { userService } from "../../services/userService";
 import { formatFriendlyError } from "../../utils/errorFormatter";
 import type { FileSystemType, FileType, FolderNode } from "../../../lib/types";
+import { mapApiFileToFileType } from "../../../lib/utils/fileMappers";
+import { useMediaQuery } from "../../../lib/hooks/useMediaQuery";
 import "./Dashboard.css";
 
 // Components
@@ -45,7 +47,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
     const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
     const [dropdownVisible, setDropdownVisible] = useState(false);
-    const [sidebarVisible, setSidebarVisible] = useState(() => window.innerWidth > 768);
+
+    // Responsive State
+    const isDesktop = useMediaQuery("(min-width: 769px)");
+    const [sidebarVisible, setSidebarVisible] = useState(isDesktop);
+
+    // Sync sidebar visibility with media query changes
+    useEffect(() => {
+        setSidebarVisible(isDesktop);
+    }, [isDesktop]);
 
     // Modals
     const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -128,19 +138,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const fetchFavorites = useCallback(async () => {
         try {
             const data = await fileService.listFiles(undefined, 24, 0, true);
-            const mappedFavorites: FileType[] = data.map((item: any) => ({
-                id: item.id,
-                name: item.filename,
-                isDir: item.is_folder,
-                parentId: item.parent_id || "0",
-                lastModified: new Date(item.created_at).getTime() / 1000,
-                scanStatus: item.scan_status,
-                size: item.size,
-                mimeType: item.mime_type,
-                hash: item.hash,
-                isFavorite: item.is_favorite,
-                extraMetadata: item.extra_metadata,
-            }));
+            const mappedFavorites: FileType[] = data.map(mapApiFileToFileType);
             setFavorites(mappedFavorites);
         } catch (err) {
             console.error("Failed to fetch favorites:", err);
@@ -159,19 +157,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
             const data = await fileService.listFiles(effectiveParentId === "0" ? undefined : effectiveParentId, limit, offset);
 
-            const mappedFs: FileSystemType = data.map((item: any) => ({
-                id: item.id,
-                name: item.filename,
-                isDir: item.is_folder,
-                parentId: item.parent_id || "0",
-                lastModified: new Date(item.created_at).getTime() / 1000,
-                scanStatus: item.scan_status,
-                size: item.size,
-                mimeType: item.mime_type,
-                hash: item.hash,
-                isFavorite: item.is_favorite,
-                extraMetadata: item.extra_metadata,
-            }));
+            const mappedFs: FileSystemType = data.map(mapApiFileToFileType);
 
             setHasMoreFiles(data.length === limit);
 

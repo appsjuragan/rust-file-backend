@@ -6,7 +6,11 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use axum::{Json, extract::State, http::{StatusCode, HeaderMap}};
+use axum::{
+    Json,
+    extract::State,
+    http::{HeaderMap, StatusCode},
+};
 use axum::{
     extract::Query,
     response::{IntoResponse, Redirect},
@@ -166,7 +170,8 @@ pub async fn login(
         .verify_password(payload.password.as_bytes(), &parsed_hash)
         .map_err(|_| AppError::Unauthorized("Invalid credentials".to_string()))?;
 
-    let token_str = create_jwt(&user.id, &state.config.jwt_secret).map_err(|e| AppError::Internal(e.to_string()))?;
+    let token_str = create_jwt(&user.id, &state.config.jwt_secret)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     // Store token in DB for expiration/revocation tracking
     let token_id = Uuid::new_v4().to_string();
