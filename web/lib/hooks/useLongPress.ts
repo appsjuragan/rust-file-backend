@@ -1,19 +1,26 @@
 import { useCallback, useRef, useState } from 'react';
 
+type LongPressEvent = React.MouseEvent | React.TouchEvent | React.PointerEvent;
+
 /**
  * A hook to detect long press gestures, primarily for mobile context menus.
  */
 export const useLongPress = (
-    onLongPress: (e: any) => void,
-    onClick?: (e: any) => void,
+    onLongPress: (e: LongPressEvent) => void,
+    onClick?: (e: LongPressEvent) => void,
     { delay = 500, shouldPreventDefault = true } = {}
 ) => {
     const [longPressTriggered, setLongPressTriggered] = useState(false);
     const timeout = useRef<ReturnType<typeof setTimeout>>();
-    const target = useRef<any>();
+    const target = useRef<EventTarget | null>(null);
+
+    const preventDefault = (event: Event) => {
+        if (!event.cancelable) return;
+        event.preventDefault();
+    };
 
     const start = useCallback(
-        (event: any) => {
+        (event: LongPressEvent) => {
             if (shouldPreventDefault && event.target) {
                 event.target.addEventListener("touchend", preventDefault, {
                     passive: false
@@ -22,20 +29,20 @@ export const useLongPress = (
             }
 
             // For mouse, only left click
-            if (event.type === 'mousedown' && event.button !== 0) return;
+            if ('button' in event && event.button !== 0) return;
 
             setLongPressTriggered(false);
             timeout.current = setTimeout(() => {
                 onLongPress(event);
                 setLongPressTriggered(true);
-                if (navigator.vibrate) navigator.vibrate(60);
+                // Vibration is handled by the caller or specialized hooks
             }, delay);
         },
         [onLongPress, delay, shouldPreventDefault]
     );
 
     const clear = useCallback(
-        (event: any, shouldTriggerClick = true) => {
+        (event: LongPressEvent, shouldTriggerClick = true) => {
             if (timeout.current) clearTimeout(timeout.current);
 
             if (shouldTriggerClick && !longPressTriggered && onClick) {
@@ -51,18 +58,13 @@ export const useLongPress = (
         [shouldPreventDefault, onClick, longPressTriggered]
     );
 
-    const preventDefault = (event: any) => {
-        if (!event.cancelable) return;
-        event.preventDefault();
-    };
-
     return {
-        onMouseDown: (e: any) => start(e),
-        onTouchStart: (e: any) => start(e),
-        onMouseUp: (e: any) => clear(e),
-        onMouseLeave: (e: any) => clear(e, false),
-        onTouchEnd: (e: any) => clear(e),
-        onContextMenu: (e: any) => {
+        onMouseDown: (e: React.MouseEvent) => start(e),
+        onTouchStart: (e: React.TouchEvent) => start(e),
+        onMouseUp: (e: React.MouseEvent) => clear(e),
+        onMouseLeave: (e: React.MouseEvent) => clear(e, false),
+        onTouchEnd: (e: React.TouchEvent) => clear(e),
+        onContextMenu: (e: React.MouseEvent) => {
             // If long press already triggered, prevent system context menu
             if (longPressTriggered) {
                 e.preventDefault();

@@ -299,7 +299,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                                                 }}
                                             >
                                                 {(() => {
-                                                    const isAllFav = targetFiles.length > 0 && targetFiles.every(item => item.isFavorite);
+                                                    const isAllFav = targetFiles.length > 0 && targetFiles.every(item => favorites.some(f => f.id === item.id));
                                                     return (
                                                         <>
                                                             <SvgIcon

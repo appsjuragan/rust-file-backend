@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { flexRender, Table } from '@tanstack/react-table';
+import { flexRender, Table, Row } from '@tanstack/react-table';
 import { FileType, IconSize } from "../../types";
 import SvgIcon from '../Icons/SvgIcon';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -13,7 +13,7 @@ interface FileTableProps {
     handleDragOver: (e: React.DragEvent, folder: FileType) => void;
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
-    handleContextMenu: (e: React.MouseEvent, file: FileType | null) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
     handleItemClick: (file: FileType, e: React.MouseEvent) => void;
     handleDoubleClick: (file: FileType) => void;
     currentFolderFiles: FileType[];
@@ -22,7 +22,7 @@ interface FileTableProps {
 }
 
 interface FileTableItemProps {
-    row: any;
+    row: Row<FileType>;
     isSelected: boolean;
     isDragOver: boolean;
     isHighlighted: boolean;
@@ -32,7 +32,7 @@ interface FileTableItemProps {
     handleDragOver: (e: React.DragEvent, folder: FileType) => void;
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
-    handleContextMenu: (e: any, file: FileType | null) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
 }
 
 const FileTableItem = React.memo(({
@@ -53,16 +53,27 @@ const FileTableItem = React.memo(({
 
     const longPressProps = useLongPress(
         (e) => {
-            const touch = (e as any).touches?.[0] || (e as any);
-            handleContextMenu({ clientX: touch.clientX, clientY: touch.clientY } as any, row.original);
+            let clientX = 0;
+            let clientY = 0;
+            if ('touches' in e && e.touches.length > 0) {
+                clientX = e.touches[0]!.clientX;
+                clientY = e.touches[0]!.clientY;
+            } else {
+                const mouseEvent = e as unknown as React.MouseEvent;
+                clientX = mouseEvent.clientX;
+                clientY = mouseEvent.clientY;
+            }
+            handleContextMenu({ clientX, clientY }, row.original);
+            if (navigator.vibrate) navigator.vibrate(50);
         },
-        (e) => handleTap(row.original, e),
+        (e) => handleTap(row.original, e as React.MouseEvent),
         { delay: 400 }
     );
 
     return (
         <tr
             {...longPressProps}
+            onClick={(e) => e.stopPropagation()}
             data-id={row.original.id}
             draggable={!isInfected}
             onDragStart={(e) => !isInfected && handleDragStart(e, row.original)}

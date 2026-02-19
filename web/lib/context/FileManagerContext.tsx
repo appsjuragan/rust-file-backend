@@ -1,4 +1,4 @@
-import type { Dispatch } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { createContext, useContext } from "react";
 import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection, IconSize, UserFacts } from "../types";
 
@@ -29,7 +29,7 @@ interface ProviderInterface {
   activeUploads: UploadStatus[];
   setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
   selectedIds: string[];
-  setSelectedIds: Dispatch<string[]>;
+  setSelectedIds: Dispatch<SetStateAction<string[]>>;
   clipboardIds: string[];
   setClipboardIds: Dispatch<string[]>;
   isCut: boolean;

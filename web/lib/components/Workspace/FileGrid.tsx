@@ -15,7 +15,7 @@ interface FileGridProps {
     handleDragOver: (e: React.DragEvent, folder: FileType) => void;
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
-    handleContextMenu: (e: React.MouseEvent, file: FileType | null) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
     iconSize?: IconSize;
 }
 
@@ -31,7 +31,7 @@ interface FileGridItemProps {
     handleDragOver: (e: React.DragEvent, folder: FileType) => void;
     handleDragLeave: () => void;
     handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
-    handleContextMenu: (e: any, file: FileType | null) => void;
+    handleContextMenu: (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => void;
 }
 
 const FileGridItem = React.memo(({
@@ -54,10 +54,20 @@ const FileGridItem = React.memo(({
 
     const longPressProps = useLongPress(
         (e) => {
-            const touch = (e as any).touches?.[0] || (e as any);
-            handleContextMenu({ clientX: touch.clientX, clientY: touch.clientY } as any, f);
+            let clientX = 0;
+            let clientY = 0;
+            if ('touches' in e && e.touches.length > 0) {
+                clientX = e.touches[0]!.clientX;
+                clientY = e.touches[0]!.clientY;
+            } else {
+                const mouseEvent = e as unknown as React.MouseEvent;
+                clientX = mouseEvent.clientX;
+                clientY = mouseEvent.clientY;
+            }
+            handleContextMenu({ clientX, clientY }, f);
+            if (navigator.vibrate) navigator.vibrate(50);
         },
-        (e) => handleTap(f, e),
+        (e) => handleTap(f, e as React.MouseEvent),
         { delay: 400 }
     );
 
@@ -71,6 +81,8 @@ const FileGridItem = React.memo(({
     return (
         <button
             {...longPressProps}
+            type="button"
+            onClick={(e) => e.stopPropagation()}
             onDoubleClick={() => !isInfected && handleDoubleClick(f)}
             data-id={f.id}
             draggable={!isInfected}

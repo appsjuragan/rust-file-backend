@@ -76,7 +76,9 @@ const Workspace = () => {
     openUpload: triggerOpenUpload,
     clipboardSourceFolder,
     setClipboardSourceFolder,
-    iconSize
+    iconSize,
+    favorites,
+    toggleFavorite
   } = useFileManager();
 
   const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
@@ -171,12 +173,35 @@ const Workspace = () => {
 
   const isMobile = !useMediaQuery("(min-width: 769px)");
 
-  const handleContextMenu = (e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => {
     if ('preventDefault' in e) e.preventDefault();
     if (viewOnly) return;
 
-    if (file && !selectedIds.includes(file.id)) {
-      setSelectedIds([file.id]);
+    if (file) {
+      const isAlreadySelected = selectedIds.includes(file.id);
+
+      if (isMobile) {
+        if (selectedIds.length === 0) {
+          // Entering selection mode: select only, no menu to allow easy multi-tap/long-press addition
+          setSelectedIds([file.id]);
+          if (navigator.vibrate) navigator.vibrate(50);
+        } else if (!isAlreadySelected) {
+          // Already in selection mode, long-press a new item: add to selection
+          setSelectedIds((prev: string[]) => [...prev, file.id]);
+          setLastSelectedId(file.id);
+          if (navigator.vibrate) navigator.vibrate(50);
+        } else {
+          // Long-press an already selected item: show menu for selection
+          setContextMenu({ x: e.clientX, y: e.clientY, file });
+        }
+        return;
+      }
+
+      // Desktop behavior: select if not already selected, then show menu
+      if (!isAlreadySelected) {
+        setSelectedIds([file.id]);
+        setLastSelectedId(file.id);
+      }
     }
 
     setContextMenu({
@@ -184,7 +209,7 @@ const Workspace = () => {
       y: e.clientY,
       file,
     });
-  };
+  }, [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds]);
 
   const handleDrop = useCallback(async (acceptedFiles: File[], _fileRejections: any[], event: any) => {
     if (viewOnly) return;
@@ -689,6 +714,19 @@ const Workspace = () => {
               title="Move"
             >
               <SvgIcon svgType="scissors" />
+            </div>
+
+            <div
+              className={`rfm-selection-action-btn ${selectedIds.every(id => favorites.some(f => f.id === id)) ? 'rfm-active-star' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                const filesToToggle = currentFolderFiles.filter(f => selectedIds.includes(f.id));
+                if (toggleFavorite) toggleFavorite(filesToToggle);
+                if (navigator.vibrate) navigator.vibrate(50);
+              }}
+              title="Toggle Favorite"
+            >
+              <SvgIcon svgType="star" />
             </div>
 
             <div
