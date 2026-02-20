@@ -430,7 +430,7 @@ pub async fn download_file(
 
     let presigned_url = state
         .storage
-        .generate_presigned_url(
+        .generate_presigned_url_raw(
             &storage_file.s3_key,
             43200, // 12 hours
             &content_type,
@@ -448,10 +448,31 @@ pub async fn download_file(
         claims.sub
     );
 
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate download URL".to_string())
+    })?;
+
+    // Extract path and query for X-Accel-Redirect
+    // Should be /bucket/key?Signature=...
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
+    tracing::info!(
+        "📎 X-Accel-Redirect for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
+
     Ok(Response::builder()
-        .status(StatusCode::FOUND)
-        .header(header::LOCATION, &presigned_url)
-        .header(header::CACHE_CONTROL, "no-cache")
+        .status(StatusCode::OK)
+        // Nginx internal redirect
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        // Content headers for the client
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_DISPOSITION, content_disposition)
+        .header(header::CACHE_CONTROL, "private, max-age=31536000") // 1 year cache since it's immutable
         .body(Body::empty())
         .unwrap())
 }
@@ -1486,22 +1507,11 @@ pub async fn generate_download_ticket(
         )));
     }
 
-    let (content_type, content_disposition) =
+    let (_content_type, _content_disposition) =
         resolve_file_headers(&user_file.filename, &storage_file);
 
-    let presigned_url = state
-        .storage
-        .generate_presigned_url(
-            &storage_file.s3_key,
-            43200, // 12 hours
-            &content_type,
-            &content_disposition,
-        )
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to generate presigned URL: {}", e);
-            AppError::Internal("Failed to generate download URL".to_string())
-        })?;
+    // Generate a public URL pointing to the download endpoint with ticket
+    let public_url = format!("/api/download/{}", ticket);
 
     tracing::info!(
         "📎 Ticket generated for file_id={} user={}",
@@ -1511,7 +1521,7 @@ pub async fn generate_download_ticket(
 
     Ok(Json(serde_json::json!({
         "ticket": ticket,
-        "url": presigned_url,
+        "url": public_url,
         "expires_at": expiry
     })))
 }
@@ -1586,7 +1596,7 @@ pub async fn download_file_with_ticket(
 
     let presigned_url = state
         .storage
-        .generate_presigned_url(
+        .generate_presigned_url_raw(
             &storage_file.s3_key,
             43200, // 12 hours
             &content_type,
@@ -1598,10 +1608,27 @@ pub async fn download_file_with_ticket(
             AppError::Internal("Failed to generate download URL".to_string())
         })?;
 
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate download URL".to_string())
+    })?;
+
+    // Extract path and query for X-Accel-Redirect
+    // Should be /bucket/key?Signature=...
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
     Ok(Response::builder()
-        .status(StatusCode::FOUND)
-        .header(header::LOCATION, &presigned_url)
-        .header(header::CACHE_CONTROL, "no-cache")
+        .status(StatusCode::OK)
+        // Nginx internal redirect
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        // Content headers for the client
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_DISPOSITION, content_disposition)
+        // Cache for ticket duration approx? Or strict validation.
+        // We'll trust the browser cache for a bit if needed.
+        .header(header::CACHE_CONTROL, "private, max-age=3600")
         .body(Body::empty())
         .unwrap())
 }

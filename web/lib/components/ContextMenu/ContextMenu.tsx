@@ -126,7 +126,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         if (file && !file.isDir) {
             try {
                 const res = await fileService.getDownloadTicket(file.id);
-                const url = fileService.getDownloadUrl(res.ticket);
+                const url = res.url; // presigned URL from backend
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = file.name;

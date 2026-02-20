@@ -54,12 +54,12 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             setLoading(true);
             let urlToUse = fileUrl;
 
-            // Generate secure ticket URL if fileId is present
+            // Generate secure presigned URL if fileId is present
             if (fileId) {
                 try {
                     const res = await fileService.getDownloadTicket(fileId);
-                    urlToUse = fileService.getDownloadUrl(res.ticket);
-                    setSecureUrl(urlToUse);
+                    urlToUse = res.url; // presigned URL from backend
+                    setSecureUrl(urlToUse || null);
                 } catch (e) {
                     console.error("Failed to get preview ticket", e);
                     setLoading(false);

@@ -65,6 +65,7 @@ tempfile = "3.24.0"
 validator = { version = "0.20.0", features = ["derive"] }
 clap = { version = "4.0", features = ["derive"] }
 dashmap = "6.1.0"
+url = "2.5"
 
 # Optimize dependencies in debug builds to make hashing/crypto fast
 [profile.dev.package."*"]

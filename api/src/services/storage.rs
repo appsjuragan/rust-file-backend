@@ -37,6 +37,13 @@ pub trait StorageService: Send + Sync {
         content_type: &str,
         content_disposition: &str,
     ) -> Result<String>;
+    async fn generate_presigned_url_raw(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String>;
     async fn get_object_stream(
         &self,
         key: &str,
@@ -238,7 +245,7 @@ impl StorageService for S3StorageService {
         }
     }
 
-    async fn generate_presigned_url(
+    async fn generate_presigned_url_raw(
         &self,
         key: &str,
         expires_in_secs: u64,
@@ -258,7 +265,19 @@ impl StorageService for S3StorageService {
             .presigned(presigning_config)
             .await?;
 
-        let raw_url = presigned_request.uri().to_string();
+        Ok(presigned_request.uri().to_string())
+    }
+
+    async fn generate_presigned_url(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String> {
+        let raw_url = self
+            .generate_presigned_url_raw(key, expires_in_secs, content_type, content_disposition)
+            .await?;
 
         // Rewrite URL: replace MinIO internal endpoint with public base path
         // e.g. http://localhost:9000/uploads/key?X-Amz-... → /obj/uploads/key?X-Amz-...

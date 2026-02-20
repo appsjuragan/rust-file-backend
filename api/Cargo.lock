@@ -3511,6 +3511,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unrar",
+ "url",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",

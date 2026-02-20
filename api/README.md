@@ -188,6 +188,7 @@ MINIO_BUCKET=file-storage
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_REGION=us-east-1
+S3_PUBLIC_BASE_URL=/obj        # Public path for presigned URLs (rewritten from internal endpoint)
 
 # Security & Upload Configuration
 MAX_FILE_SIZE=1073741824       # 1GB
