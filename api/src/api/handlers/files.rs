@@ -7,7 +7,7 @@ use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{StatusCode, header},
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use chrono::Utc;
 use futures::TryStreamExt;
@@ -18,7 +18,7 @@ use sea_orm::{
     sea_query::{Expr, Func},
 };
 use serde::{Deserialize, Serialize};
-use tokio_util::io::{ReaderStream, StreamReader};
+use tokio_util::io::StreamReader;
 use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
@@ -377,7 +377,6 @@ pub async fn upload_file(
 pub async fn download_file(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
-    headers: header::HeaderMap,
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
@@ -413,7 +412,7 @@ pub async fn download_file(
         .await?
         .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
-    // 3. Security: Check Virus Scan Status
+    // 4. Security: Check Virus Scan Status
     if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
         tracing::warn!("Blocked access to infected file: {}", file_id);
         return Err(AppError::Forbidden(format!(
@@ -425,8 +424,36 @@ pub async fn download_file(
         )));
     }
 
-    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-    serve_file_stream(&state, user_file, storage_file, range_header).await
+    // 5. Generate presigned URL and redirect (no data through backend memory)
+    let (content_type, content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    let presigned_url = state
+        .storage
+        .generate_presigned_url(
+            &storage_file.s3_key,
+            43200, // 12 hours
+            &content_type,
+            &content_disposition,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {}", e);
+            AppError::Internal("Failed to generate download URL".to_string())
+        })?;
+
+    tracing::info!(
+        "📎 Presigned redirect for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
+
+    Ok(Response::builder()
+        .status(StatusCode::FOUND)
+        .header(header::LOCATION, &presigned_url)
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::empty())
+        .unwrap())
 }
 
 #[utoipa::path(
@@ -662,6 +689,7 @@ pub async fn create_folder(
         is_folder: Set(true),
         parent_id: Set(req.parent_id.clone()),
         created_at: Set(Some(Utc::now())),
+        is_favorite: Set(false),
         ..Default::default()
     };
 
@@ -1421,22 +1449,69 @@ pub async fn generate_download_ticket(
     Extension(claims): Extension<Claims>,
     Path(file_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_file = UserFiles::find_by_id(file_id.clone())
+    let user_file = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
         .ok_or(AppError::NotFound("File not found".to_string()))?;
 
+    // Generate ticket for backward compat
     let ticket = Uuid::new_v4().to_string();
-    let expiry = Utc::now() + chrono::Duration::minutes(5);
+    let expiry = Utc::now() + chrono::Duration::hours(12);
 
     state
         .download_tickets
-        .insert(ticket.clone(), (file_id, expiry));
+        .insert(ticket.clone(), (file_id.clone(), expiry));
+
+    // Generate presigned URL (12 hours)
+    let storage_file_id = user_file
+        .storage_file_id
+        .clone()
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
+
+    let storage_file = StorageFiles::find_by_id(storage_file_id)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    // Check virus scan
+    if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
+        return Err(AppError::Forbidden(format!(
+            "File is infected with malware: {}",
+            storage_file
+                .scan_result
+                .as_deref()
+                .unwrap_or("unknown threat")
+        )));
+    }
+
+    let (content_type, content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    let presigned_url = state
+        .storage
+        .generate_presigned_url(
+            &storage_file.s3_key,
+            43200, // 12 hours
+            &content_type,
+            &content_disposition,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {}", e);
+            AppError::Internal("Failed to generate download URL".to_string())
+        })?;
+
+    tracing::info!(
+        "📎 Ticket generated for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
 
     Ok(Json(serde_json::json!({
         "ticket": ticket,
+        "url": presigned_url,
         "expires_at": expiry
     })))
 }
@@ -1454,7 +1529,6 @@ pub async fn generate_download_ticket(
 )]
 pub async fn download_file_with_ticket(
     State(state): State<crate::AppState>,
-    headers: header::HeaderMap,
     Path(ticket): Path<String>,
 ) -> Result<Response, AppError> {
     let (file_id, _) = {
@@ -1506,28 +1580,44 @@ pub async fn download_file_with_ticket(
         )));
     }
 
-    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-    serve_file_stream(&state, user_file, storage_file, range_header).await
+    // Generate presigned URL and redirect
+    let (content_type, content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    let presigned_url = state
+        .storage
+        .generate_presigned_url(
+            &storage_file.s3_key,
+            43200, // 12 hours
+            &content_type,
+            &content_disposition,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {}", e);
+            AppError::Internal("Failed to generate download URL".to_string())
+        })?;
+
+    Ok(Response::builder()
+        .status(StatusCode::FOUND)
+        .header(header::LOCATION, &presigned_url)
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::empty())
+        .unwrap())
 }
 
-async fn serve_file_stream(
-    state: &crate::AppState,
-    user_file: crate::entities::user_files::Model,
-    storage_file: crate::entities::storage_files::Model,
-    range_header: Option<&str>,
-) -> Result<Response, AppError> {
+/// Resolve content-type and content-disposition for a file.
+fn resolve_file_headers(
+    filename: &str,
+    storage_file: &crate::entities::storage_files::Model,
+) -> (String, String) {
     let mut content_type = storage_file
         .mime_type
         .clone()
         .unwrap_or_else(|| "application/octet-stream".to_string());
 
     if content_type == "application/octet-stream" || content_type == "application/stream" {
-        let extension = user_file
-            .filename
-            .split('.')
-            .next_back()
-            .unwrap_or("")
-            .to_lowercase();
+        let extension = filename.split('.').next_back().unwrap_or("").to_lowercase();
         content_type = match extension.as_str() {
             "mp4" => "video/mp4".to_string(),
             "webm" => "video/webm".to_string(),
@@ -1544,8 +1634,7 @@ async fn serve_file_stream(
         };
     }
 
-    let ascii_filename = user_file
-        .filename
+    let ascii_filename = filename
         .chars()
         .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
         .take(64)
@@ -1556,7 +1645,7 @@ async fn serve_file_stream(
         &ascii_filename
     };
 
-    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
+    let encoded_filename = utf8_percent_encode(filename, NON_ALPHANUMERIC).to_string();
 
     let disposition_type = if content_type.starts_with("video/")
         || content_type.starts_with("audio/")
@@ -1574,112 +1663,10 @@ async fn serve_file_stream(
         disposition_type, fallback_filename, encoded_filename
     );
 
-    if let Some(range) = range_header {
-        let s3_res = state
-            .storage
-            .get_object_range(&storage_file.s3_key, range)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get S3 object range: {}", e);
-                AppError::Internal("Failed to retrieve file range".to_string())
-            })?;
-
-        let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-        let mut response = (
-            [
-                (header::CONTENT_TYPE, content_type.clone()),
-                (header::ACCEPT_RANGES, "bytes".to_string()),
-                (header::CONTENT_DISPOSITION, content_disposition.clone()),
-            ],
-            body,
-        )
-            .into_response();
-
-        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
-
-        if let Some(h_val) = s3_res.content_range.and_then(|c| c.parse().ok()) {
-            response.headers_mut().insert(header::CONTENT_RANGE, h_val);
-        }
-        if let Some(content_length) = s3_res.content_length {
-            response.headers_mut().insert(
-                header::CONTENT_LENGTH,
-                content_length
-                    .to_string()
-                    .parse()
-                    .unwrap_or(header::HeaderValue::from_static("0")),
-            );
-        }
-        if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-            response.headers_mut().insert(header::ETAG, h_val);
-        }
-        if let Some(last_modified) = s3_res.last_modified {
-            let dt = chrono::DateTime::from_timestamp(
-                last_modified.secs(),
-                last_modified.subsec_nanos(),
-            )
-            .unwrap_or_default();
-            let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-            if let Ok(h_val) = rfc1123.parse() {
-                response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-            }
-        }
-        response.headers_mut().insert(
-            header::CACHE_CONTROL,
-            header::HeaderValue::from_static("private, max-age=31536000"),
-        );
-        return Ok(response);
-    }
-
-    let s3_res = state
-        .storage
-        .get_object_stream(&storage_file.s3_key)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get S3 object stream: {}", e);
-            AppError::Internal("Failed to retrieve file".to_string())
-        })?;
-
-    let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-    let mut response = (
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::ACCEPT_RANGES, "bytes".to_string()),
-            (header::CONTENT_DISPOSITION, content_disposition),
-        ],
-        body,
-    )
-        .into_response();
-
-    if let Some(content_length) = s3_res.content_length {
-        response.headers_mut().insert(
-            header::CONTENT_LENGTH,
-            content_length
-                .to_string()
-                .parse()
-                .unwrap_or(header::HeaderValue::from_static("0")),
-        );
-    }
-    if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-        response.headers_mut().insert(header::ETAG, h_val);
-    }
-    if let Some(last_modified) = s3_res.last_modified {
-        let dt =
-            chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos())
-                .unwrap_or_default();
-        let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-        if let Ok(h_val) = rfc1123.parse() {
-            response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-        }
-    }
-    response.headers_mut().insert(
-        header::CACHE_CONTROL,
-        header::HeaderValue::from_static("private, max-age=31536000"),
-    );
-
-    Ok(response)
+    (content_type, content_disposition)
 }
+
+
 
 #[utoipa::path(
     get,

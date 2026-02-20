@@ -416,6 +416,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
+                is_favorite: Set(false),
                 // file_signature: Set(Some(wrapped_key)), // No Key
                 ..Default::default()
             };
@@ -527,6 +528,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
+                is_favorite: Set(false),
                 ..Default::default()
             };
 
@@ -865,6 +867,7 @@ impl FileService {
             is_folder: Set(item.is_folder),
             storage_file_id: Set(item.storage_file_id.clone()),
             created_at: Set(Some(Utc::now())),
+            is_favorite: Set(item.is_favorite),
             ..Default::default()
         };
 
