@@ -531,13 +531,13 @@ pub async fn get_thumbnail(
     }
 
     // 3. Generate presigned URL for proxy
-    let thumbnail_key = format!("thumbnails/{}.jpg", storage_file_id);
+    let thumbnail_key = format!("thumbnails/{}.webp", storage_file_id);
     let presigned_url = state
         .storage
         .generate_presigned_url_raw(
             &thumbnail_key,
             43200, // 12 hours
-            "image/jpeg",
+            "image/webp",
             "inline",
         )
         .await
@@ -558,7 +558,7 @@ pub async fn get_thumbnail(
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("X-Accel-Redirect", internal_redirect_uri)
-        .header(axum::http::header::CONTENT_TYPE, "image/jpeg")
+        .header(axum::http::header::CONTENT_TYPE, "image/webp")
         .header(axum::http::header::CACHE_CONTROL, "public, max-age=86400")
         .body(Body::empty())
         .unwrap())

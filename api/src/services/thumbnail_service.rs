@@ -1,15 +1,18 @@
 use anyhow::{Result, anyhow};
-use image::{ImageFormat, imageops};
+use image::ImageFormat;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use std::io::Write;
 use std::process::Command;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::entities::storage_files;
 use crate::services::storage::StorageService;
+
+/// Thumbnail dimension (max width or height)
+const THUMB_SIZE: u32 = 256;
 
 pub struct ThumbnailService {
     db: DatabaseConnection,
@@ -37,7 +40,7 @@ impl ThumbnailService {
             .as_deref()
             .unwrap_or("application/octet-stream");
         info!(
-            "Generating thumbnail for {} (MIME: {})",
+            "Generating WebP thumbnail for {} (MIME: {})",
             storage_file_id, mime_type
         );
 
@@ -54,8 +57,8 @@ impl ThumbnailService {
             return Err(anyhow!("Unsupported mime type for thumbnail generation"));
         };
 
-        // Upload thumbnail to MinIO
-        let thumbnail_key = format!("thumbnails/{}.jpg", storage_file_id);
+        // Upload thumbnail to MinIO as WebP
+        let thumbnail_key = format!("thumbnails/{}.webp", storage_file_id);
         self.storage.upload_file(&thumbnail_key, thumb_data).await?;
 
         // Update database
@@ -63,8 +66,20 @@ impl ThumbnailService {
         active_model.has_thumbnail = Set(true);
         active_model.update(&self.db).await?;
 
-        info!("Successfully generated thumbnail for {}", storage_file_id);
+        info!(
+            "Successfully generated WebP thumbnail for {} ",
+            storage_file_id
+        );
         Ok(())
+    }
+
+    /// Encode an image::DynamicImage to WebP bytes with quality optimized for its size
+    fn encode_to_webp(img: &image::DynamicImage) -> Result<Vec<u8>> {
+        let mut out_data = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut out_data);
+        img.write_to(&mut cursor, ImageFormat::WebP)
+            .map_err(|e| anyhow!("Failed to encode WebP thumbnail: {}", e))?;
+        Ok(out_data)
     }
 
     fn generate_image_thumbnail(&self, data: &[u8]) -> Result<Vec<u8>> {
@@ -72,17 +87,11 @@ impl ThumbnailService {
         let img =
             image::load_from_memory(data).map_err(|e| anyhow!("Failed to load image: {}", e))?;
 
-        // Resize to max 256x256 while preserving aspect ratio
-        let thumbnail = img.thumbnail(256, 256);
+        // Resize to max THUMB_SIZExTHUMB_SIZE while preserving aspect ratio
+        let thumbnail = img.thumbnail(THUMB_SIZE, THUMB_SIZE);
 
-        // Encode as JPEG
-        let mut out_data = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut out_data);
-        thumbnail
-            .write_to(&mut cursor, ImageFormat::Jpeg)
-            .map_err(|e| anyhow!("Failed to write JPEG thumbnail: {}", e))?;
-
-        Ok(out_data)
+        // Encode as WebP
+        Self::encode_to_webp(&thumbnail)
     }
 
     async fn generate_pdf_thumbnail(&self, data: &[u8]) -> Result<Vec<u8>> {
@@ -91,18 +100,16 @@ impl ThumbnailService {
         input_file.write_all(data)?;
         let input_path = input_file.into_temp_path();
 
-        // Create a temp file for output (pdftocairo will add .jpg extension if we use -jpeg)
+        // Create a temp file for output
         let output_base = NamedTempFile::new()?;
         let output_base_path = output_base.path().to_string_lossy().to_string();
 
-        // Run pdftocairo
-        // pdftocairo -jpeg -singlefile -scale-to 256 input.pdf output_base
-        // It outputs to output_base.jpg
+        // Use pdftocairo to render first page to PNG (lossless intermediate)
         let output = Command::new("pdftocairo")
-            .arg("-jpeg")
+            .arg("-png")
             .arg("-singlefile")
             .arg("-scale-to")
-            .arg("256")
+            .arg(THUMB_SIZE.to_string())
             .arg(input_path.as_os_str())
             .arg(&output_base_path)
             .output()?;
@@ -113,13 +120,16 @@ impl ThumbnailService {
             return Err(anyhow!("pdftocairo failed: {}", err_msg));
         }
 
-        let output_img_path = format!("{}.jpg", output_base_path);
-        let result_data = tokio::fs::read(&output_img_path).await?;
+        let output_img_path = format!("{}.png", output_base_path);
+        let png_data = tokio::fs::read(&output_img_path).await?;
 
-        // Cleanup the output file manually since we generated it outside the NamedTempFile's control
+        // Cleanup the intermediate PNG
         let _ = tokio::fs::remove_file(&output_img_path).await;
 
-        Ok(result_data)
+        // Re-encode from PNG to WebP for optimal compression
+        let img = image::load_from_memory(&png_data)
+            .map_err(|e| anyhow!("Failed to load PDF thumbnail PNG: {}", e))?;
+        Self::encode_to_webp(&img)
     }
 
     async fn generate_video_thumbnail(&self, data: &[u8]) -> Result<Vec<u8>> {
@@ -128,12 +138,11 @@ impl ThumbnailService {
         input_file.write_all(data)?;
         let input_path = input_file.into_temp_path();
 
-        // Output temp file
-        let output_file = NamedTempFile::new()?;
+        // Output temp file as PNG (lossless intermediate for best re-encoding)
+        let output_file = NamedTempFile::with_suffix(".png")?;
         let output_path = output_file.path().to_string_lossy().to_string();
 
-        // Run ffmpeg
-        // ffmpeg -y -i input.mp4 -ss 00:00:01.000 -vframes 1 -vf scale=256:-1 output.jpg
+        // Use ffmpeg to extract a frame as PNG
         let output = Command::new("ffmpeg")
             .arg("-y") // Overwrite output
             .arg("-i")
@@ -143,9 +152,7 @@ impl ThumbnailService {
             .arg("-vframes")
             .arg("1")
             .arg("-vf")
-            .arg("scale=256:-1") // 256 width, auto height
-            .arg("-f")
-            .arg("image2")
+            .arg(format!("scale={}:-1", THUMB_SIZE)) // THUMB_SIZE width, auto height
             .arg(&output_path)
             .output()?;
 
@@ -155,7 +162,11 @@ impl ThumbnailService {
             return Err(anyhow!("ffmpeg failed: {}", err_msg));
         }
 
-        let result_data = tokio::fs::read(&output_path).await?;
-        Ok(result_data)
+        let png_data = tokio::fs::read(&output_path).await?;
+
+        // Re-encode from PNG to WebP for optimal compression
+        let img = image::load_from_memory(&png_data)
+            .map_err(|e| anyhow!("Failed to load video frame PNG: {}", e))?;
+        Self::encode_to_webp(&img)
     }
 }

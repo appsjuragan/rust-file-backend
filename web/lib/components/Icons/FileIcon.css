@@ -238,3 +238,81 @@
 .rfm-file-icon-container[data-color="default"] .rfm-file-icon-svg polygon:first-child {
   fill: #90caf9;
 }
+
+/* ==================== Thumbnail Animations ==================== */
+
+/* Thumbnail image base styles */
+.rfm-thumbnail-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  display: block;
+  will-change: opacity, transform, filter;
+}
+
+/* Loading state: invisible until image loads */
+.rfm-thumb-loading {
+  opacity: 0;
+  transform: scale(1.08);
+  filter: blur(8px);
+}
+
+/* Loaded state: smooth reveal */
+.rfm-thumb-loaded {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+  animation: rfm-thumb-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes rfm-thumb-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(1.08);
+    filter: blur(8px);
+  }
+
+  60% {
+    opacity: 1;
+    filter: blur(1px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Shimmer placeholder while polling for thumbnail */
+.rfm-thumb-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(110deg,
+      rgba(0, 0, 0, 0.04) 30%,
+      rgba(0, 0, 0, 0.08) 50%,
+      rgba(0, 0, 0, 0.04) 70%);
+  background-size: 200% 100%;
+  animation: rfm-shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .rfm-thumb-shimmer {
+  background: linear-gradient(110deg,
+      rgba(255, 255, 255, 0.03) 30%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 70%);
+  background-size: 200% 100%;
+}
+
+@keyframes rfm-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
