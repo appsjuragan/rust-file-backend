@@ -33,6 +33,7 @@ export const getColumns = () => [
               name={info.row.original.name}
               isDir={info.row.original.isDir}
               isFavorite={info.row.original.isFavorite}
+              hasThumbnail={info.row.original.hasThumbnail}
               hideName={true}
               className="rfm-list-icon opacity-70"
             />
@@ -48,15 +49,15 @@ export const getColumns = () => [
 
       return (
         <div
-          className={`rfm-workspace-list-icon-td ${
-            isPending ? "rfm-pending" : ""
-          }`}
+          className={`rfm-workspace-list-icon-td ${isPending ? "rfm-pending" : ""
+            }`}
         >
           <FileIcon
             id={info.row.original.id}
             name={info.row.original.name}
             isDir={info.row.original.isDir}
             isFavorite={info.row.original.isFavorite}
+            hasThumbnail={info.row.original.hasThumbnail}
             hideName={true}
             className="rfm-list-icon"
           />

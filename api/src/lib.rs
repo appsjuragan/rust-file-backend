@@ -34,6 +34,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::pre_check_dedup,
         api::handlers::files::link_file,
         api::handlers::files::download_file,
+        api::handlers::files::get_thumbnail,
         api::handlers::files::list_files,
         api::handlers::files::create_folder,
         api::handlers::files::delete_item,
@@ -177,6 +178,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/files/:id",
             get(api::handlers::files::download_file).delete(api::handlers::files::delete_item),
+        )
+        .route(
+            "/files/:id/thumbnail",
+            get(api::handlers::files::get_thumbnail),
         )
         .route(
             "/files/:id/favorite",

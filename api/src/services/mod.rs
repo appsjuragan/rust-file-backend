@@ -6,5 +6,6 @@ pub mod metadata;
 pub mod scanner;
 pub mod storage;
 pub mod storage_lifecycle;
+pub mod thumbnail_service;
 pub mod upload_service;
 pub mod worker;

@@ -8,8 +8,8 @@ export const mapApiFileToFileType = (item: BackendFile): FileType => {
   const lastModified = item.updated_at
     ? new Date(item.updated_at).getTime() / 1000
     : item.created_at
-    ? new Date(item.created_at).getTime() / 1000
-    : Date.now() / 1000;
+      ? new Date(item.created_at).getTime() / 1000
+      : Date.now() / 1000;
 
   return {
     id: item.id,
@@ -22,6 +22,7 @@ export const mapApiFileToFileType = (item: BackendFile): FileType => {
     scanStatus: item.scan_status || item.scanStatus,
     hash: item.hash,
     isFavorite: item.is_favorite ?? item.isFavorite ?? false,
+    hasThumbnail: item.has_thumbnail ?? item.hasThumbnail ?? false,
     extraMetadata: item.extra_metadata || item.extraMetadata,
   };
 };

@@ -32,7 +32,9 @@ RUN apk add --no-cache \
     libstdc++ \
     openssl \
     tzdata \
-    curl
+    curl \
+    poppler-utils \
+    ffmpeg
 
 WORKDIR /app
 

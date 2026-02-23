@@ -3,12 +3,12 @@ export type UploadStatus = {
   name: string;
   progress: number;
   status:
-    | "queued"
-    | "hashing"
-    | "uploading"
-    | "processing"
-    | "completed"
-    | "error";
+  | "queued"
+  | "hashing"
+  | "uploading"
+  | "processing"
+  | "completed"
+  | "error";
   error?: string;
   size?: number;
   uploadId?: string;
@@ -46,6 +46,8 @@ export interface BackendFile {
   isFavorite?: boolean;
   extra_metadata?: any;
   extraMetadata?: any;
+  has_thumbnail?: boolean;
+  hasThumbnail?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -57,18 +59,19 @@ export type FileType = {
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
   scanStatus?:
-    | "pending"
-    | "scanning"
-    | "clean"
-    | "infected"
-    | "unchecked"
-    | "not_supported";
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "infected"
+  | "unchecked"
+  | "not_supported";
   size?: number;
   mimeType?: string;
   hash?: string;
   extraMetadata?: any;
   expiresAt?: string;
   isFavorite?: boolean;
+  hasThumbnail?: boolean;
 };
 
 export type FileSystemType = FileType[];
