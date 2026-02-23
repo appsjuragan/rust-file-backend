@@ -290,8 +290,8 @@ const Cell = memo(
             {
               clientX,
               clientY,
-              preventDefault: () => {},
-              stopPropagation: () => {},
+              preventDefault: () => { },
+              stopPropagation: () => { },
             } as any,
             f
           );
@@ -369,11 +369,10 @@ const Cell = memo(
                     ${isPending ? "rfm-pending" : ""} 
                     ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} 
                     ${isSelected ? "rfm-selected" : ""} 
-                    ${
-                      isFocused
-                        ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
-                        : ""
-                    }
+                    ${isFocused
+              ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
+              : ""
+            }
                     ${dragOverId === f.id ? "rfm-drag-over" : ""} 
                     ${highlightedId === f.id ? "rfm-highlighted" : ""}`}
           disabled={isPending}
@@ -384,7 +383,9 @@ const Cell = memo(
             id={f.id}
             name={f.name}
             isDir={f.isDir}
-            scanStatus={f.scanStatus}
+            isFavorite={f.isFavorite}
+            hasThumbnail={f.hasThumbnail}
+            scanStatus={f.scanStatus as any}
           />
           {isPending && (
             <div className="rfm-scanning-overlay">

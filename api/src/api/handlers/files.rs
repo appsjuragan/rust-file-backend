@@ -47,6 +47,7 @@ pub struct FileMetadataResponse {
     pub scan_result: Option<String>,
     pub hash: Option<String>,
     pub is_favorite: bool,
+    pub has_thumbnail: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -479,6 +480,92 @@ pub async fn download_file(
 
 #[utoipa::path(
     get,
+    path = "/files/{id}/thumbnail",
+    params(
+        ("id" = String, Path, description = "User File ID")
+    ),
+    responses(
+        (status = 200, description = "File thumbnail stream"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Thumbnail not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_thumbnail(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(file_id): Path<String>,
+) -> Result<Response, AppError> {
+    // 1. Verify file ownership and existence
+    let user_file = UserFiles::find_by_id(file_id.clone())
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound(
+            "File not found or access denied".to_string(),
+        ))?;
+
+    if user_file.is_folder {
+        return Err(AppError::BadRequest(
+            "Cannot get thumbnail for a folder".to_string(),
+        ));
+    }
+
+    let storage_file_id = user_file
+        .storage_file_id
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
+
+    // 2. Get storage file
+    let storage_file = StorageFiles::find_by_id(storage_file_id.clone())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    if !storage_file.has_thumbnail {
+        return Err(AppError::NotFound(
+            "Thumbnail not generated yet".to_string(),
+        ));
+    }
+
+    // 3. Generate presigned URL for proxy
+    let thumbnail_key = format!("thumbnails/{}.jpg", storage_file_id);
+    let presigned_url = state
+        .storage
+        .generate_presigned_url_raw(
+            &thumbnail_key,
+            43200, // 12 hours
+            "image/jpeg",
+            "inline",
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL for thumbnail: {}", e);
+            AppError::Internal("Failed to generate thumbnail URL".to_string())
+        })?;
+
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate thumbnail URL".to_string())
+    })?;
+
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        .header(axum::http::header::CONTENT_TYPE, "image/jpeg")
+        .header(axum::http::header::CACHE_CONTROL, "public, max-age=86400")
+        .body(Body::empty())
+        .unwrap())
+}
+
+#[utoipa::path(
+    get,
     path = "/files",
     params(
         ("parent_id" = Option<String>, Query, description = "Parent Folder ID"),
@@ -666,6 +753,10 @@ pub async fn list_files(
             scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
             hash: storage_file.as_ref().map(|s| s.hash.clone()),
             is_favorite: user_file.is_favorite,
+            has_thumbnail: storage_file
+                .as_ref()
+                .map(|s| s.has_thumbnail)
+                .unwrap_or(false),
         });
     }
 
@@ -732,6 +823,7 @@ pub async fn create_folder(
         scan_result: None,
         hash: None,
         is_favorite: res.is_favorite,
+        has_thumbnail: false,
     }))
 }
 
@@ -792,6 +884,7 @@ pub async fn get_folder_path(
                 scan_result: None,
                 hash: None,
                 is_favorite: folder.is_favorite,
+                has_thumbnail: false,
             },
         );
 
@@ -896,6 +989,10 @@ pub async fn toggle_favorite(
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         hash: storage_file.as_ref().map(|s| s.hash.clone()),
         is_favorite: res.is_favorite,
+        has_thumbnail: storage_file
+            .as_ref()
+            .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
     }))
 }
 
@@ -1352,6 +1449,10 @@ async fn return_file_metadata(
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         hash: storage_file.as_ref().map(|s| s.hash.clone()),
         is_favorite: updated.is_favorite,
+        has_thumbnail: storage_file
+            .as_ref()
+            .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
     }))
 }
 

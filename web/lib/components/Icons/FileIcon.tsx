@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 // Context
 import { useFileManager } from "../../context";
 // Components
 import SvgIcon from "./SvgIcon";
 import "./FileIcon.css";
+// HTTP Client
+import { request } from "../../../src/services/httpClient";
 
 interface IFileIcon {
   id: string;
@@ -14,6 +16,8 @@ interface IFileIcon {
   hideName?: boolean;
   className?: string;
   isFavorite?: boolean;
+  hasThumbnail?: boolean;
+  scanStatus?: string;
 }
 
 const FileIcon = (props: IFileIcon) => {
@@ -107,23 +111,59 @@ const FileIcon = (props: IFileIcon) => {
     return "default";
   }, [fileExtension, props.isDir]);
 
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (props.hasThumbnail && !props.isDir) {
+      const getThumb = async () => {
+        try {
+          const res = await request(`/files/${props.id}/thumbnail`, { method: "GET" });
+          if (active && res && typeof res.blob === "function") {
+            const blob = await res.blob();
+            setThumbnailUrl(URL.createObjectURL(blob));
+          }
+        } catch (e) {
+          console.error("Failed to load thumbnail", e);
+        }
+      };
+      getThumb();
+    }
+    return () => {
+      active = false;
+    };
+  }, [props.hasThumbnail, props.isDir, props.id]);
+
+  useEffect(() => {
+    return () => {
+      if (thumbnailUrl) {
+        URL.revokeObjectURL(thumbnailUrl);
+      }
+    };
+  }, [thumbnailUrl]);
+
   return (
     <div
-      className={`rfm-file-icon-container ${props.className || ""} ${
-        isBeingCut ? "opacity-40" : ""
-      }`}
+      className={`rfm-file-icon-container ${props.className || ""} ${isBeingCut ? "opacity-40" : ""
+        }`}
       data-color={colorCategory}
     >
-      <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0">
-        <SvgIcon
-          svgType={props.isDir ? "folder" : "file"}
-          className="rfm-file-icon-svg"
-        />
-        {!props.isDir && fileExtension && (
-          <span className="rfm-file-icon-extension">{fileExtension}</span>
+      <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0 overflow-hidden rounded">
+        {thumbnailUrl ? (
+          <img src={thumbnailUrl} alt={props.name} className="w-full h-full object-cover" />
+        ) : (
+          <>
+            <SvgIcon
+              svgType={props.isDir ? "folder" : "file"}
+              className="rfm-file-icon-svg"
+            />
+            {!props.isDir && fileExtension && (
+              <span className="rfm-file-icon-extension">{fileExtension}</span>
+            )}
+          </>
         )}
         {isFavorited && (
-          <div className="rfm-file-icon-favorite-badge">
+          <div className="rfm-file-icon-favorite-badge z-10">
             <SvgIcon
               svgType="star"
               className="w-full h-full text-yellow-500 fill-current shadow-sm"

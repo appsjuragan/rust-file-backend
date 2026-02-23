@@ -16,6 +16,8 @@ pub struct Model {
     pub scanned_at: Option<DateTimeUtc>,
     pub mime_type: Option<String>,
     pub content_type: Option<String>,
+    #[sea_orm(default_expr = "Expr::value(false)")]
+    pub has_thumbnail: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

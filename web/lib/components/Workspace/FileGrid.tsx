@@ -107,11 +107,9 @@ const FileGridItem = React.memo(
           e.stopPropagation();
           handleContextMenu(e, f);
         }}
-        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${
-          isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
-        } ${isSelected ? "rfm-selected" : ""} ${
-          isDragOver ? "rfm-drag-over" : ""
-        } ${isHighlighted ? "rfm-highlighted" : ""}`}
+        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
+          } ${isSelected ? "rfm-selected" : ""} ${isDragOver ? "rfm-drag-over" : ""
+          } ${isHighlighted ? "rfm-highlighted" : ""}`}
         disabled={isPending}
       >
         <FileIcon
@@ -119,6 +117,8 @@ const FileGridItem = React.memo(
           name={f.name}
           isDir={f.isDir}
           isFavorite={f.isFavorite}
+          hasThumbnail={f.hasThumbnail}
+          className="rfm-grid-icon"
         />
         {isPending && (
           <div className="rfm-scanning-overlay">
