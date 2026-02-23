@@ -1,6 +1,16 @@
 import type { Dispatch, SetStateAction } from "react";
 import { createContext, useContext } from "react";
-import type { FileSystemType, FileType, UploadStatus, FolderNode, ViewStyle, SortField, SortDirection, IconSize, UserFacts } from "../types";
+import type {
+  FileSystemType,
+  FileType,
+  UploadStatus,
+  FolderNode,
+  ViewStyle,
+  SortField,
+  SortDirection,
+  IconSize,
+  UserFacts,
+} from "../types";
 
 interface ProviderInterface {
   fs: FileSystemType;
@@ -10,7 +20,10 @@ interface ProviderInterface {
   viewOnly?: boolean;
   onDoubleClick?: (id: string) => Promise<void>;
   onRefresh?: (id: string) => Promise<void>;
-  onUpload?: (files: { file: File, path: string }[], folderId: string) => Promise<void>;
+  onUpload?: (
+    files: { file: File; path: string }[],
+    folderId: string
+  ) => Promise<void>;
   onCancelUpload?: (id: string) => Promise<void>;
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
@@ -18,8 +31,8 @@ interface ProviderInterface {
   onRename?: (id: string, newName: string) => Promise<void>;
   uploadedFileData: any;
   setUploadedFileData: Dispatch<any>;
-  viewStyle: ViewStyle,
-  setViewStyle: Dispatch<ViewStyle>,
+  viewStyle: ViewStyle;
+  setViewStyle: Dispatch<ViewStyle>;
   sortField: SortField;
   setSortField: Dispatch<SortField>;
   sortDirection: SortDirection;
@@ -27,7 +40,9 @@ interface ProviderInterface {
   iconSize: IconSize;
   setIconSize: Dispatch<IconSize>;
   activeUploads: UploadStatus[];
-  setActiveUploads: (val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])) => void;
+  setActiveUploads: (
+    val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])
+  ) => void;
   selectedIds: string[];
   setSelectedIds: Dispatch<SetStateAction<string[]>>;
   clipboardIds: string[];
@@ -55,7 +70,11 @@ interface ProviderInterface {
   renameFile: FileType | null;
   setRenameFile: Dispatch<FileType | null>;
   contextMenu: { x: number; y: number; file: FileType | null } | null;
-  setContextMenu: Dispatch<{ x: number; y: number; file: FileType | null } | null>;
+  setContextMenu: Dispatch<{
+    x: number;
+    y: number;
+    file: FileType | null;
+  } | null>;
   openUpload?: () => void;
   setOpenUpload: Dispatch<(() => void) | null>;
   modalPosition: { x: number; y: number } | null;
@@ -66,7 +85,7 @@ interface ProviderInterface {
     isVisible: boolean;
     title: string;
     message: string;
-    type: 'alert' | 'confirm';
+    type: "alert" | "confirm";
     onConfirm?: () => void;
     onCancel?: () => void;
   };
@@ -74,7 +93,7 @@ interface ProviderInterface {
     isVisible: boolean;
     title: string;
     message: string;
-    type: 'alert' | 'confirm';
+    type: "alert" | "confirm";
     onConfirm?: () => void;
     onCancel?: () => void;
   }>;

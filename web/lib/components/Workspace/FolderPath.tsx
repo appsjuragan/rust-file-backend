@@ -34,7 +34,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     setSortDirection,
     iconSize,
     setIconSize,
-    folderTree
+    folderTree,
   } = useFileManager();
 
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
@@ -69,11 +69,15 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   ];
 
   const goUp = () => {
-    const currentFolderInfo = fs.find((f: FileType) => f.id === currentFolder) ||
-      folderTree.find(f => f.id === currentFolder);
+    const currentFolderInfo =
+      fs.find((f: FileType) => f.id === currentFolder) ||
+      folderTree.find((f) => f.id === currentFolder);
 
     if (currentFolderInfo) {
-      const parentId = (currentFolderInfo as FileType).parentId || (currentFolderInfo as any).parent_id || "0";
+      const parentId =
+        (currentFolderInfo as FileType).parentId ||
+        (currentFolderInfo as any).parent_id ||
+        "0";
       setCurrentFolder(parentId);
     } else if (currentFolder !== "0") {
       // Last resort fallback
@@ -91,16 +95,16 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
         crumbs.unshift({
           id: folder.id,
           name: folder.name,
-          parentId: folder.parentId || "0"
+          parentId: folder.parentId || "0",
         });
         currentId = folder.parentId || "0";
       } else {
-        const treeFolder = folderTree.find(f => f.id === currentId);
+        const treeFolder = folderTree.find((f) => f.id === currentId);
         if (treeFolder) {
           crumbs.unshift({
             id: treeFolder.id,
             name: treeFolder.filename,
-            parentId: treeFolder.parent_id || "0"
+            parentId: treeFolder.parent_id || "0",
           });
           currentId = treeFolder.parent_id || "0";
         } else {
@@ -117,7 +121,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   };
 
   const itemCount = useMemo(() => {
-    return fs.filter((f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/").length;
+    return fs.filter(
+      (f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/"
+    ).length;
   }, [fs, currentFolder]);
 
   const breadcrumbContent = (
@@ -126,13 +132,18 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
         className="rfm-breadcrumb-up-icon"
         onClick={currentFolder !== "0" ? goUp : undefined}
         title={currentFolder !== "0" ? "Go up one folder" : "You are at home"}
-        style={{ cursor: currentFolder === "0" ? 'default' : 'pointer', opacity: currentFolder === "0" ? 0.3 : 1 }}
+        style={{
+          cursor: currentFolder === "0" ? "default" : "pointer",
+          opacity: currentFolder === "0" ? 0.3 : 1,
+        }}
       >
         <SvgIcon svgType="arrow-up" />
       </div>
       <div className="rfm-breadcrumbs">
         <div
-          className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""}`}
+          className={`rfm-breadcrumb-item ${
+            currentFolder === "0" ? "active" : ""
+          }`}
           onClick={() => handleCrumbClick("0")}
         >
           <span>Home</span>
@@ -140,12 +151,16 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
         {breadcrumbs.length > 3 ? (
           <>
             <span className="rfm-breadcrumb-separator">/</span>
-            <span className="rfm-breadcrumb-item cursor-default hover:text-stone-600 dark:hover:text-slate-400">...</span>
+            <span className="rfm-breadcrumb-item cursor-default hover:text-stone-600 dark:hover:text-slate-400">
+              ...
+            </span>
             {breadcrumbs.slice(-3).map((crumb) => (
               <React.Fragment key={crumb.id}>
                 <span className="rfm-breadcrumb-separator">/</span>
                 <span
-                  className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
+                  className={`rfm-breadcrumb-item ${
+                    currentFolder === crumb.id ? "active" : ""
+                  }`}
                   onClick={() => handleCrumbClick(crumb.id)}
                 >
                   {crumb.name}
@@ -158,7 +173,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
             <React.Fragment key={crumb.id}>
               <span className="rfm-breadcrumb-separator">/</span>
               <span
-                className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""}`}
+                className={`rfm-breadcrumb-item ${
+                  currentFolder === crumb.id ? "active" : ""
+                }`}
                 onClick={() => handleCrumbClick(crumb.id)}
               >
                 {crumb.name}
@@ -167,7 +184,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
           ))
         )}
         <span className="rfm-breadcrumb-count">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          {itemCount} {itemCount === 1 ? "item" : "items"}
         </span>
       </div>
     </>
@@ -179,7 +196,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
       <div className="rfm-toolbar">
         <div className="rfm-toolbar-group">
           <div
-            className={`rfm-folder-path-svg ${(!sidebarVisible && !menuClicked) ? "rfm-header-icon--pulse" : ""}`}
+            className={`rfm-folder-path-svg ${
+              !sidebarVisible && !menuClicked ? "rfm-header-icon--pulse" : ""
+            }`}
             onClick={handleMenuClick}
             title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
           >
@@ -188,24 +207,39 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
         </div>
 
         {/* Desktop Breadcrumbs (Hidden on Mobile via CSS) */}
-        <div className={`rfm-toolbar-breadcrumbs ${!visible ? 'is-breadcrumb-hidden' : ''}`}>
+        <div
+          className={`rfm-toolbar-breadcrumbs ${
+            !visible ? "is-breadcrumb-hidden" : ""
+          }`}
+        >
           {breadcrumbContent}
         </div>
 
         <div className="rfm-header-container">
           <div
             className="rfm-header-icon"
-            onClick={() => setViewStyle(viewStyle === ViewStyle.Icons ? ViewStyle.List : ViewStyle.Icons)}
-            title={viewStyle === ViewStyle.Icons ? "Switch to List View" : "Switch to Grid View"}
+            onClick={() =>
+              setViewStyle(
+                viewStyle === ViewStyle.Icons ? ViewStyle.List : ViewStyle.Icons
+              )
+            }
+            title={
+              viewStyle === ViewStyle.Icons
+                ? "Switch to List View"
+                : "Switch to Grid View"
+            }
           >
-            <SvgIcon svgType={viewStyle === ViewStyle.Icons ? "list" : "icons"} />
+            <SvgIcon
+              svgType={viewStyle === ViewStyle.Icons ? "list" : "icons"}
+            />
           </div>
 
           <div
             className="rfm-header-icon"
             onClick={() => {
               if (iconSize === IconSize.Small) setIconSize(IconSize.Medium);
-              else if (iconSize === IconSize.Medium) setIconSize(IconSize.Large);
+              else if (iconSize === IconSize.Medium)
+                setIconSize(IconSize.Large);
               else setIconSize(IconSize.Small);
             }}
             title={`View Size: ${iconSize}`}
@@ -218,11 +252,16 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
           {/* Custom Sort Controls */}
           <div className="rfm-sort-group" ref={sortRef}>
             <div
-              className={`rfm-sort-trigger ${sortMenuVisible ? 'active' : ''}`}
+              className={`rfm-sort-trigger ${sortMenuVisible ? "active" : ""}`}
               onClick={() => setSortMenuVisible(!sortMenuVisible)}
             >
-              <span>{sortOptions.find(o => o.value === sortField)?.label}</span>
-              <ChevronDown size={14} className={`rfm-sort-chevron ${sortMenuVisible ? 'open' : ''}`} />
+              <span>
+                {sortOptions.find((o) => o.value === sortField)?.label}
+              </span>
+              <ChevronDown
+                size={14}
+                className={`rfm-sort-chevron ${sortMenuVisible ? "open" : ""}`}
+              />
             </div>
 
             {sortMenuVisible && (
@@ -230,14 +269,18 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
                 {sortOptions.map((option) => (
                   <div
                     key={option.value}
-                    className={`rfm-sort-option ${sortField === option.value ? 'selected' : ''}`}
+                    className={`rfm-sort-option ${
+                      sortField === option.value ? "selected" : ""
+                    }`}
                     onClick={() => {
                       setSortField(option.value);
                       setSortMenuVisible(false);
                     }}
                   >
                     <span>{option.label}</span>
-                    {sortField === option.value && <Check size={14} className="text-teal-500" />}
+                    {sortField === option.value && (
+                      <Check size={14} className="text-teal-500" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -245,17 +288,33 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
 
             <div
               className="rfm-sort-direction"
-              onClick={() => setSortDirection(sortDirection === SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc)}
-              title={sortDirection === SortDirection.Asc ? "Ascending" : "Descending"}
+              onClick={() =>
+                setSortDirection(
+                  sortDirection === SortDirection.Asc
+                    ? SortDirection.Desc
+                    : SortDirection.Asc
+                )
+              }
+              title={
+                sortDirection === SortDirection.Asc ? "Ascending" : "Descending"
+              }
             >
-              {sortDirection === SortDirection.Asc ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+              {sortDirection === SortDirection.Asc ? (
+                <ArrowUp size={16} />
+              ) : (
+                <ArrowDown size={16} />
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Mobile Breadcrumbs Row (Hidden on Desktop via CSS) */}
-      <div className={`rfm-breadcrumb-bar ${!visible ? 'is-breadcrumb-hidden' : ''}`}>
+      <div
+        className={`rfm-breadcrumb-bar ${
+          !visible ? "is-breadcrumb-hidden" : ""
+        }`}
+      >
         {breadcrumbContent}
       </div>
     </div>

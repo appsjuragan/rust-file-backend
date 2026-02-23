@@ -46,7 +46,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             Err(e) => {
                 let err_msg = e.to_string();
                 if err_msg.contains("was previously applied but has been modified") {
-                    info!("⚠️ Migration checksum mismatch detected, but skipping as requested: {}", err_msg);
+                    info!(
+                        "⚠️ Migration checksum mismatch detected, but skipping as requested: {}",
+                        err_msg
+                    );
                 } else {
                     return Err(anyhow::anyhow!("Migration failed: {}", err_msg));
                 }

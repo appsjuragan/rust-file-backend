@@ -252,8 +252,7 @@ impl StorageService for S3StorageService {
         content_type: &str,
         content_disposition: &str,
     ) -> Result<String> {
-        let presigning_config =
-            PresigningConfig::expires_in(Duration::from_secs(expires_in_secs))?;
+        let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires_in_secs))?;
 
         let presigned_request = self
             .client

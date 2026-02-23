@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS upload_sessions (
     uploaded_chunks INT DEFAULT 0,
     parts TEXT DEFAULT '[]', -- SQLite compatibility: JSON as TEXT
     status TEXT NOT NULL DEFAULT 'pending', -- pending, completed, failed
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX idx_upload_sessions_user_id ON upload_sessions(user_id);

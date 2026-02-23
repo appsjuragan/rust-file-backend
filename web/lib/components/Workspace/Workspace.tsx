@@ -3,7 +3,11 @@ import { useDropzone } from "react-dropzone";
 import { useFileManager } from "../../context";
 import type { FileType } from "../../types";
 import { ViewStyle } from "../../types";
-import { isDescendantOrSelf, formatSize, formatMimeType } from "../../utils/fileUtils";
+import {
+  isDescendantOrSelf,
+  formatSize,
+  formatMimeType,
+} from "../../utils/fileUtils";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 
@@ -24,7 +28,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-} from '@tanstack/react-table'
+} from "@tanstack/react-table";
 import SvgIcon from "../Icons/SvgIcon";
 
 const Workspace = () => {
@@ -78,10 +82,15 @@ const Workspace = () => {
     setClipboardSourceFolder,
     iconSize,
     favorites,
-    toggleFavorite
+    toggleFavorite,
   } = useFileManager();
 
-  const [marquee, setMarquee] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [marquee, setMarquee] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
@@ -105,7 +114,7 @@ const Workspace = () => {
       setTimeout(() => {
         const element = document.querySelector(`[data-id="${highlightedId}"]`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
           setSelectedIds([highlightedId]);
         }
         setTimeout(() => {
@@ -116,7 +125,7 @@ const Workspace = () => {
   }, [highlightedId, currentFolder, setHighlightedId, setSelectedIds]);
 
   const handleDragStart = (e: React.DragEvent, file: FileType) => {
-    if (file.scanStatus === 'pending' || file.scanStatus === 'scanning') {
+    if (file.scanStatus === "pending" || file.scanStatus === "scanning") {
       e.preventDefault();
       return;
     }
@@ -152,8 +161,10 @@ const Workspace = () => {
       const sourceIds = JSON.parse(data) as string[];
       if (folder.isDir) {
         // Build a map for O(1) lookups during the check
-        const fsMap = new Map(fs.map(f => [f.id, f]));
-        const invalidMoves = sourceIds.filter(id => isDescendantOrSelf(fsMap, id, folder.id));
+        const fsMap = new Map(fs.map((f) => [f.id, f]));
+        const invalidMoves = sourceIds.filter((id) =>
+          isDescendantOrSelf(fsMap, id, folder.id)
+        );
         if (invalidMoves.length > 0) {
           console.warn("Circular move or move to self prevented");
           return;
@@ -173,73 +184,82 @@ const Workspace = () => {
 
   const isMobile = !useMediaQuery("(min-width: 769px)");
 
-  const handleContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, file: FileType | null) => {
-    if ('preventDefault' in e) e.preventDefault();
-    if (viewOnly) return;
+  const handleContextMenu = useCallback(
+    (
+      e: React.MouseEvent | { clientX: number; clientY: number },
+      file: FileType | null
+    ) => {
+      if ("preventDefault" in e) e.preventDefault();
+      if (viewOnly) return;
 
-    if (file) {
-      const isAlreadySelected = selectedIds.includes(file.id);
+      if (file) {
+        const isAlreadySelected = selectedIds.includes(file.id);
 
-      if (isMobile) {
-        if (selectedIds.length === 0) {
-          // Entering selection mode: select only, no menu to allow easy multi-tap/long-press addition
+        if (isMobile) {
+          if (selectedIds.length === 0) {
+            // Entering selection mode: select only, no menu to allow easy multi-tap/long-press addition
+            setSelectedIds([file.id]);
+            if (navigator.vibrate) navigator.vibrate(50);
+          } else if (!isAlreadySelected) {
+            // Already in selection mode, long-press a new item: add to selection
+            setSelectedIds((prev: string[]) => [...prev, file.id]);
+            setLastSelectedId(file.id);
+            if (navigator.vibrate) navigator.vibrate(50);
+          } else {
+            // Long-press an already selected item: show menu for selection
+            setContextMenu({ x: e.clientX, y: e.clientY, file });
+          }
+          return;
+        }
+
+        // Desktop behavior: select if not already selected, then show menu
+        if (!isAlreadySelected) {
           setSelectedIds([file.id]);
-          if (navigator.vibrate) navigator.vibrate(50);
-        } else if (!isAlreadySelected) {
-          // Already in selection mode, long-press a new item: add to selection
-          setSelectedIds((prev: string[]) => [...prev, file.id]);
           setLastSelectedId(file.id);
-          if (navigator.vibrate) navigator.vibrate(50);
+        }
+      }
+
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        file,
+      });
+    },
+    [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds]
+  );
+
+  const handleDrop = useCallback(
+    async (acceptedFiles: File[], _fileRejections: any[], event: any) => {
+      if (viewOnly) return;
+
+      const targetFolderId = currentFolder;
+
+      try {
+        const droppedItems = (event as any).dataTransfer?.items;
+        if (droppedItems) {
+          const entries = await scanEntries(droppedItems);
+          if (onUpload) await onUpload(entries, targetFolderId);
         } else {
-          // Long-press an already selected item: show menu for selection
-          setContextMenu({ x: e.clientX, y: e.clientY, file });
+          if (onUpload) {
+            const uploadPayload = acceptedFiles.map((f) => ({
+              file: f,
+              path: (f as any).path || f.name,
+            }));
+            await onUpload(uploadPayload, targetFolderId);
+          }
         }
-        return;
+        if (onRefresh) await onRefresh(targetFolderId);
+      } catch (err) {
+        console.error("Upload failed:", err);
       }
-
-      // Desktop behavior: select if not already selected, then show menu
-      if (!isAlreadySelected) {
-        setSelectedIds([file.id]);
-        setLastSelectedId(file.id);
-      }
-    }
-
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      file,
-    });
-  }, [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds]);
-
-  const handleDrop = useCallback(async (acceptedFiles: File[], _fileRejections: any[], event: any) => {
-    if (viewOnly) return;
-
-    const targetFolderId = currentFolder;
-
-    try {
-      const droppedItems = (event as any).dataTransfer?.items;
-      if (droppedItems) {
-        const entries = await scanEntries(droppedItems);
-        if (onUpload) await onUpload(entries, targetFolderId);
-      } else {
-        if (onUpload) {
-          const uploadPayload = acceptedFiles.map(f => ({
-            file: f,
-            path: (f as any).path || f.name
-          }));
-          await onUpload(uploadPayload, targetFolderId);
-        }
-      }
-      if (onRefresh) await onRefresh(targetFolderId);
-    } catch (err) {
-      console.error("Upload failed:", err);
-    }
-  }, [viewOnly, currentFolder, onUpload, onRefresh]);
+    },
+    [viewOnly, currentFolder, onUpload, onRefresh]
+  );
 
   const { getRootProps, getInputProps, isDragAccept, open } = useDropzone({
     onDrop: handleDrop,
     noClick: true,
-    noKeyboard: true
+    noKeyboard: true,
   });
 
   // handlePaste is now provided by useFileActions hook
@@ -276,13 +296,13 @@ const Workspace = () => {
 
     if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(file.id)) {
-        setSelectedIds(selectedIds.filter(id => id !== file.id));
+        setSelectedIds(selectedIds.filter((id) => id !== file.id));
       } else {
         setSelectedIds([...selectedIds, file.id]);
       }
       setLastSelectedId(file.id);
     } else if (e.shiftKey && lastSelectedId) {
-      const allIdsInOrder = currentFolderFiles.map(f => f.id);
+      const allIdsInOrder = currentFolderFiles.map((f) => f.id);
       const startIdx = allIdsInOrder.indexOf(lastSelectedId);
       const endIdx = allIdsInOrder.indexOf(file.id);
 
@@ -296,7 +316,7 @@ const Workspace = () => {
     } else if (isMobile && selectedIds.length > 0) {
       // Mobile-friendly multi-select: toggle selection if already in selection mode
       if (selectedIds.includes(file.id)) {
-        setSelectedIds(selectedIds.filter(id => id !== file.id));
+        setSelectedIds(selectedIds.filter((id) => id !== file.id));
       } else {
         setSelectedIds([...selectedIds, file.id]);
       }
@@ -308,7 +328,7 @@ const Workspace = () => {
   };
 
   const handleDoubleClick = (file: FileType) => {
-    if (file.scanStatus === 'pending' || file.scanStatus === 'scanning') return;
+    if (file.scanStatus === "pending" || file.scanStatus === "scanning") return;
     if (file.isDir) {
       setCurrentFolder(file.id);
     } else {
@@ -321,152 +341,189 @@ const Workspace = () => {
     }
   };
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only left click
-    if (e.button !== 0) return;
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Only left click
+      if (e.button !== 0) return;
 
-    // Check if clicking on a file item or interactive element
-    const target = e.target as HTMLElement;
-    if (target.closest(".rfm-file-item") || target.closest("button") || target.closest("input")) {
-      return;
-    }
-
-    const container = document.getElementById("react-file-manager-workspace");
-    if (!container) return;
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-
-    // Capture initial selection state for modifiers
-    // Standard behavior: Ctrl/Shift/Meta adds to selection or preserves it
-    const isAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
-    const initialSelectionIds = isAdditive ? new Set(selectedIds) : new Set<string>();
-
-    // Reset drag flag
-    didDragSelectionRef.current = false;
-
-    const mouseMoveHandler = (moveEvent: MouseEvent) => {
-      moveEvent.preventDefault(); // Prevent text selection
-
-      const currentX = moveEvent.clientX;
-      const currentY = moveEvent.clientY;
-
-      // Check for significant movement to count as drag
-      if (!didDragSelectionRef.current && (Math.abs(currentX - startX) > 4 || Math.abs(currentY - startY) > 4)) {
-        didDragSelectionRef.current = true;
+      // Check if clicking on a file item or interactive element
+      const target = e.target as HTMLElement;
+      if (
+        target.closest(".rfm-file-item") ||
+        target.closest("button") ||
+        target.closest("input")
+      ) {
+        return;
       }
 
-      setMarquee({
-        x1: startX,
-        y1: startY,
-        x2: currentX,
-        y2: currentY
-      });
+      const container = document.getElementById("react-file-manager-workspace");
+      if (!container) return;
 
-      const marqueeRect = {
-        left: Math.min(startX, currentX),
-        top: Math.min(startY, currentY),
-        right: Math.max(startX, currentX),
-        bottom: Math.max(startY, currentY),
-      };
+      const startX = e.clientX;
+      const startY = e.clientY;
 
-      // Query items dynamically to ensure we get correct positions (handles scrolling)
-      // While caching is faster, dynamic query is more robust for scrolling containers
-      const items = container.querySelectorAll(".rfm-file-item");
-      const nextSelection = new Set(initialSelectionIds);
+      // Capture initial selection state for modifiers
+      // Standard behavior: Ctrl/Shift/Meta adds to selection or preserves it
+      const isAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
+      const initialSelectionIds = isAdditive
+        ? new Set(selectedIds)
+        : new Set<string>();
 
-      items.forEach((item) => {
-        const rect = item.getBoundingClientRect();
+      // Reset drag flag
+      didDragSelectionRef.current = false;
 
-        // Check intersection
+      const mouseMoveHandler = (moveEvent: MouseEvent) => {
+        moveEvent.preventDefault(); // Prevent text selection
+
+        const currentX = moveEvent.clientX;
+        const currentY = moveEvent.clientY;
+
+        // Check for significant movement to count as drag
         if (
-          rect.left < marqueeRect.right &&
-          rect.right > marqueeRect.left &&
-          rect.top < marqueeRect.bottom &&
-          rect.bottom > marqueeRect.top
+          !didDragSelectionRef.current &&
+          (Math.abs(currentX - startX) > 4 || Math.abs(currentY - startY) > 4)
         ) {
-          const id = item.getAttribute("data-id");
-          if (id) nextSelection.add(id);
+          didDragSelectionRef.current = true;
         }
-      });
 
-      setSelectedIds(Array.from(nextSelection));
-    };
+        setMarquee({
+          x1: startX,
+          y1: startY,
+          x2: currentX,
+          y2: currentY,
+        });
 
-    const mouseUpHandler = () => {
-      setMarquee(null);
-      document.removeEventListener("mousemove", mouseMoveHandler);
-      document.removeEventListener("mouseup", mouseUpHandler);
-    };
+        const marqueeRect = {
+          left: Math.min(startX, currentX),
+          top: Math.min(startY, currentY),
+          right: Math.max(startX, currentX),
+          bottom: Math.max(startY, currentY),
+        };
 
-    document.addEventListener("mousemove", mouseMoveHandler);
-    document.addEventListener("mouseup", mouseUpHandler);
-  }, [selectedIds, setSelectedIds]);
+        // Query items dynamically to ensure we get correct positions (handles scrolling)
+        // While caching is faster, dynamic query is more robust for scrolling containers
+        const items = container.querySelectorAll(".rfm-file-item");
+        const nextSelection = new Set(initialSelectionIds);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+        items.forEach((item) => {
+          const rect = item.getBoundingClientRect();
 
-    if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      setSelectedIds(currentFolderFiles.map(f => f.id));
-    }
-
-    if (e.key === 'Escape') {
-      setSelectedIds([]);
-      setContextMenu(null);
-    }
-
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selectedIds.length > 0) {
-        setDialogState({
-          isVisible: true,
-          title: "Confirm Delete",
-          message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
-          type: "confirm",
-          onConfirm: async () => {
-            if (onBulkDelete) {
-              await onBulkDelete(selectedIds);
-            } else if (onDelete) {
-              for (const id of selectedIds) {
-                await onDelete(id);
-              }
-            }
-            setSelectedIds([]);
+          // Check intersection
+          if (
+            rect.left < marqueeRect.right &&
+            rect.right > marqueeRect.left &&
+            rect.top < marqueeRect.bottom &&
+            rect.bottom > marqueeRect.top
+          ) {
+            const id = item.getAttribute("data-id");
+            if (id) nextSelection.add(id);
           }
         });
-      }
-    }
 
-    if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
-      if (selectedIds.length > 0) {
-        setClipboardIds(selectedIds);
-        setIsCut(false);
-        setClipboardSourceFolder(currentFolder);
-      }
-    }
+        setSelectedIds(Array.from(nextSelection));
+      };
 
-    if (e.key === 'x' && (e.ctrlKey || e.metaKey)) {
-      if (selectedIds.length > 0) {
-        setClipboardIds(selectedIds);
-        setIsCut(true);
-        setClipboardSourceFolder(currentFolder);
-      }
-    }
+      const mouseUpHandler = () => {
+        setMarquee(null);
+        document.removeEventListener("mousemove", mouseMoveHandler);
+        document.removeEventListener("mouseup", mouseUpHandler);
+      };
 
-    if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
-      handlePaste();
-    }
-  }, [currentFolderFiles, selectedIds, onBulkDelete, onDelete, setSelectedIds, setContextMenu, setDialogState, setClipboardIds, setIsCut, currentFolder, onBulkMove, onMove, onBulkCopy, onRefresh, handlePaste]);
+      document.addEventListener("mousemove", mouseMoveHandler);
+      document.addEventListener("mouseup", mouseUpHandler);
+    },
+    [selectedIds, setSelectedIds]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      )
+        return;
+
+      if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setSelectedIds(currentFolderFiles.map((f) => f.id));
+      }
+
+      if (e.key === "Escape") {
+        setSelectedIds([]);
+        setContextMenu(null);
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIds.length > 0) {
+          setDialogState({
+            isVisible: true,
+            title: "Confirm Delete",
+            message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+            type: "confirm",
+            onConfirm: async () => {
+              if (onBulkDelete) {
+                await onBulkDelete(selectedIds);
+              } else if (onDelete) {
+                for (const id of selectedIds) {
+                  await onDelete(id);
+                }
+              }
+              setSelectedIds([]);
+            },
+          });
+        }
+      }
+
+      if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
+        if (selectedIds.length > 0) {
+          setClipboardIds(selectedIds);
+          setIsCut(false);
+          setClipboardSourceFolder(currentFolder);
+        }
+      }
+
+      if (e.key === "x" && (e.ctrlKey || e.metaKey)) {
+        if (selectedIds.length > 0) {
+          setClipboardIds(selectedIds);
+          setIsCut(true);
+          setClipboardSourceFolder(currentFolder);
+        }
+      }
+
+      if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+        handlePaste();
+      }
+    },
+    [
+      currentFolderFiles,
+      selectedIds,
+      onBulkDelete,
+      onDelete,
+      setSelectedIds,
+      setContextMenu,
+      setDialogState,
+      setClipboardIds,
+      setIsCut,
+      currentFolder,
+      onBulkMove,
+      onMove,
+      onBulkCopy,
+      onRefresh,
+      handlePaste,
+    ]
+  );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
   return (
     <section
       id="react-file-manager-workspace"
-      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""} ${marquee ? "rfm-selecting" : ""}`}
+      className={`rfm-workspace ${
+        isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
+      } ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
       onClick={(e) => {
@@ -502,7 +559,11 @@ const Workspace = () => {
           const currentScrollTop = target.scrollTop;
 
           // Auto-hide breadcrumb logic (Mobile only)
-          if (window.innerWidth <= 768 && Math.abs(currentScrollTop - lastScrollTopRef.current) > scrollThreshold) {
+          if (
+            window.innerWidth <= 768 &&
+            Math.abs(currentScrollTop - lastScrollTopRef.current) >
+              scrollThreshold
+          ) {
             if (currentScrollTop > lastScrollTopRef.current) {
               // User is scrolling DOWN - hide header
               if (showHeader) setShowHeader(false);
@@ -515,7 +576,10 @@ const Workspace = () => {
           }
           lastScrollTopRef.current = currentScrollTop;
 
-          if (target.scrollHeight - target.scrollTop <= target.clientHeight + 100) {
+          if (
+            target.scrollHeight - target.scrollTop <=
+            target.clientHeight + 100
+          ) {
             if (onLoadMore && hasMore && !isLoadingMore) {
               onLoadMore();
             }
@@ -567,64 +631,96 @@ const Workspace = () => {
       </div>
 
       {/* Floating Action Button for Mobile */}
-      {
-        !viewOnly && (
-          <>
-            {/* Backdrop for FAB Menu */}
-            {fabMenuOpen && (
-              <div
-                className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[4500]"
-                onClick={() => setFabMenuOpen(false)}
-              />
-            )}
-
-            <div className={`rfm-fab-menu ${fabMenuOpen ? 'active' : ''}`}>
-              <div className="rfm-fab-item" onClick={() => { setNewFolderModalVisible && setNewFolderModalVisible(true); setFabMenuOpen(false); }}>
-                <div className="rfm-fab-action">
-                  <span className="rfm-fab-action-label">New Folder</span>
-                  <div className="rfm-fab-action-icon">
-                    <SvgIcon svgType="folder" />
-                  </div>
-                </div>
-              </div>
-              <div className="rfm-fab-item" onClick={() => { setNewTextFileModalVisible && setNewTextFileModalVisible(true); setFabMenuOpen(false); }}>
-                <div className="rfm-fab-action">
-                  <span className="rfm-fab-action-label">New Text File</span>
-                  <div className="rfm-fab-action-icon">
-                    <SvgIcon svgType="edit" />
-                  </div>
-                </div>
-              </div>
-              <div className="rfm-fab-item" onClick={() => { photoInputRef.current?.click(); setFabMenuOpen(false); }}>
-                <div className="rfm-fab-action">
-                  <span className="rfm-fab-action-label">Take Photo</span>
-                  <div className="rfm-fab-action-icon">
-                    <SvgIcon svgType="camera" />
-                  </div>
-                </div>
-              </div>
-              <div className="rfm-fab-item" onClick={() => { triggerOpenUpload?.(); setFabMenuOpen(false); }}>
-                <div className="rfm-fab-action">
-                  <span className="rfm-fab-action-label">Upload Files</span>
-                  <div className="rfm-fab-action-icon">
-                    <SvgIcon svgType="upload" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
+      {!viewOnly && (
+        <>
+          {/* Backdrop for FAB Menu */}
+          {fabMenuOpen && (
             <div
-              className={`rfm-fab sm:hidden transition-transform duration-300 ${fabMenuOpen ? 'rotate-45 bg-rose-500 !shadow-rose-500/30' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setFabMenuOpen(!fabMenuOpen); }}
-            >
-              <SvgIcon svgType="plus" />
-            </div>
+              className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[4500]"
+              onClick={() => setFabMenuOpen(false)}
+            />
+          )}
 
-            {/* Quick Paste Button for Mobile */}
-            {clipboardIds.length > 0 && clipboardSourceFolder !== currentFolder && (
+          <div className={`rfm-fab-menu ${fabMenuOpen ? "active" : ""}`}>
+            <div
+              className="rfm-fab-item"
+              onClick={() => {
+                setNewFolderModalVisible && setNewFolderModalVisible(true);
+                setFabMenuOpen(false);
+              }}
+            >
+              <div className="rfm-fab-action">
+                <span className="rfm-fab-action-label">New Folder</span>
+                <div className="rfm-fab-action-icon">
+                  <SvgIcon svgType="folder" />
+                </div>
+              </div>
+            </div>
+            <div
+              className="rfm-fab-item"
+              onClick={() => {
+                setNewTextFileModalVisible && setNewTextFileModalVisible(true);
+                setFabMenuOpen(false);
+              }}
+            >
+              <div className="rfm-fab-action">
+                <span className="rfm-fab-action-label">New Text File</span>
+                <div className="rfm-fab-action-icon">
+                  <SvgIcon svgType="edit" />
+                </div>
+              </div>
+            </div>
+            <div
+              className="rfm-fab-item"
+              onClick={() => {
+                photoInputRef.current?.click();
+                setFabMenuOpen(false);
+              }}
+            >
+              <div className="rfm-fab-action">
+                <span className="rfm-fab-action-label">Take Photo</span>
+                <div className="rfm-fab-action-icon">
+                  <SvgIcon svgType="camera" />
+                </div>
+              </div>
+            </div>
+            <div
+              className="rfm-fab-item"
+              onClick={() => {
+                triggerOpenUpload?.();
+                setFabMenuOpen(false);
+              }}
+            >
+              <div className="rfm-fab-action">
+                <span className="rfm-fab-action-label">Upload Files</span>
+                <div className="rfm-fab-action-icon">
+                  <SvgIcon svgType="upload" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`rfm-fab sm:hidden transition-transform duration-300 ${
+              fabMenuOpen ? "rotate-45 bg-rose-500 !shadow-rose-500/30" : ""
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFabMenuOpen(!fabMenuOpen);
+            }}
+          >
+            <SvgIcon svgType="plus" />
+          </div>
+
+          {/* Quick Paste Button for Mobile */}
+          {clipboardIds.length > 0 &&
+            clipboardSourceFolder !== currentFolder && (
               <div
                 className="rfm-fab sm:hidden rfm-fab-paste"
-                onClick={(e) => { e.stopPropagation(); handlePaste(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePaste();
+                }}
                 title={`Paste ${clipboardIds.length} items`}
               >
                 <div className="relative">
@@ -636,147 +732,174 @@ const Workspace = () => {
               </div>
             )}
 
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              ref={photoInputRef}
-              className="hidden"
-              onChange={async (e) => {
-                if (e.target.files && e.target.files.length > 0 && onUpload) {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const timestamp = new Date().getTime();
-                  const fileName = `photo_${timestamp}.jpg`;
-                  const renamedFile = new File([file], fileName, { type: file.type });
-                  await onUpload([{ file: renamedFile, path: fileName }], currentFolder);
-                }
-              }}
-            />
-          </>
-        )
-      }
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            ref={photoInputRef}
+            className="hidden"
+            onChange={async (e) => {
+              if (e.target.files && e.target.files.length > 0 && onUpload) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const timestamp = new Date().getTime();
+                const fileName = `photo_${timestamp}.jpg`;
+                const renamedFile = new File([file], fileName, {
+                  type: file.type,
+                });
+                await onUpload(
+                  [{ file: renamedFile, path: fileName }],
+                  currentFolder
+                );
+              }
+            }}
+          />
+        </>
+      )}
 
       {/* Contextual Action Bar (Selection Mode) */}
-      {
-        selectedIds.length > 0 && (
-          <div className="rfm-selection-bar">
-            <div
-              className="rfm-selection-pill"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const allIds = currentFolderFiles.map(f => f.id);
-                const isAllSelected = allIds.length > 0 && allIds.every(id => selectedIds.includes(id));
+      {selectedIds.length > 0 && (
+        <div className="rfm-selection-bar">
+          <div
+            className="rfm-selection-pill"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const allIds = currentFolderFiles.map((f) => f.id);
+              const isAllSelected =
+                allIds.length > 0 &&
+                allIds.every((id) => selectedIds.includes(id));
 
-                if (isAllSelected) {
-                  setSelectedIds([]);
-                } else {
-                  setSelectedIds(allIds);
+              if (isAllSelected) {
+                setSelectedIds([]);
+              } else {
+                setSelectedIds(allIds);
+              }
+            }}
+            title="Toggle Select All"
+          >
+            <div
+              className={`rfm-selection-checkbox ${
+                currentFolderFiles.length > 0 &&
+                currentFolderFiles.every((f) => selectedIds.includes(f.id))
+                  ? "is-checked"
+                  : ""
+              }`}
+            >
+              <SvgIcon
+                svgType={
+                  currentFolderFiles.length > 0 &&
+                  currentFolderFiles.every((f) => selectedIds.includes(f.id))
+                    ? "check"
+                    : "square"
                 }
-              }}
-              title="Toggle Select All"
-            >
-              <div className={`rfm-selection-checkbox ${currentFolderFiles.length > 0 && currentFolderFiles.every(f => selectedIds.includes(f.id)) ? 'is-checked' : ''}`}>
-                <SvgIcon svgType={currentFolderFiles.length > 0 && currentFolderFiles.every(f => selectedIds.includes(f.id)) ? "check" : "square"} />
-              </div>
-              <div className="rfm-selection-info">
-                <span className="rfm-selection-count">{selectedIds.length}</span>
-                <span className="rfm-selection-label">Selected</span>
-              </div>
+              />
             </div>
-
-            <div
-              className="rfm-selection-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setClipboardIds(selectedIds);
-                setIsCut(false);
-                setClipboardSourceFolder(currentFolder);
-                setSelectedIds([]);
-                if (navigator.vibrate) navigator.vibrate(50);
-              }}
-              title="Copy"
-            >
-              <SvgIcon svgType="copy" />
-            </div>
-
-            <div
-              className="rfm-selection-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setClipboardIds(selectedIds);
-                setIsCut(true);
-                setClipboardSourceFolder(currentFolder);
-                setSelectedIds([]);
-                if (navigator.vibrate) navigator.vibrate(50);
-              }}
-              title="Move"
-            >
-              <SvgIcon svgType="scissors" />
-            </div>
-
-            <div
-              className={`rfm-selection-action-btn ${selectedIds.every(id => favorites.some(f => f.id === id)) ? 'rfm-active-star' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                const filesToToggle = currentFolderFiles.filter(f => selectedIds.includes(f.id));
-                if (toggleFavorite) toggleFavorite(filesToToggle);
-                if (navigator.vibrate) navigator.vibrate(50);
-              }}
-              title="Toggle Favorite"
-            >
-              <SvgIcon svgType="star" />
-            </div>
-
-            <div
-              className="rfm-selection-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                const targetFile = selectedIds.length === 1
-                  ? (currentFolderFiles.find(f => f.id === selectedIds[0]) || fs.find(f => f.id === selectedIds[0]) || null)
-                  : null;
-
-                setContextMenu({
-                  x: rect.left,
-                  y: rect.top - 8,
-                  file: targetFile
-                });
-              }}
-              title="More Actions"
-            >
-              <SvgIcon svgType="dots" />
-            </div>
-
-            <div
-              className="rfm-selection-action-btn danger ml-auto"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDialogState({
-                  isVisible: true,
-                  title: "Confirm Delete",
-                  message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
-                  type: "confirm",
-                  onConfirm: async () => {
-                    if (onBulkDelete) {
-                      await onBulkDelete(selectedIds);
-                    } else if (onDelete) {
-                      for (const id of selectedIds) {
-                        await onDelete(id);
-                      }
-                    }
-                    setSelectedIds([]);
-                  }
-                });
-              }}
-              title="Delete"
-            >
-              <SvgIcon svgType="trash" />
+            <div className="rfm-selection-info">
+              <span className="rfm-selection-count">{selectedIds.length}</span>
+              <span className="rfm-selection-label">Selected</span>
             </div>
           </div>
-        )
-      }
+
+          <div
+            className="rfm-selection-action-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setClipboardIds(selectedIds);
+              setIsCut(false);
+              setClipboardSourceFolder(currentFolder);
+              setSelectedIds([]);
+              if (navigator.vibrate) navigator.vibrate(50);
+            }}
+            title="Copy"
+          >
+            <SvgIcon svgType="copy" />
+          </div>
+
+          <div
+            className="rfm-selection-action-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setClipboardIds(selectedIds);
+              setIsCut(true);
+              setClipboardSourceFolder(currentFolder);
+              setSelectedIds([]);
+              if (navigator.vibrate) navigator.vibrate(50);
+            }}
+            title="Move"
+          >
+            <SvgIcon svgType="scissors" />
+          </div>
+
+          <div
+            className={`rfm-selection-action-btn ${
+              selectedIds.every((id) => favorites.some((f) => f.id === id))
+                ? "rfm-active-star"
+                : ""
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              const filesToToggle = currentFolderFiles.filter((f) =>
+                selectedIds.includes(f.id)
+              );
+              if (toggleFavorite) toggleFavorite(filesToToggle);
+              if (navigator.vibrate) navigator.vibrate(50);
+            }}
+            title="Toggle Favorite"
+          >
+            <SvgIcon svgType="star" />
+          </div>
+
+          <div
+            className="rfm-selection-action-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const targetFile =
+                selectedIds.length === 1
+                  ? currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
+                    fs.find((f) => f.id === selectedIds[0]) ||
+                    null
+                  : null;
+
+              setContextMenu({
+                x: rect.left,
+                y: rect.top - 8,
+                file: targetFile,
+              });
+            }}
+            title="More Actions"
+          >
+            <SvgIcon svgType="dots" />
+          </div>
+
+          <div
+            className="rfm-selection-action-btn danger ml-auto"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDialogState({
+                isVisible: true,
+                title: "Confirm Delete",
+                message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
+                type: "confirm",
+                onConfirm: async () => {
+                  if (onBulkDelete) {
+                    await onBulkDelete(selectedIds);
+                  } else if (onDelete) {
+                    for (const id of selectedIds) {
+                      await onDelete(id);
+                    }
+                  }
+                  setSelectedIds([]);
+                },
+              });
+            }}
+            title="Delete"
+          >
+            <SvgIcon svgType="trash" />
+          </div>
+        </div>
+      )}
       {/* Modals */}
 
       <NewTextFileModal
@@ -789,9 +912,7 @@ const Workspace = () => {
           }
         }}
       />
-
-    </section >
-
+    </section>
   );
 };
 

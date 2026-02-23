@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     name TEXT,
     avatar_url TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- User Settings
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     user_id TEXT PRIMARY KEY NOT NULL,
     theme TEXT NOT NULL DEFAULT 'dark',
     view_style TEXT NOT NULL DEFAULT 'grid',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS user_files (
     filename TEXT NOT NULL,
     file_signature TEXT, -- Obfuscated: was encryption_key
     expires_at TIMESTAMPTZ,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE SET NULL
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS file_metadata (
 -- Audit Logs
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY NOT NULL,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     event_type TEXT NOT NULL,
     user_id TEXT,
     resource_id TEXT,
@@ -113,28 +113,28 @@ CREATE TABLE IF NOT EXISTS user_file_facts (
     document_count BIGINT DEFAULT 0,
     image_count BIGINT DEFAULT 0,
     others_count BIGINT DEFAULT 0,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Validation Tables
 CREATE TABLE IF NOT EXISTS allowed_mimes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     mime_type TEXT UNIQUE NOT NULL,
     category TEXT NOT NULL,
     description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS magic_signatures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    signature BLOB NOT NULL,
+    id SERIAL PRIMARY KEY,
+    signature BYTEA NOT NULL,
     mime_type TEXT NOT NULL,
     description TEXT,
     UNIQUE (signature, mime_type)
 );
 
 CREATE TABLE IF NOT EXISTS blocked_extensions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     extension TEXT UNIQUE NOT NULL,
     description TEXT
 );

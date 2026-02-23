@@ -1,590 +1,590 @@
 /* Sidebar */
 .rfm-sidebar {
-    width: 20rem;
-    /* 80*0.25rem = 20rem (w-80) */
-    background-color: rgb(245, 245, 244);
-    /* stone-100 */
-    border-right-width: 1px;
-    border-right-color: rgb(231, 229, 228);
-    /* stone-200 */
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    user-select: none;
-    transition-property: all;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 300ms;
-    /* Prevent iOS page bounce when scrolling sidebar */
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+  width: 20rem;
+  /* 80*0.25rem = 20rem (w-80) */
+  background-color: rgb(245, 245, 244);
+  /* stone-100 */
+  border-right-width: 1px;
+  border-right-color: rgb(231, 229, 228);
+  /* stone-200 */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  user-select: none;
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+  /* Prevent iOS page bounce when scrolling sidebar */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dark .rfm-sidebar {
-    background-color: rgb(15, 23, 42);
-    /* slate-900 */
-    border-right-color: rgb(30, 41, 59);
-    /* slate-800 */
+  background-color: rgb(15, 23, 42);
+  /* slate-900 */
+  border-right-color: rgb(30, 41, 59);
+  /* slate-800 */
 }
 
 .rfm-sidebar.is-hidden {
-    width: 0;
-    border-right-width: 0;
-    opacity: 0;
-    pointer-events: none;
+  width: 0;
+  border-right-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Mobile Sidebar Drawer */
 @media (max-width: 768px) {
-    .rfm-sidebar {
-        position: fixed;
-        inset: 0 auto 0 0;
-        z-index: 6000;
-        width: 20rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        transform: translateX(0);
-        opacity: 1;
-        border-right-width: 0;
-        backdrop-filter: blur(10px);
-        /* iOS safe-area: prevent content from rendering under the notch */
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-    }
+  .rfm-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 6000;
+    width: 20rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateX(0);
+    opacity: 1;
+    border-right-width: 0;
+    backdrop-filter: blur(10px);
+    /* iOS safe-area: prevent content from rendering under the notch */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 
-    .rfm-sidebar.is-hidden {
-        transform: translateX(-100%);
-        opacity: 0;
-        width: 20rem;
-        box-shadow: none;
-    }
+  .rfm-sidebar.is-hidden {
+    transform: translateX(-100%);
+    opacity: 0;
+    width: 20rem;
+    box-shadow: none;
+  }
 }
 
 .rfm-sidebar-list {
-    display: flex;
-    flex-direction: column;
-    padding: 0.5rem 0.25rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.25rem;
 }
 
 .rfm-sidebar-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 1.5rem;
-    border-bottom: 1px solid rgb(231, 229, 228);
-    background-color: white;
-    position: sticky;
-    top: 0;
-    z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1.5rem;
+  border-bottom: 1px solid rgb(231, 229, 228);
+  background-color: white;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .dark .rfm-sidebar-header {
-    border-bottom-color: rgb(30, 41, 59);
-    background-color: rgb(15, 23, 42);
+  border-bottom-color: rgb(30, 41, 59);
+  background-color: rgb(15, 23, 42);
 }
 
 .rfm-app-logo {
-    width: 32px;
-    height: 32px;
-    border-radius: 0.75rem;
-    background-color: rgb(13, 148, 136);
-    /* teal-600 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    padding: 0.375rem;
-    box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.2);
+  width: 32px;
+  height: 32px;
+  border-radius: 0.75rem;
+  background-color: rgb(13, 148, 136);
+  /* teal-600 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 0.375rem;
+  box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.2);
 }
 
 .rfm-app-logo-icon {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
 .rfm-app-title {
-    display: flex;
-    flex-direction: column;
-    font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.025em;
+  display: flex;
+  flex-direction: column;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
 .rfm-app-title-main {
-    font-size: 1rem;
-    color: rgb(28, 25, 23);
-    /* stone-900 */
-    text-transform: uppercase;
+  font-size: 1rem;
+  color: rgb(28, 25, 23);
+  /* stone-900 */
+  text-transform: uppercase;
 }
 
 .dark .rfm-app-title-main {
-    color: white;
+  color: white;
 }
 
 .rfm-app-title-sub {
-    font-size: 1rem;
-    color: rgb(13, 148, 136);
-    /* teal-600 */
-    margin-top: -0.125rem;
-    text-transform: uppercase;
+  font-size: 1rem;
+  color: rgb(13, 148, 136);
+  /* teal-600 */
+  margin-top: -0.125rem;
+  text-transform: uppercase;
 }
 
 .dark .rfm-app-title-sub {
-    color: rgb(56, 189, 248);
-    /* sky-400 */
+  color: rgb(56, 189, 248);
+  /* sky-400 */
 }
 
 @media (max-width: 768px) {
-    .rfm-sidebar-list {
-        padding-top: 1rem;
-    }
+  .rfm-sidebar-list {
+    padding-top: 1rem;
+  }
 
-    .rfm-sidebar-header {
-        height: auto;
-        margin-bottom: 0.5rem;
-    }
+  .rfm-sidebar-header {
+    height: auto;
+    margin-bottom: 0.5rem;
+  }
 }
 
 @media (min-width: 769px) {
-    .rfm-sidebar-header {
-        display: none;
-    }
+  .rfm-sidebar-header {
+    display: none;
+  }
 }
 
 .rfm-sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 0.5rem;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition-property: all;
-    transition-duration: 200ms;
-    color: rgb(87, 83, 78);
-    /* stone-600 */
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-    border: 1px solid transparent;
-    /* Eliminate 300ms tap delay on iOS Safari */
-    touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.5rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition-property: all;
+  transition-duration: 200ms;
+  color: rgb(87, 83, 78);
+  /* stone-600 */
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  border: 1px solid transparent;
+  /* Eliminate 300ms tap delay on iOS Safari */
+  touch-action: manipulation;
 }
 
 .rfm-sidebar-chevron {
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    border-radius: 0.25rem;
-    transition-property: background-color;
-    transition-duration: 200ms;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+  transition-property: background-color;
+  transition-duration: 200ms;
 }
 
 .rfm-sidebar-chevron:hover {
-    background-color: rgb(231, 229, 228);
+  background-color: rgb(231, 229, 228);
 }
 
 .dark .rfm-sidebar-chevron:hover {
-    background-color: rgb(51, 65, 85);
+  background-color: rgb(51, 65, 85);
 }
 
 .rfm-chevron-icon {
-    width: 0.75rem;
-    height: 0.75rem;
-    color: rgb(168, 162, 158);
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgb(168, 162, 158);
 }
 
 .dark .rfm-chevron-icon {
-    color: rgb(71, 85, 105);
+  color: rgb(71, 85, 105);
 }
 
 .rfm-chevron-spacer {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 .rfm-sidebar-item:hover {
-    background-color: rgb(250, 250, 249);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    color: rgb(28, 25, 23);
-    border-color: rgb(231, 229, 228);
+  background-color: rgb(250, 250, 249);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  color: rgb(28, 25, 23);
+  border-color: rgb(231, 229, 228);
 }
 
 .dark .rfm-sidebar-item:hover {
-    background-color: rgb(30, 41, 59);
-    color: rgb(226, 232, 240);
-    border-color: rgb(51, 65, 85);
+  background-color: rgb(30, 41, 59);
+  color: rgb(226, 232, 240);
+  border-color: rgb(51, 65, 85);
 }
 
 .rfm-sidebar-item.active {
-    background-color: rgb(250, 250, 249);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    color: rgb(15, 118, 110);
-    /* teal-700 */
-    border-color: rgb(231, 229, 228);
+  background-color: rgb(250, 250, 249);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  color: rgb(15, 118, 110);
+  /* teal-700 */
+  border-color: rgb(231, 229, 228);
 }
 
 .dark .rfm-sidebar-item.active {
-    background-color: rgb(30, 41, 59);
-    color: rgb(56, 189, 248);
-    /* sky-400 */
-    border-color: rgb(51, 65, 85);
+  background-color: rgb(30, 41, 59);
+  color: rgb(56, 189, 248);
+  /* sky-400 */
+  border-color: rgb(51, 65, 85);
 }
 
 .rfm-sidebar-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .rfm-sidebar-item-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1 1 0%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 0%;
 }
 
 .rfm-sidebar-indent {
-    margin-left: 1rem;
-    padding-left: 0.25rem;
+  margin-left: 1rem;
+  padding-left: 0.25rem;
 }
 
 /* Storage Statistics (Sidebar Facts) */
 .rfm-sidebar-facts {
-    border-top: 1px solid rgb(231, 229, 228);
-    transition-property: all;
-    transition-duration: 300ms;
+  border-top: 1px solid rgb(231, 229, 228);
+  transition-property: all;
+  transition-duration: 300ms;
 }
 
 .dark .rfm-sidebar-facts {
-    border-top-color: rgb(30, 41, 59);
+  border-top-color: rgb(30, 41, 59);
 }
 
-.rfm-sidebar-list+.rfm-sidebar-facts {
-    margin-top: auto;
+.rfm-sidebar-list + .rfm-sidebar-facts {
+  margin-top: auto;
 }
 
 .rfm-facts-header {
-    position: relative;
-    padding: 0.5rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    cursor: pointer;
-    transition-property: background-color;
-    transition-duration: 200ms;
-    height: 2.75rem;
+  position: relative;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  transition-property: background-color;
+  transition-duration: 200ms;
+  height: 2.75rem;
 }
 
 .rfm-facts-header:hover {
-    background-color: rgb(231, 229, 228);
+  background-color: rgb(231, 229, 228);
 }
 
 .dark .rfm-facts-header:hover {
-    background-color: rgb(30, 41, 59);
+  background-color: rgb(30, 41, 59);
 }
 
 .rfm-facts-title {
-    font-size: 10px;
-    font-weight: 700;
-    color: rgb(120, 113, 108);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgb(120, 113, 108);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .dark .rfm-facts-title {
-    color: rgb(148, 163, 184);
+  color: rgb(148, 163, 184);
 }
 
 .rfm-facts-toggle-btn {
-    width: 24px;
-    height: 24px;
-    position: absolute;
-    right: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    background-color: rgb(231, 229, 228);
-    color: rgb(87, 83, 78);
-    transition-property: all;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    border: none;
-    cursor: pointer;
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: rgb(231, 229, 228);
+  color: rgb(87, 83, 78);
+  transition-property: all;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: none;
+  cursor: pointer;
 }
 
 .dark .rfm-facts-toggle-btn {
-    background-color: rgb(51, 65, 85);
-    color: rgb(203, 213, 225);
+  background-color: rgb(51, 65, 85);
+  color: rgb(203, 213, 225);
 }
 
 .rfm-facts-toggle-btn:hover {
-    background-color: rgb(214, 211, 209);
+  background-color: rgb(214, 211, 209);
 }
 
 .dark .rfm-facts-toggle-btn:hover {
-    background-color: rgb(71, 85, 105);
+  background-color: rgb(71, 85, 105);
 }
 
 .rfm-facts-container {
-    padding: 0 1rem 1rem 1rem;
-    transition-property: all;
-    transition-duration: 300ms;
-    overflow: hidden;
+  padding: 0 1rem 1rem 1rem;
+  transition-property: all;
+  transition-duration: 300ms;
+  overflow: hidden;
 }
 
 .rfm-facts-minimized-info {
-    padding: 0 1rem 0.75rem 1rem;
-    font-size: 11px;
-    font-weight: 600;
-    color: rgb(15, 118, 110);
-    cursor: pointer;
-    text-align: center;
+  padding: 0 1rem 0.75rem 1rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(15, 118, 110);
+  cursor: pointer;
+  text-align: center;
 }
 
 .dark .rfm-facts-minimized-info {
-    color: rgb(56, 189, 248);
+  color: rgb(56, 189, 248);
 }
 
 .rfm-facts-content {
-    margin-bottom: 1rem;
+  margin-bottom: 1rem;
 }
 
 .rfm-fact-item {
-    font-size: 13px;
-    font-weight: 700;
-    color: rgb(41, 37, 36);
-    margin-bottom: 0.125rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgb(41, 37, 36);
+  margin-bottom: 0.125rem;
 }
 
 .dark .rfm-fact-item {
-    color: rgb(241, 245, 249);
+  color: rgb(241, 245, 249);
 }
 
 .rfm-fact-category-list {
-    margin-top: 0.5rem;
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 0.25rem;
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.25rem;
 }
 
 .rfm-fact-sub-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 11px;
-    color: rgb(120, 113, 108);
-    padding: 0.125rem 0.5rem;
-    border-radius: 0.375rem;
-    transition-property: all;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 11px;
+  color: rgb(120, 113, 108);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  transition-property: all;
 }
 
 .dark .rfm-fact-sub-item {
-    color: rgb(148, 163, 184);
+  color: rgb(148, 163, 184);
 }
 
 .rfm-sidebar-favorites-scroll {
-    max-height: 240px;
-    overflow-y: auto;
-    padding-right: 0.25rem;
-    scrollbar-width: thin;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
 }
 
 .rfm-sidebar-favorites-scroll::-webkit-scrollbar {
-    width: 4px;
+  width: 4px;
 }
 
 .rfm-swipe-item-container {
-    position: relative;
-    overflow: hidden;
-    border-radius: 0.375rem;
-    margin-bottom: 0.125rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  margin-bottom: 0.125rem;
 }
 
 .rfm-swipe-action-bg {
-    position: absolute;
-    inset: 0 0 0 auto;
-    width: 70px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition-property: background-color;
-    transition-duration: 200ms;
-    background-color: rgb(214, 211, 209);
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition-property: background-color;
+  transition-duration: 200ms;
+  background-color: rgb(214, 211, 209);
 }
 
 .dark .rfm-swipe-action-bg {
-    background-color: rgb(30, 41, 59);
+  background-color: rgb(30, 41, 59);
 }
 
 .rfm-swipe-action-bg:hover {
-    background-color: rgb(255, 228, 230);
-    /* rose-100 */
+  background-color: rgb(255, 228, 230);
+  /* rose-100 */
 }
 
 .dark .rfm-swipe-action-bg:hover {
-    background-color: rgba(136, 19, 55, 0.3);
-    /* rose-900/30 */
+  background-color: rgba(136, 19, 55, 0.3);
+  /* rose-900/30 */
 }
 
 .rfm-swipe-action-bg svg {
-    transition-property: color;
-    transition-duration: 200ms;
-    color: rgb(120, 113, 108);
+  transition-property: color;
+  transition-duration: 200ms;
+  color: rgb(120, 113, 108);
 }
 
 .dark .rfm-swipe-action-bg svg {
-    color: rgb(148, 163, 184);
+  color: rgb(148, 163, 184);
 }
 
 .rfm-swipe-action-bg:hover svg {
-    color: rgb(225, 29, 72);
-    /* rose-600 */
+  color: rgb(225, 29, 72);
+  /* rose-600 */
 }
 
 .rfm-swipable-item {
-    position: relative;
-    z-index: 10;
-    background-color: rgb(245, 245, 244);
-    border-radius: 0 !important;
-    display: flex;
-    align-items: center;
+  position: relative;
+  z-index: 10;
+  background-color: rgb(245, 245, 244);
+  border-radius: 0 !important;
+  display: flex;
+  align-items: center;
 }
 
 .rfm-favorite-remove-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 0.25rem;
-    border: none;
-    background: transparent;
-    color: rgb(120, 113, 108);
-    opacity: 0;
-    transition: all 0.2s;
-    cursor: pointer;
-    margin-left: 0.25rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  background: transparent;
+  color: rgb(120, 113, 108);
+  opacity: 0;
+  transition: all 0.2s;
+  cursor: pointer;
+  margin-left: 0.25rem;
 }
 
 @media (min-width: 769px) {
-    .rfm-favorite-remove-btn {
-        display: flex;
-    }
+  .rfm-favorite-remove-btn {
+    display: flex;
+  }
 }
 
 .rfm-fact-sub-item:hover .rfm-favorite-remove-btn {
-    opacity: 1;
+  opacity: 1;
 }
 
 .rfm-favorite-remove-btn:hover {
-    background-color: rgb(255, 228, 230);
-    /* rose-100 */
-    color: rgb(225, 29, 72);
-    /* rose-600 */
+  background-color: rgb(255, 228, 230);
+  /* rose-100 */
+  color: rgb(225, 29, 72);
+  /* rose-600 */
 }
 
 .dark .rfm-favorite-remove-btn {
-    color: rgb(148, 163, 184);
+  color: rgb(148, 163, 184);
 }
 
 .dark .rfm-favorite-remove-btn:hover {
-    background-color: rgba(136, 19, 55, 0.3);
-    /* rose-900/30 */
+  background-color: rgba(136, 19, 55, 0.3);
+  /* rose-900/30 */
 }
 
 .dark .rfm-swipable-item {
-    background-color: rgb(15, 23, 42);
+  background-color: rgb(15, 23, 42);
 }
 
 .rfm-fact-sub-item.highlighted {
-    background-color: rgb(231, 229, 228);
-    color: rgb(28, 25, 23);
+  background-color: rgb(231, 229, 228);
+  color: rgb(28, 25, 23);
 }
 
 .dark .rfm-fact-sub-item.highlighted {
-    background-color: rgb(30, 41, 59);
-    color: rgb(226, 232, 240);
+  background-color: rgb(30, 41, 59);
+  color: rgb(226, 232, 240);
 }
 
 .rfm-fact-sub-item .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 9999px;
-    flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  flex-shrink: 0;
 }
 
 .rfm-facts-pie-container {
-    width: 96px;
-    height: 96px;
-    flex-shrink: 0;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rfm-facts-pie-svg {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
 }
 
 .rfm-pie-segment {
-    transition-property: all;
-    transition-duration: 300ms;
-    cursor: pointer;
-    transform-origin: center;
-    stroke: white;
-    stroke-width: 0.5;
+  transition-property: all;
+  transition-duration: 300ms;
+  cursor: pointer;
+  transform-origin: center;
+  stroke: white;
+  stroke-width: 0.5;
 }
 
 .dark .rfm-pie-segment {
-    stroke: rgb(15, 23, 42);
+  stroke: rgb(15, 23, 42);
 }
 
 .rfm-pie-segment.active {
-    opacity: 0.9;
-    transform: scale(1.05);
+  opacity: 0.9;
+  transform: scale(1.05);
 }
 
 .rfm-pie-percentage {
-    fill: rgb(28, 25, 23);
-    font-weight: 800;
-    font-size: 9px;
-    pointer-events: none;
-    transform: rotate(90deg);
-    transform-origin: center;
+  fill: rgb(28, 25, 23);
+  font-weight: 800;
+  font-size: 9px;
+  pointer-events: none;
+  transform: rotate(90deg);
+  transform-origin: center;
 }
 
 .dark .rfm-pie-percentage {
-    fill: white;
+  fill: white;
 }
 
 .rfm-pie-label {
-    fill: rgb(120, 113, 108);
-    font-weight: 500;
-    font-size: 8px;
-    pointer-events: none;
-    transform: rotate(90deg);
-    transform-origin: center;
+  fill: rgb(120, 113, 108);
+  font-weight: 500;
+  font-size: 8px;
+  pointer-events: none;
+  transform: rotate(90deg);
+  transform-origin: center;
 }
 
 .dark .rfm-pie-label {
-    fill: rgb(148, 163, 184);
+  fill: rgb(148, 163, 184);
 }
 
 .rfm-facts-pie-empty {
-    width: 100%;
-    height: 100%;
-    border-radius: 9999px;
-    background-color: rgb(231, 229, 228);
-    border: 2px dashed rgb(214, 211, 209);
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background-color: rgb(231, 229, 228);
+  border: 2px dashed rgb(214, 211, 209);
 }
 
 .dark .rfm-facts-pie-empty {
-    background-color: rgb(30, 41, 59);
-    border-color: rgb(51, 65, 85);
+  background-color: rgb(30, 41, 59);
+  border-color: rgb(51, 65, 85);
 }

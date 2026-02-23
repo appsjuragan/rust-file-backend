@@ -972,12 +972,12 @@ pub async fn rename_item(
                 }
 
                 // Verify it's actually a folder
-                if let Some(ref parent) = parent_folder {
-                    if !parent.is_folder {
-                        return Err(AppError::BadRequest(
-                            "Parent ID must refer to a folder, not a file".to_string(),
-                        ));
-                    }
+                if let Some(ref parent) = parent_folder
+                    && !parent.is_folder
+                {
+                    return Err(AppError::BadRequest(
+                        "Parent ID must refer to a folder, not a file".to_string(),
+                    ));
                 }
             }
             Some(p)
@@ -1692,8 +1692,6 @@ fn resolve_file_headers(
 
     (content_type, content_disposition)
 }
-
-
 
 #[utoipa::path(
     get,

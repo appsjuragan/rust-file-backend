@@ -1,299 +1,299 @@
 /* ==================== Dashboard Header Styles ==================== */
 
 .app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 1rem;
-    background: var(--header-bg);
-    border-bottom: 1px solid var(--border);
-    position: relative;
-    z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 4000;
 }
 
 .logo {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--primary);
-    text-decoration: none;
-    /* Assuming it might become a link */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  /* Assuming it might become a link */
 }
 
 .user-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 /* ==================== Global Search Styles ==================== */
 
 .global-search-container {
-    position: relative;
-    width: 100%;
-    max-width: 600px;
-    margin: 0 2rem;
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 2rem;
 }
 
 .search-input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-input-wrapper:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-    background: var(--card-bg);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  background: var(--card-bg);
 }
 
 .search-icon-svg {
-    opacity: 0.5;
-    margin-right: 0.5rem;
-    color: var(--text);
+  opacity: 0.5;
+  margin-right: 0.5rem;
+  color: var(--text);
 }
 
 .global-search-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    padding: 0.5rem;
-    font-size: 0.95rem;
-    color: var(--text);
-    outline: none;
-    min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  outline: none;
+  min-width: 0;
 }
 
 /* User Profile Styles */
 .user-dropdown-container {
-    position: relative;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    background: rgba(var(--primary-rgb), 0.1);
-    padding: 0.25rem 0.5rem 0.25rem 1rem;
-    border-radius: 3rem;
-    border: 1px solid rgba(var(--primary-rgb), 0.2);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    gap: 0.75rem;
-    user-select: none;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  background: rgba(var(--primary-rgb), 0.1);
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
+  border-radius: 3rem;
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 0.75rem;
+  user-select: none;
 }
 
 .user-dropdown-container:hover {
-    background: rgba(var(--primary-rgb), 0.15);
-    border-color: rgba(var(--primary-rgb), 0.4);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(var(--primary-rgb), 0.15);
+  border-color: rgba(var(--primary-rgb), 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .user-dropdown-container:active {
-    transform: translateY(0);
+  transform: translateY(0);
 }
 
 .user-avatar-small {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    border: 1.5px solid var(--card-bg);
-    transition: all 0.2s;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary);
-    flex-shrink: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-bg);
+  transition: all 0.2s;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .user-username-header {
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: var(--text);
-    white-space: nowrap;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dropdown-arrow {
-    color: var(--text-muted);
-    transition: transform 0.2s;
-    margin-right: 0.25rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  margin-right: 0.25rem;
 }
 
 .dropdown-arrow.rotated {
-    transform: rotate(180deg);
-    color: var(--primary);
+  transform: rotate(180deg);
+  color: var(--primary);
 }
 
 /* ==================== Responsive Header ==================== */
 
 /* Tablet and below */
 @media (max-width: 768px) {
-    .app-header {
-        padding: 0.4rem 0.75rem;
-        gap: 0.5rem;
-    }
+  .app-header {
+    padding: 0.4rem 0.75rem;
+    gap: 0.5rem;
+  }
 
-    .logo {
-        font-size: 1rem;
-        gap: 0.35rem;
-        flex-shrink: 0;
-    }
+  .logo {
+    font-size: 1rem;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
 
-    .logo span {
-        display: none;
-    }
+  .logo span {
+    display: none;
+  }
 
-    .global-search-container {
-        margin: 0 0.5rem;
-        max-width: none;
-        flex: 1;
-        min-width: 0;
-    }
+  .global-search-container {
+    margin: 0 0.5rem;
+    max-width: none;
+    flex: 1;
+    min-width: 0;
+  }
 
-    .search-input-wrapper {
-        padding: 0.15rem 0.5rem;
-    }
+  .search-input-wrapper {
+    padding: 0.15rem 0.5rem;
+  }
 
-    .global-search-input {
-        font-size: 0.85rem;
-        padding: 0.35rem;
-    }
+  .global-search-input {
+    font-size: 0.85rem;
+    padding: 0.35rem;
+  }
 
-    .user-username-header {
-        display: none;
-    }
+  .user-username-header {
+    display: none;
+  }
 
-    .user-dropdown-container {
-        padding: 0.2rem;
-        gap: 0.35rem;
-    }
+  .user-dropdown-container {
+    padding: 0.2rem;
+    gap: 0.35rem;
+  }
 
-    .dropdown-arrow {
-        margin-right: 0;
-    }
+  .dropdown-arrow {
+    margin-right: 0;
+  }
 }
 
 /* Small phones */
 @media (max-width: 480px) {
-    .app-header {
-        padding: 0.35rem 0.5rem;
-    }
+  .app-header {
+    padding: 0.35rem 0.5rem;
+  }
 
-    .logo-icon {
-        font-size: 1.25rem;
-    }
+  .logo-icon {
+    font-size: 1.25rem;
+  }
 
-    .global-search-container {
-        margin: 0 0.35rem;
-    }
+  .global-search-container {
+    margin: 0 0.35rem;
+  }
 
-    .search-input-wrapper {
-        border-radius: 0.5rem;
-    }
+  .search-input-wrapper {
+    border-radius: 0.5rem;
+  }
 
-    .global-search-input {
-        font-size: 0.8rem;
-    }
+  .global-search-input {
+    font-size: 0.8rem;
+  }
 
-    .user-avatar-small {
-        width: 1.75rem;
-        height: 1.75rem;
-    }
+  .user-avatar-small {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
 
-    .user-dropdown-menu {
-        width: calc(100vw - 2rem);
-        right: -0.5rem;
-    }
+  .user-dropdown-menu {
+    width: calc(100vw - 2rem);
+    right: -0.5rem;
+  }
 }
 
 .user-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    right: 0;
-    width: 240px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    z-index: 4001;
-    overflow: hidden;
-    animation: dropdownSlide 0.2s ease-out;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 240px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  z-index: 4001;
+  overflow: hidden;
+  animation: dropdownSlide 0.2s ease-out;
 }
 
 @keyframes dropdownSlide {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dropdown-user-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    background: rgba(var(--primary-rgb), 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--primary-rgb), 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .dropdown-username {
-    font-weight: 800;
-    color: var(--primary);
-    font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 0.95rem;
 }
 
 .dropdown-fullname {
-    font-weight: 600;
-    color: var(--text);
-    font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.85rem;
 }
 
 .dropdown-email {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    opacity: 0.8;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
 .dropdown-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 0.5rem 0;
+  height: 1px;
+  background: var(--border);
+  margin: 0.5rem 0;
 }
 
 .dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    color: var(--text);
-    transition: all 0.2s;
-    cursor: pointer;
-    font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  transition: all 0.2s;
+  cursor: pointer;
+  font-size: 0.95rem;
 }
 
 .dropdown-item:hover {
-    background: rgba(var(--primary-rgb), 0.05);
-    color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+  color: var(--primary);
 }
 
 .dropdown-item.logout {
-    color: #ef4444;
+  color: #ef4444;
 }
 
 .dropdown-item.logout:hover {
-    background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.1);
 }

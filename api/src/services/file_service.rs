@@ -877,19 +877,19 @@ impl FileService {
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
         // 2. Increment ref count if it's a file
-        if !item.is_folder {
-            if let Some(ref sid) = item.storage_file_id {
-                let sf = storage_files::Entity::find_by_id(sid.clone())
-                    .one(txn)
-                    .await?
-                    .ok_or_else(|| {
-                        AppError::NotFound("Storage file missing during copy".to_string())
-                    })?;
+        if !item.is_folder
+            && let Some(ref sid) = item.storage_file_id
+        {
+            let sf = storage_files::Entity::find_by_id(sid.clone())
+                .one(txn)
+                .await?
+                .ok_or_else(|| {
+                    AppError::NotFound("Storage file missing during copy".to_string())
+                })?;
 
-                let mut active_sf: storage_files::ActiveModel = sf.into();
-                active_sf.ref_count = Set(active_sf.ref_count.unwrap() + 1);
-                active_sf.update(txn).await?;
-            }
+            let mut active_sf: storage_files::ActiveModel = sf.into();
+            active_sf.ref_count = Set(active_sf.ref_count.unwrap() + 1);
+            active_sf.update(txn).await?;
         }
 
         // 3. If folder, copy children (keeping original names)

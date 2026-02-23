@@ -5,18 +5,20 @@ use axum::{
 use http_body_util::BodyExt;
 use rust_file_backend::config::SecurityConfig;
 use rust_file_backend::entities::{prelude::*, *};
-use rust_file_backend::services::scanner::NoOpScanner;
 use rust_file_backend::infrastructure::database;
-use tracing_subscriber::{fmt, EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use rust_file_backend::services::file_service::FileService;
+use rust_file_backend::services::scanner::NoOpScanner;
 use rust_file_backend::{AppState, create_app};
 use sea_orm::{Database, EntityTrait};
 use serde_json::Value;
 use std::sync::Arc;
 use tower::ServiceExt;
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 async fn setup_test_db() -> sea_orm::DatabaseConnection {
-    unsafe { std::env::set_var("DATABASE_URL", "sqlite::memory:"); }
+    unsafe {
+        std::env::set_var("DATABASE_URL", "sqlite::memory:");
+    }
     let db = Database::connect("sqlite::memory:").await.unwrap();
     database::run_migrations(&db).await.unwrap();
     db
@@ -209,12 +211,14 @@ async fn test_full_api_flow() {
         config.clone(),
     ));
 
-    let upload_service = Arc::new(rust_file_backend::services::upload_service::UploadService::new(
-        db.clone(),
-        storage_service.clone(),
-        config.clone(),
-        file_service.clone(),
-    ));
+    let upload_service = Arc::new(
+        rust_file_backend::services::upload_service::UploadService::new(
+            db.clone(),
+            storage_service.clone(),
+            config.clone(),
+            file_service.clone(),
+        ),
+    );
 
     let state = AppState {
         db: db.clone(),
@@ -288,8 +292,14 @@ async fn test_full_api_flow() {
 
     if response.status() != StatusCode::OK {
         let status = response.status();
-        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-        panic!("Login failed: {} - {:?}", status, String::from_utf8_lossy(&body));
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        panic!(
+            "Login failed: {} - {:?}",
+            status,
+            String::from_utf8_lossy(&body)
+        );
     }
     assert_eq!(response.status(), StatusCode::OK);
     let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -370,7 +380,12 @@ async fn test_full_api_flow() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::FOUND);
-    let location = response.headers().get("location").unwrap().to_str().unwrap();
+    let location = response
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(location.contains("/obj/"));
 
     // 6. Delete File

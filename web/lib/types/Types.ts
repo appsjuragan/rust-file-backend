@@ -2,7 +2,13 @@ export type UploadStatus = {
   id: string;
   name: string;
   progress: number;
-  status: 'queued' | 'hashing' | 'uploading' | 'processing' | 'completed' | 'error';
+  status:
+    | "queued"
+    | "hashing"
+    | "uploading"
+    | "processing"
+    | "completed"
+    | "error";
   error?: string;
   size?: number;
   uploadId?: string;
@@ -50,7 +56,13 @@ export type FileType = {
   path?: string; // Optional because files inherit the path from the parentId folder
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
-  scanStatus?: "pending" | "scanning" | "clean" | "infected" | "unchecked" | "not_supported";
+  scanStatus?:
+    | "pending"
+    | "scanning"
+    | "clean"
+    | "infected"
+    | "unchecked"
+    | "not_supported";
   size?: number;
   mimeType?: string;
   hash?: string;
@@ -60,7 +72,6 @@ export type FileType = {
 };
 
 export type FileSystemType = FileType[];
-
 
 export type ValidationRules = {
   allowed_mimes: string[];

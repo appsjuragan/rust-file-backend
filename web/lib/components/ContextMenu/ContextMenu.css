@@ -1,69 +1,68 @@
 @layer utilities {
+  /* Context Menu */
+  .rfm-context-menu {
+    @apply fixed bg-stone-50 border border-stone-200 rounded-lg z-[9500] py-0.5 min-w-[180px] overflow-hidden dark:bg-slate-900 dark:border-slate-800;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+  }
 
-    /* Context Menu */
-    .rfm-context-menu {
-        @apply fixed bg-stone-50 border border-stone-200 rounded-lg z-[9500] py-0.5 min-w-[180px] overflow-hidden dark:bg-slate-900 dark:border-slate-800;
-        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+  .rfm-context-menu.is-mobile {
+    @apply bottom-0 left-0 right-0 top-auto w-full max-w-none rounded-t-3xl rounded-b-none border-0 p-0;
+    animation: sheet-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, 0.7);
+    /* iOS safe-area: prevent content from overlapping home indicator */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  @keyframes sheet-slide-up {
+    from {
+      transform: translateY(100%);
     }
 
-    .rfm-context-menu.is-mobile {
-        @apply bottom-0 left-0 right-0 top-auto w-full max-w-none rounded-t-3xl rounded-b-none border-0 p-0;
-        animation: sheet-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, 0.7);
-        /* iOS safe-area: prevent content from overlapping home indicator */
-        padding-bottom: env(safe-area-inset-bottom);
+    to {
+      transform: translateY(0);
     }
+  }
 
-    @keyframes sheet-slide-up {
-        from {
-            transform: translateY(100%);
-        }
+  .is-mobile .rfm-modal-handle {
+    @apply block w-16 h-1.5 bg-stone-300 dark:bg-slate-700/80 rounded-full mx-auto mt-2 mb-1 shrink-0 cursor-pointer active:scale-95 transition-transform;
+  }
 
-        to {
-            transform: translateY(0);
-        }
-    }
+  .rfm-context-menu-handle-wrapper {
+    @apply flex flex-col items-center pt-2 pb-1 border-b border-stone-100 dark:border-slate-800 bg-stone-50 dark:bg-slate-900 rounded-t-3xl sticky top-0 z-10;
+  }
 
-    .is-mobile .rfm-modal-handle {
-        @apply block w-16 h-1.5 bg-stone-300 dark:bg-slate-700/80 rounded-full mx-auto mt-2 mb-1 shrink-0 cursor-pointer active:scale-95 transition-transform;
-    }
+  .rfm-context-menu-header {
+    @apply text-stone-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-widest px-6 py-2 w-full text-center truncate;
+  }
 
-    .rfm-context-menu-handle-wrapper {
-        @apply flex flex-col items-center pt-2 pb-1 border-b border-stone-100 dark:border-slate-800 bg-stone-50 dark:bg-slate-900 rounded-t-3xl sticky top-0 z-10;
-    }
+  .rfm-context-menu-body {
+    @apply py-2 max-h-[70vh] overflow-y-auto;
+    scrollbar-width: none;
+  }
 
-    .rfm-context-menu-header {
-        @apply text-stone-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-widest px-6 py-2 w-full text-center truncate;
-    }
+  .rfm-context-menu-body::-webkit-scrollbar {
+    display: none;
+  }
 
-    .rfm-context-menu-body {
-        @apply py-2 max-h-[70vh] overflow-y-auto;
-        scrollbar-width: none;
-    }
+  .rfm-context-menu-item {
+    @apply flex items-center gap-3 px-3 py-2 text-sm text-stone-700 cursor-pointer transition-colors duration-200 hover:bg-stone-100 active:bg-stone-200 dark:text-slate-300 dark:hover:bg-slate-800 dark:active:bg-slate-700;
+    /* Eliminate 300ms tap delay on iOS Safari */
+    touch-action: manipulation;
+  }
 
-    .rfm-context-menu-body::-webkit-scrollbar {
-        display: none;
-    }
+  .is-mobile .rfm-context-menu-item {
+    @apply px-6 py-4 text-[17px] font-medium;
+  }
 
-    .rfm-context-menu-item {
-        @apply flex items-center gap-3 px-3 py-2 text-sm text-stone-700 cursor-pointer transition-colors duration-200 hover:bg-stone-100 active:bg-stone-200 dark:text-slate-300 dark:hover:bg-slate-800 dark:active:bg-slate-700;
-        /* Eliminate 300ms tap delay on iOS Safari */
-        touch-action: manipulation;
-    }
+  .rfm-context-menu-icon {
+    @apply w-4 h-4 fill-stone-500 dark:fill-slate-400;
+  }
 
-    .is-mobile .rfm-context-menu-item {
-        @apply px-6 py-4 text-[17px] font-medium;
-    }
+  .is-mobile .rfm-context-menu-icon {
+    @apply w-6 h-6;
+  }
 
-    .rfm-context-menu-icon {
-        @apply w-4 h-4 fill-stone-500 dark:fill-slate-400;
-    }
-
-    .is-mobile .rfm-context-menu-icon {
-        @apply w-6 h-6;
-    }
-
-    .rfm-context-menu-item.disabled {
-        @apply text-stone-400 cursor-default hover:bg-transparent;
-    }
+  .rfm-context-menu-item.disabled {
+    @apply text-stone-400 cursor-default hover:bg-transparent;
+  }
 }

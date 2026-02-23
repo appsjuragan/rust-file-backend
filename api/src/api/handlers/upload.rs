@@ -90,7 +90,12 @@ pub async fn upload_chunk_handler(
 
     let res: UploadPartResponse = state
         .upload_service
-        .upload_chunk(claims.sub, session_id, part_number, body.to_vec())
+        .upload_chunk(
+            claims.sub,
+            session_id.to_string(),
+            part_number,
+            body.to_vec(),
+        )
         .await
         .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
 
@@ -124,7 +129,7 @@ pub async fn complete_upload_handler(
 
     let res: FileResponse = state
         .upload_service
-        .complete_upload(claims.sub, session_id, req)
+        .complete_upload(claims.sub, session_id.to_string(), req)
         .await
         .map_err(|e: anyhow::Error| AppError::BadRequest(e.to_string()))?;
 
@@ -156,7 +161,7 @@ pub async fn abort_upload_handler(
 
     state
         .upload_service
-        .abort_upload(claims.sub, session_id)
+        .abort_upload(claims.sub, session_id.to_string())
         .await
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
 

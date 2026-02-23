@@ -1,77 +1,77 @@
 :root {
-    --primary: #4f6d7a;
-    --primary-hover: #3a5565;
-    --bg: #f0ece4;
-    --card-bg: #faf8f5;
-    --text: #2c2c2c;
-    --text-muted: #6b6560;
-    --error: #c0392b;
-    --border: #d9d3cb;
-    --header-bg: #faf8f5;
-    --card-bg-rgb: 250, 248, 245;
-    --primary-rgb: 79, 109, 122;
+  --primary: #4f6d7a;
+  --primary-hover: #3a5565;
+  --bg: #f0ece4;
+  --card-bg: #faf8f5;
+  --text: #2c2c2c;
+  --text-muted: #6b6560;
+  --error: #c0392b;
+  --border: #d9d3cb;
+  --header-bg: #faf8f5;
+  --card-bg-rgb: 250, 248, 245;
+  --primary-rgb: 79, 109, 122;
 }
 
-[data-theme='dark'] {
-    --bg: #0f172a;
-    --card-bg: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    --header-bg: #1e293b;
-    --card-bg-rgb: 30, 41, 59;
-    --primary-rgb: 99, 102, 241;
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --header-bg: #1e293b;
+  --card-bg-rgb: 30, 41, 59;
+  --primary-rgb: 99, 102, 241;
 }
 
 body {
-    margin: 0;
-    font-family: 'Amarna', Arial, sans-serif;
-    background-color: var(--bg);
-    color: var(--text);
-    transition: background-color 0.3s, color 0.3s;
+  margin: 0;
+  font-family: "Amarna", Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Common utilities */
 .container {
-    padding: 0 1rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
+  padding: 0 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Spinner small - globally useful */
 .spinner-small {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 1s ease-in-out infinite;
-    display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  display: inline-block;
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
+  background: var(--border);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+  background: var(--text-muted);
 }
