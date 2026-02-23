@@ -94,8 +94,29 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: auto;
-  height: auto;
+  width: 48px;
+  height: 48px;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.dark .rfm-file-icon-wrapper {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.rfm-list-icon .rfm-file-icon-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.rfm-file-icon-wrapper img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  display: block;
 }
 
 .rfm-file-icon-favorite-badge {
@@ -141,7 +162,27 @@
 }
 
 .rfm-file-item:hover .rfm-file-icon-wrapper {
-  transform: scale(1.1);
+  transform: scale(1.05);
+}
+
+/* Grid View specific Hero Thumbnails */
+.rfm-grid-icon {
+  width: 100%;
+  max-width: 140px;
+  /* Prevent it from being TOO huge on very wide grid items */
+}
+
+.rfm-grid-icon .rfm-file-icon-wrapper {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  /* Match standard square icons */
+}
+
+.rfm-grid-icon .rfm-file-icon-svg {
+  width: 50% !important;
+  height: 50% !important;
+  margin: auto;
 }
 
 /* Custom coloring if needed */
@@ -154,68 +195,46 @@
 }
 
 /* Category Colors */
-.rfm-file-icon-container[data-color="image"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="image"] .rfm-file-icon-svg polygon:first-child {
   fill: #81c784;
 }
 
-.rfm-file-icon-container[data-color="video"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="video"] .rfm-file-icon-svg polygon:first-child {
   fill: #ba68c8;
 }
 
-.rfm-file-icon-container[data-color="pdf"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="pdf"] .rfm-file-icon-svg polygon:first-child {
   fill: #e57373;
 }
 
-.rfm-file-icon-container[data-color="word"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="word"] .rfm-file-icon-svg polygon:first-child {
   fill: #64b5f6;
 }
 
-.rfm-file-icon-container[data-color="excel"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="excel"] .rfm-file-icon-svg polygon:first-child {
   fill: #4db6ac;
 }
 
-.rfm-file-icon-container[data-color="powerpoint"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="powerpoint"] .rfm-file-icon-svg polygon:first-child {
   fill: #ffb74d;
 }
 
-.rfm-file-icon-container[data-color="archive"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="archive"] .rfm-file-icon-svg polygon:first-child {
   fill: #ffd54f;
 }
 
-.rfm-file-icon-container[data-color="text"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="text"] .rfm-file-icon-svg polygon:first-child {
   fill: #90a4ae;
 }
 
-.rfm-file-icon-container[data-color="audio"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="audio"] .rfm-file-icon-svg polygon:first-child {
   fill: #ff8a65;
 }
 
-.rfm-file-icon-container[data-color="code"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="code"] .rfm-file-icon-svg polygon:first-child {
   fill: #7986cb;
 }
 
-.rfm-file-icon-container[data-color="default"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="default"] .rfm-file-icon-svg polygon:first-child {
   fill: #90caf9;
 }
