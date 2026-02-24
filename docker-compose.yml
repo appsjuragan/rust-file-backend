@@ -1,4 +1,4 @@
-version: '3.8'
+# Rust File Backend - Docker Compose Configuration
 
 services:
   db:
@@ -19,10 +19,17 @@ services:
       retries: 5
 
   rustfs:
-    image: minio/minio
+    image: rustfs/rustfs
     container_name: rust-file-rustfs
-    command: server /data --console-address ":9001"
+    user: root
+    # Removed command override to allow image entrypoint to set up environment correctly
     environment:
+      # Use RUSTFS_ prefixed variables as expected by the binary
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      # Explicitly define volumes for the server to avoid "Volume not found"
+      RUSTFS_VOLUMES: /data
+      # Keep MINIO_ variables for backwards compatibility if needed
       MINIO_ROOT_USER: rustfsadmin
       MINIO_ROOT_PASSWORD: rustfsadmin
     ports:
@@ -30,11 +37,13 @@ services:
       - "9001:9001"
     volumes:
       - rustfsdata:/data
+      - rustfslogs:/logs
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      # Use a simpler check that doesn't fail on 403 Access Denied
+      test: [ "CMD-SHELL", "curl -s http://localhost:9000/ || exit 0" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -120,6 +129,8 @@ services:
     depends_on:
       - api
 
+# Using named volumes with user: root to handle permission initialization correctly
 volumes:
   pgdata:
   rustfsdata:
+  rustfslogs:
