@@ -18,9 +18,9 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
+  rustfs:
     image: minio/minio
-    container_name: rust-file-minio
+    container_name: rust-file-rustfs
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: rustfsadmin
@@ -29,7 +29,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - miniodata:/data
+      - rustfsdata:/data
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
@@ -44,7 +44,7 @@ services:
     restart: on-failure
     environment:
       DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: http://rustfs:9000
       MINIO_ACCESS_KEY: rustfsadmin
       MINIO_SECRET_KEY: rustfsadmin
       MINIO_BUCKET: filebe
@@ -59,7 +59,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
 
   worker:
@@ -71,7 +71,7 @@ services:
     command: [ "--mode", "worker" ]
     environment:
       DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: http://rustfs:9000
       MINIO_ACCESS_KEY: rustfsadmin
       MINIO_SECRET_KEY: rustfsadmin
       MINIO_BUCKET: filebe
@@ -81,7 +81,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
 
   thumbnail-worker:
@@ -93,7 +93,7 @@ services:
     command: [ "--mode", "thumbnail-worker" ]
     environment:
       DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: http://rustfs:9000
       MINIO_ACCESS_KEY: rustfsadmin
       MINIO_SECRET_KEY: rustfsadmin
       MINIO_BUCKET: filebe
@@ -102,7 +102,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
 
   web:
@@ -122,4 +122,4 @@ services:
 
 volumes:
   pgdata:
-  miniodata:
+  rustfsdata:
