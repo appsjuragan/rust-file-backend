@@ -132,6 +132,14 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             ))
             .await;
 
+        // Manual check for has_thumbnail column in storage_files (added in migration 20260224000000)
+        let _ = db
+            .execute(sea_orm::Statement::from_string(
+                builder,
+                "ALTER TABLE storage_files ADD COLUMN has_thumbnail BOOLEAN NOT NULL DEFAULT FALSE;".to_string(),
+            ))
+            .await;
+
         // Manual check for missing indexes if any
         let _ = db.execute(sea_orm::Statement::from_string(
             builder,

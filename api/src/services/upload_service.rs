@@ -146,8 +146,8 @@ impl UploadService {
         part_number: i32,
         data: Vec<u8>,
     ) -> Result<UploadPartResponse> {
-        let session = upload_sessions::Entity::find_by_id(session_id.clone())
-            .filter(upload_sessions::Column::UserId.eq(user_id.clone()))
+        let session = upload_sessions::Entity::find_by_id(&session_id)
+            .filter(upload_sessions::Column::UserId.eq(&user_id))
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow!("Upload session not found"))?;
