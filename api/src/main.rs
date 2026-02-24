@@ -104,6 +104,7 @@ async fn main() -> anyhow::Result<()> {
 
                         let files_res = storage_files::Entity::find()
                             .filter(storage_files::Column::HasThumbnail.eq(false))
+                            .filter(storage_files::Column::IsEncrypted.eq(false))
                             .filter(
                                 sea_orm::Condition::any()
                                     .add(storage_files::Column::MimeType.like("image/%"))

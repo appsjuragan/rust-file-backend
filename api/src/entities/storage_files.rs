@@ -18,6 +18,8 @@ pub struct Model {
     pub content_type: Option<String>,
     #[sea_orm(default_expr = "Expr::value(false)")]
     pub has_thumbnail: bool,
+    #[sea_orm(default_expr = "Expr::value(false)")]
+    pub is_encrypted: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -14,6 +14,7 @@ pub struct MetadataResult {
     pub category: String,
     pub metadata: Value,
     pub suggested_tags: Vec<String>,
+    pub is_encrypted: bool,
 }
 
 pub struct MetadataService;
@@ -73,6 +74,7 @@ impl MetadataService {
                 "extension": extension
             }),
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted: false,
         }
     }
 
@@ -134,6 +136,7 @@ impl MetadataService {
             category: "image".to_string(),
             metadata: meta,
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted: false,
         }
     }
 
@@ -191,6 +194,7 @@ impl MetadataService {
             category: category.to_string(),
             metadata: meta,
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted: false,
         }
     }
 
@@ -203,29 +207,39 @@ impl MetadataService {
             "size_bytes": bytes.len(),
         });
 
-        if let Ok(doc) = lopdf::Document::load_mem(bytes) {
-            meta["page_count"] = json!(doc.get_pages().len());
+        let mut is_encrypted = false;
+        match lopdf::Document::load_mem(bytes) {
+            Ok(doc) => {
+                meta["page_count"] = json!(doc.get_pages().len());
 
-            // Extract Info dictionary
-            if let Ok(info_val) = doc.trailer.get(b"Info") {
-                // Fix: trailer.get returns Result
-                if let Ok(info_dict) = info_val
-                    .as_reference()
-                    .and_then(|id| doc.get_object(id))
-                    .and_then(|obj| obj.as_dict())
-                {
-                    for (key, val) in info_dict.iter() {
-                        let key_str = String::from_utf8_lossy(key).to_string();
-                        if let Ok(s) = val.as_str() {
-                            let val_str = String::from_utf8_lossy(s).to_string();
-                            if !val_str.is_empty()
-                                && ["Title", "Author", "Subject", "Creator"]
-                                    .contains(&key_str.as_str())
-                            {
-                                meta[key_str.to_lowercase()] = json!(val_str);
+                // Extract Info dictionary
+                if let Ok(info_val) = doc.trailer.get(b"Info") {
+                    // Fix: trailer.get returns Result
+                    if let Ok(info_dict) = info_val
+                        .as_reference()
+                        .and_then(|id| doc.get_object(id))
+                        .and_then(|obj| obj.as_dict())
+                    {
+                        for (key, val) in info_dict.iter() {
+                            let key_str = String::from_utf8_lossy(key).to_string();
+                            if let Ok(s) = val.as_str() {
+                                let val_str = String::from_utf8_lossy(s).to_string();
+                                if !val_str.is_empty()
+                                    && ["Title", "Author", "Subject", "Creator"]
+                                        .contains(&key_str.as_str())
+                                {
+                                    meta[key_str.to_lowercase()] = json!(val_str);
+                                }
                             }
                         }
                     }
+                }
+            }
+            Err(e) => {
+                let err_msg = e.to_string().to_lowercase();
+                if err_msg.contains("password") || err_msg.contains("encrypted") {
+                    is_encrypted = true;
+                    tags.insert("encrypted".to_string());
                 }
             }
         }
@@ -234,6 +248,7 @@ impl MetadataService {
             category: "document".to_string(),
             metadata: meta,
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted,
         }
     }
 
@@ -357,6 +372,7 @@ impl MetadataService {
             category: "document".to_string(),
             metadata: meta,
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted: false,
         }
     }
 
@@ -374,6 +390,7 @@ impl MetadataService {
                 "word_count": words
             }),
             suggested_tags: tags.into_iter().collect(),
+            is_encrypted: false,
         }
     }
 }

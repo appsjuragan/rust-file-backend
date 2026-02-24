@@ -47,14 +47,32 @@ impl ThumbnailService {
         let data = self.storage.get_file(&file.s3_key).await?;
 
         // Check if we can generate a thumbnail for this mime type
-        let thumb_data = if mime_type.starts_with("image/") {
-            self.generate_image_thumbnail(&data)?
+        let thumb_data_res = if mime_type.starts_with("image/") {
+            self.generate_image_thumbnail(&data)
         } else if mime_type == "application/pdf" {
-            self.generate_pdf_thumbnail(&data).await?
+            self.generate_pdf_thumbnail(&data).await
         } else if mime_type.starts_with("video/") {
-            self.generate_video_thumbnail(&data).await?
+            self.generate_video_thumbnail(&data).await
         } else {
             return Err(anyhow!("Unsupported mime type for thumbnail generation"));
+        };
+
+        let thumb_data = match thumb_data_res {
+            Ok(data) => data,
+            Err(e) => {
+                let err_msg = e.to_string().to_lowercase();
+                if err_msg.contains("password") || err_msg.contains("encrypted") {
+                    info!(
+                        "File {} is password protected, flagging as encrypted and skipping thumbnail",
+                        storage_file_id
+                    );
+                    let mut active_model: storage_files::ActiveModel = file.into();
+                    active_model.is_encrypted = Set(true);
+                    active_model.update(&self.db).await?;
+                    return Ok(());
+                }
+                return Err(e);
+            }
         };
 
         // Upload thumbnail to MinIO as WebP

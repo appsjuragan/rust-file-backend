@@ -186,6 +186,7 @@ impl FileService {
                 .as_str()
                 .unwrap_or("application/octet-stream")
                 .to_string();
+            let is_encrypted = analysis.is_encrypted;
             analysis_result = Some(analysis);
 
             let id = Uuid::new_v4().to_string();
@@ -215,6 +216,7 @@ impl FileService {
                 size: Set(staged.size),
                 ref_count: Set(1),
                 mime_type: Set(Some(mime_type)),
+                is_encrypted: Set(is_encrypted),
                 scan_status: Set(Some(scan_status)),
                 scan_result: Set(None),
                 scanned_at: Set(None),
