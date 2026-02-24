@@ -25,6 +25,7 @@ interface IFileIcon {
   isFavorite?: boolean;
   hasThumbnail?: boolean;
   scanStatus?: string;
+  isEncrypted?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
@@ -126,9 +127,9 @@ const FileIcon = (props: IFileIcon) => {
 
   // Check if this file type supports thumbnails
   const supportsThumbnail = useMemo(() => {
-    if (props.isDir) return false;
+    if (props.isDir || props.isEncrypted) return false;
     return THUMBNAIL_EXTENSIONS.has(fileExtension.toLowerCase());
-  }, [props.isDir, fileExtension]);
+  }, [props.isDir, props.isEncrypted, fileExtension]);
 
   // Fetch thumbnail blob
   const fetchThumbnail = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
@@ -150,7 +151,7 @@ const FileIcon = (props: IFileIcon) => {
   // Primary effect: load thumbnail immediately if available
   useEffect(() => {
     if (thumbnailUrl) return; // Already loaded
-    if (props.isDir) return;
+    if (props.isDir || props.isEncrypted) return;
 
     const controller = new AbortController();
 

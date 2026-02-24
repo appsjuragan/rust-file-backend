@@ -119,8 +119,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         ? data.avatar_url.startsWith("http")
           ? data.avatar_url
           : data.avatar_url.startsWith("/")
-          ? `${BASE}${data.avatar_url}`
-          : userService.getAvatar(data.id)
+            ? `${BASE}${data.avatar_url}`
+            : userService.getAvatar(data.id)
         : undefined;
 
       setProfile({
@@ -246,6 +246,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             extraMetadata: item.extra_metadata,
             isFavorite: item.is_favorite,
             path: item.path,
+            isEncrypted: item.is_encrypted,
           }));
           setSearchSuggestions(mappedResults);
         } catch (error) {

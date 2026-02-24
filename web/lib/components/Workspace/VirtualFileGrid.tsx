@@ -385,6 +385,7 @@ const Cell = memo(
             isDir={f.isDir}
             isFavorite={f.isFavorite}
             hasThumbnail={f.hasThumbnail}
+            isEncrypted={f.isEncrypted}
             scanStatus={f.scanStatus as any}
           />
           {isPending && (

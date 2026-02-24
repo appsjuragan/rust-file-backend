@@ -34,6 +34,7 @@ export const getColumns = () => [
               isDir={info.row.original.isDir}
               isFavorite={info.row.original.isFavorite}
               hasThumbnail={info.row.original.hasThumbnail}
+              isEncrypted={info.row.original.isEncrypted}
               hideName={true}
               className="rfm-list-icon opacity-70"
             />
@@ -58,6 +59,7 @@ export const getColumns = () => [
             isDir={info.row.original.isDir}
             isFavorite={info.row.original.isFavorite}
             hasThumbnail={info.row.original.hasThumbnail}
+            isEncrypted={info.row.original.isEncrypted}
             hideName={true}
             className="rfm-list-icon"
           />

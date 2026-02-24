@@ -48,6 +48,7 @@ pub struct FileMetadataResponse {
     pub hash: Option<String>,
     pub is_favorite: bool,
     pub has_thumbnail: bool,
+    pub is_encrypted: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -757,6 +758,10 @@ pub async fn list_files(
                 .as_ref()
                 .map(|s| s.has_thumbnail)
                 .unwrap_or(false),
+            is_encrypted: storage_file
+                .as_ref()
+                .map(|s| s.is_encrypted)
+                .unwrap_or(false),
         });
     }
 
@@ -824,6 +829,7 @@ pub async fn create_folder(
         hash: None,
         is_favorite: res.is_favorite,
         has_thumbnail: false,
+        is_encrypted: false,
     }))
 }
 
@@ -885,6 +891,7 @@ pub async fn get_folder_path(
                 hash: None,
                 is_favorite: folder.is_favorite,
                 has_thumbnail: false,
+                is_encrypted: false,
             },
         );
 
@@ -992,6 +999,10 @@ pub async fn toggle_favorite(
         has_thumbnail: storage_file
             .as_ref()
             .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
+        is_encrypted: storage_file
+            .as_ref()
+            .map(|s| s.is_encrypted)
             .unwrap_or(false),
     }))
 }
@@ -1452,6 +1463,10 @@ async fn return_file_metadata(
         has_thumbnail: storage_file
             .as_ref()
             .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
+        is_encrypted: storage_file
+            .as_ref()
+            .map(|s| s.is_encrypted)
             .unwrap_or(false),
     }))
 }

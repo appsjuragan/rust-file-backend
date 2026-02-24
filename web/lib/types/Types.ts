@@ -48,6 +48,8 @@ export interface BackendFile {
   extraMetadata?: any;
   has_thumbnail?: boolean;
   hasThumbnail?: boolean;
+  is_encrypted?: boolean;
+  isEncrypted?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -72,6 +74,7 @@ export type FileType = {
   expiresAt?: string;
   isFavorite?: boolean;
   hasThumbnail?: boolean;
+  isEncrypted?: boolean;
 };
 
 export type FileSystemType = FileType[];

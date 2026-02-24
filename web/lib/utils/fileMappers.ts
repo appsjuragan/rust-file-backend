@@ -23,6 +23,7 @@ export const mapApiFileToFileType = (item: BackendFile): FileType => {
     hash: item.hash,
     isFavorite: item.is_favorite ?? item.isFavorite ?? false,
     hasThumbnail: item.has_thumbnail ?? item.hasThumbnail ?? false,
+    isEncrypted: item.is_encrypted ?? item.isEncrypted ?? false,
     extraMetadata: item.extra_metadata || item.extraMetadata,
   };
 };
