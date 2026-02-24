@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS upload_sessions (
     total_size BIGINT NOT NULL,
     total_chunks INT NOT NULL,
     uploaded_chunks INT DEFAULT 0,
-    parts TEXT DEFAULT '[]',
+    parts JSONB DEFAULT '[]',
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMPTZ NOT NULL
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS file_metadata (
     id TEXT PRIMARY KEY NOT NULL,
     storage_file_id TEXT NOT NULL,
     category TEXT NOT NULL,
-    metadata TEXT DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE CASCADE
 );
 

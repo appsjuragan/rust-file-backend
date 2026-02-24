@@ -67,6 +67,9 @@ clap = { version = "4.0", features = ["derive"] }
 dashmap = "6.1.0"
 url = "2.5"
 
+[profile.dev]
+incremental = false
+
 # Optimize dependencies in debug builds to make hashing/crypto fast
 [profile.dev.package."*"]
 opt-level = 3
