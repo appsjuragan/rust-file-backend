@@ -124,28 +124,6 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             let _ = db.execute(stmt).await;
         }
 
-        // Manual check for is_favorite column in user_files (added in migration 20260217000000)
-        let _ = db
-            .execute(sea_orm::Statement::from_string(
-                builder,
-                "ALTER TABLE user_files ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE;".to_string(),
-            ))
-            .await;
-
-        // Manual check for has_thumbnail column in storage_files (added in migration 20260224000000)
-        let _ = db
-            .execute(sea_orm::Statement::from_string(
-                builder,
-                "ALTER TABLE storage_files ADD COLUMN has_thumbnail BOOLEAN NOT NULL DEFAULT FALSE;".to_string(),
-            ))
-            .await;
-
-        // Manual check for missing indexes if any
-        let _ = db.execute(sea_orm::Statement::from_string(
-            builder,
-            "CREATE INDEX IF NOT EXISTS idx_user_files_is_favorite ON user_files(is_favorite) WHERE is_favorite = TRUE;".to_string(),
-        )).await;
-
         // Seed validation data for SQLite
         crate::infrastructure::seed::seed_validation_data_sqlite(db).await?;
     }
