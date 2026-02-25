@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.9-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -35,12 +35,47 @@
 - Multi-GB file support on unstable connections
 - Configurable chunk sizes (default: 10MB)
 
+### 🔗 File Sharing System
+- **Public Share Links:** Time-limited, token-based sharing with unique URLs
+- **Password Protection:** Argon2-hashed passwords for sensitive shares
+- **Granular Permissions:** `view` (inline preview) or `download` (attachment) modes
+- **Folder Sharing:** Share entire folders with browsable file listings
+- **Access Logging:** Track views, downloads, and password attempts with IP/User-Agent
+- **Public Share Page:** Beautiful, responsive frontend for recipients
+- **Media Preview:** Inline image, video, audio, and PDF preview on shared links
+
+### 🖼️ Automatic Thumbnail Generation
+- **WebP Format:** Optimized thumbnails (256px) for minimal bandwidth
+- **Multi-Format Support:** Images, PDFs (via `pdftocairo`), and Videos (via `ffmpeg`)
+- **Encrypted File Detection:** Skips password-protected PDFs gracefully
+- **Dedicated Worker:** Separate `thumbnail-worker` process for asynchronous generation
+- **Lazy Loading:** Frontend loads thumbnails asynchronously with smooth animations
+
 ### 📋 Advanced File Operations
 - **Copy/Paste:** Recursive folder duplication with deduplication
 - **Bulk Actions:** Move, delete, and copy multiple items
 - **Archive Preview:** Inspect ZIP, 7z, RAR, TAR without extraction
 - **Download Tickets:** Time-limited shareable links
 - **PDF Preview:** Inline document viewing
+- **Favorites:** Star/unstar files and folders for quick access
+
+### 🔗 File Sharing
+- **Share Links:** Public or user-specific sharing with configurable permissions
+- **Password Protection:** Argon2id-hashed passwords for secure access
+- **Expiration Control:** Configurable expiry up to 1 year
+- **View/Download Modes:** Inline display or attachment download
+- **Access Logging:** Track views, downloads, and password attempts
+- **Public Share Page:** Standalone viewer with media preview
+
+### 🔍 Advanced Search & Filtering
+- **Full-Text Search:** Real-time filename search with debouncing
+- **Fuzzy/Similarity Search:** Find files even with typos
+- **Regex & Wildcard:** Power-user search patterns
+- **Tag Filtering:** Filter by user-defined tags
+- **Category Filtering:** Filter by auto-detected file categories
+- **Date Range:** Filter files by creation date
+- **Size Range:** Filter files by size boundaries
+- **Favorites Filter:** Show only starred items
 
 ---
 
@@ -54,9 +89,14 @@
 │  Frontend   │      │  (Rust)      │      │  Database    │
 └─────────────┘      └──────────────┘      └─────────────┘
                             │
-                            ├─────▶ S3/MinIO (File Storage)
-                            ├─────▶ Redis (Cache/Sessions)
+                            ├─────▶ S3/RustFS (File Storage)
                             └─────▶ ClamAV (Virus Scanning)
+
+┌──────────────────────────────────────────────────────────┐
+│  Background Workers (separate processes)                 │
+│  ├── Worker: Virus scanning, cleanup, facts updates      │
+│  └── Thumbnail Worker: WebP thumbnail generation         │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### Backend (`api/`)
@@ -70,8 +110,8 @@
 - **Runtime:** Tokio async
 
 **Key Modules:**
-- `api/handlers/` — HTTP request handlers (auth, files, upload, captcha, users, settings, health)
-- `services/` — Business logic (file, upload, metadata, scanner, audit, facts, worker)
+- `api/handlers/` — HTTP request handlers (auth, files, upload, captcha, users, settings, shares, health)
+- `services/` — Business logic (file, upload, metadata, scanner, audit, facts, share, thumbnail, worker)
 - `entities/` — Database models (SeaORM)
 - `infrastructure/` — Storage, database, scanner adapters
 - `utils/` — Validation, auth, encryption helpers
@@ -83,6 +123,9 @@
 - Metadata extraction (EXIF, ID3, PDF, Office)
 - Recursive folder operations
 - Download ticket generation
+- File sharing with password protection and access logs
+- WebP thumbnail generation (images, PDFs, videos)
+- Favorites and folder tree navigation
 
 ### Frontend (`web/`)
 
@@ -98,9 +141,10 @@
 **Key Components:**
 - `features/dashboard/` — Main file manager interface
 - `features/auth/` — Login, register, OIDC
+- `features/share/` — Public share page (password gate, media preview, folder browsing)
 - `lib/` — Reusable file manager library
-- `services/` — API client (upload, file operations)
-- `components/` — Modals, toasts, context menus
+- `services/` — API client (upload, file operations, sharing)
+- `components/` — Modals, toasts, context menus, sidebar with shares
 
 **Features:**
 - Drag-and-drop file upload
@@ -110,6 +154,11 @@
 - File preview modals (images, PDF, archives)
 - Archive content inspection
 - Responsive grid/list views
+- Thumbnail previews with lazy loading
+- Share management (create, revoke, view logs)
+- Public share page with media viewer
+- Sidebar with active shares navigation
+- Favorites toggle and filtering
 
 ---
 
@@ -119,9 +168,11 @@
 - [Rust](https://rustup.rs/) 1.84+
 - [Bun](https://bun.sh/) 1.1+
 - PostgreSQL 14+ (or SQLite for development)
-- MinIO or AWS S3
+- RustFS, MinIO, or AWS S3
 - Redis (optional, for caching)
 - ClamAV (optional, for scanning)
+- `pdftocairo` (optional, for PDF thumbnails)
+- `ffmpeg` (optional, for video thumbnails)
 
 ### Local Development
 
@@ -145,6 +196,9 @@ cargo run --bin rust-file-backend -- --mode api
 
 # Start background worker (separate terminal)
 cargo run --bin rust-file-backend -- --mode worker
+
+# Start thumbnail worker (separate terminal)
+cargo run --bin rust-file-backend -- --mode thumbnail-worker
 ```
 
 3. **Frontend Setup**
@@ -186,21 +240,26 @@ docker build --build-arg VITE_API_URL=https://your-api-domain.com -t rfb-web:lat
 Official images are available on **GitHub Container Registry**:
 
 ```bash
-# Pull Backend (v7-beta)
-docker pull ghcr.io/appsjuragan/rust-file-backend-api:v7-beta
+# Pull Backend (v9)
+docker pull ghcr.io/appsjuragan/rust-file-backend-api:v9
 
-# Pull Frontend (v7-beta)
-docker pull ghcr.io/appsjuragan/rust-file-backend-web:v7-beta
+# Pull Frontend (v9)
+docker pull ghcr.io/appsjuragan/rust-file-backend-web:v9
 ```
 
-### Production Notes
+### Production Compose Stack
 
 The compose stack includes:
 - **API server** — Axum HTTP service
 - **Background worker** — Virus scanning, cleanup, facts updates
+- **Thumbnail worker** — WebP thumbnail generation (images, PDFs, videos)
 - **PostgreSQL** — Primary database
-- **Redis** — Caching layer
-- **MinIO** — S3-compatible object storage
+- **RustFS** — S3-compatible object storage
+- **Web** — Nginx-served React frontend
+
+```bash
+docker compose up -d
+```
 
 ---
 
@@ -220,12 +279,14 @@ The compose stack includes:
 - `PUT /files/upload/:id/chunk/:num` — Upload chunk
 - `POST /files/upload/:id/complete` — Finalize upload
 - `DELETE /files/upload/:id` — Abort chunked upload
-- `GET /files` — List files (with pagination & search)
+- `GET /files` — List files (with pagination, search, filters)
 - `GET /files/:id` — Download file
 - `POST /files/:id/ticket` — Generate download ticket
 - `GET /download/:ticket` — Download via ticket
 - `DELETE /files/:id` — Delete file/folder
 - `PUT /files/:id/rename` — Rename or move item
+- `POST /files/:id/favorite` — Toggle favorite status
+- `GET /files/:id/thumbnail` — Get WebP thumbnail
 
 ### Bulk Operations
 - `POST /files/bulk-delete` — Delete multiple items
@@ -234,7 +295,20 @@ The compose stack includes:
 
 ### Folders
 - `POST /folders` — Create new folder
+- `GET /folders/tree` — Get full folder tree for navigation
 - `GET /files/:id/path` — Get folder breadcrumb path
+
+### Sharing
+- `POST /shares` — Create a share link (public/user, password, permissions)
+- `GET /shares` — List user's shares (optionally filter by file)
+- `DELETE /shares/:id` — Revoke a share link
+- `GET /shares/:id/logs` — Get share access logs
+
+### Public Share (No Auth Required)
+- `GET /share/:token` — Get shared item info (filename, type, permissions)
+- `POST /share/:token/verify` — Verify share password
+- `GET /share/:token/download` — Download shared file (with optional `file_id` for folder items)
+- `GET /share/:token/list` — List shared folder contents
 
 ### Advanced
 - `POST /pre-check` — Check if file exists (deduplication)
@@ -262,8 +336,9 @@ Full API documentation available at `/swagger-ui` endpoint.
 
 Import `api/postman_collection.json` for ready-to-use API requests with:
 - Pre-configured authentication
-- Example payloads
+- Example payloads for all endpoints including sharing
 - Environment variables
+- Postman test scripts for auto-setting tokens
 
 ---
 
@@ -321,7 +396,6 @@ All code follows:
 ### Backend Environment Variables
 ```env
 DATABASE_URL=postgresql://user:pass@localhost/rfb
-REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-secret-key
 # OIDC (optional)
 OIDC_ISSUER_URL=https://accounts.google.com
@@ -329,10 +403,11 @@ OIDC_CLIENT_ID=your-client-id
 OIDC_CLIENT_SECRET=your-client-secret
 OIDC_REDIRECT_URL=http://localhost:3000/auth/oidc/callback
 OIDC_SKIP_DISCOVERY=false
-S3_ENDPOINT=http://localhost:9000
-S3_BUCKET=file-storage
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_BUCKET=file-storage
+MINIO_ACCESS_KEY=rustfsadmin
+MINIO_SECRET_KEY=rustfsadmin
+MINIO_REGION=us-east-1
 CHUNK_SIZE=10485760
 MAX_FILE_SIZE=1073741824
 CLAMAV_HOST=localhost
@@ -392,6 +467,9 @@ Created with ❤️ by the **AppsJuragan** team.
 - [ ] WebDAV support
 - [ ] Real-time collaboration
 - [ ] File versioning
-- [ ] Advanced search with filters
-- [ ] Mobile app (React Native)
+- [x] ~~Advanced search with filters~~
+- [ ] Mobile app (Capacitor)
 - [ ] End-to-end encryption option
+- [x] ~~File sharing with public links~~
+- [x] ~~Thumbnail generation~~
+- [x] ~~Favorites system~~

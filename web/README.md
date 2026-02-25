@@ -1,6 +1,6 @@
-# 🌐 RFB Web Frontend (v1.0.8)
+# 🌐 RFB Web Frontend (v1.1.0)
 
-The frontend is a modern React application built with **Vite**, **TypeScript**, and **Tailwind CSS**. It provides an intuitive, glassmorphic interface for file management with advanced features like drag-and-drop, chunked uploads, and bulk operations.
+The frontend is a modern React application built with **Vite**, **TypeScript**, and **Tailwind CSS**. It provides an intuitive, glassmorphic interface for file management with advanced features like drag-and-drop, chunked uploads, file sharing, thumbnail previews, and bulk operations.
 
 ---
 
@@ -39,10 +39,13 @@ web/
 │   ├── features/              # Feature modules
 │   │   ├── auth/              # Login, register, OIDC
 │   │   ├── dashboard/         # Main file manager
-│   │   └── settings/          # User preferences
+│   │   ├── settings/          # User preferences
+│   │   └── share/             # Public share page
+│   │       ├── PublicSharePage.tsx  # Share viewer (password gate, media preview, folder browsing)
+│   │       └── PublicSharePage.css  # Share page styles
 │   ├── services/              # API clients
 │   │   ├── httpClient.ts      # Fetch wrapper with auth
-│   │   ├── fileService.ts     # File operations API
+│   │   ├── fileService.ts     # File operations + sharing API
 │   │   └── uploadService.ts   # Chunked upload logic
 │   ├── components/            # Shared UI components
 │   │   ├── Layout/            # Header, sidebar, footer
@@ -53,10 +56,12 @@ web/
 ├── lib/                       # Reusable file manager library
 │   ├── components/            # File manager components
 │   │   ├── ContextMenu/       # Right-click menu
-│   │   ├── Modals/            # Preview, rename, metadata
+│   │   ├── Icons/             # SVG file type icons with thumbnails
+│   │   ├── Layout/            # Sidebar with share navigation
+│   │   ├── Modals/            # Preview, rename, metadata, share
 │   │   ├── Toasts/            # Upload progress, notifications
-│   │   └── Workspace/         # File grid/list views
-│   ├── context/               # React context providers
+│   │   └── Workspace/         # File grid/list views, folder path
+│   ├── context/               # React context providers (FileManagerContext)
 │   ├── types/                 # TypeScript interfaces
 │   └── utils/                 # File utilities
 ├── public/                    # Static assets
@@ -96,11 +101,13 @@ web/
 - Copy/paste with recursive folder duplication
 - Cut/paste for moving items
 - Archive preview (ZIP, 7z, RAR, TAR)
+- Toggle favorites (star/unstar)
 
 **Navigation:**
 - Breadcrumb path navigation
 - Grid and list view modes
 - Infinite scroll pagination
+- Folder tree for move/copy target selection
 - Real-time search with debouncing
 - Keyboard shortcuts (Ctrl+A, Ctrl+C, Ctrl+V, Delete)
 
@@ -110,6 +117,39 @@ web/
 - Metadata inspection
 - Upload progress toasts
 - Highlighted items after operations
+- Thumbnail previews with lazy loading
+
+### 🔗 File Sharing
+
+**Share Management:**
+- Create share links with configurable permissions (`view` / `download`)
+- Optional password protection
+- Configurable expiration (up to 1 year)
+- Public or user-specific sharing
+- Revoke shares instantly
+- View share access logs (views, downloads, password attempts)
+
+**Sidebar Integration:**
+- Active shares listed in sidebar
+- Click to navigate to shared item
+- View/download icons for quick access
+
+**Public Share Page:**
+- Beautiful standalone page for share recipients
+- Password gate with unlock animation
+- Media preview (image, video, audio, PDF inline viewing)
+- Folder browsing with file listing
+- Download buttons (when permission allows)
+- View-only mode (disables download, prevents right-click save)
+- Branded footer
+
+### 🖼️ Thumbnail Previews
+
+- WebP thumbnails loaded asynchronously
+- Smooth fade-in animations on load
+- Optimized 256px previews for images, PDFs, and videos
+- Fallback to file type icons for unsupported formats
+- Encrypted file detection (skips thumbnail requests)
 
 ### 🔍 Search & Filter
 
@@ -117,6 +157,9 @@ web/
 - Fuzzy matching support
 - Date range filtering
 - Regex and wildcard search
+- Tag and category filtering
+- Size range filtering
+- Favorites-only filter
 - Search result highlighting
 
 ### 🎨 User Experience
@@ -193,7 +236,7 @@ docker build --build-arg VITE_API_URL=https://api.example.com -t rfb-web:latest 
 docker run -p 80:80 rfb-web:latest
 ```
 
-The production image uses **nginx** to serve static files.
+The production image uses **nginx** to serve static files with reverse proxy configuration for the API.
 
 ---
 
@@ -235,17 +278,26 @@ Edit `vite.config.ts` for:
 - Main file manager component
 - Handles state management
 - Provides context to child components
+- Triggers share refresh after operations
 
 **Workspace** (`lib/components/Workspace/`)
 - File grid and list views
 - Drag-and-drop support
 - Marquee selection
 - Keyboard navigation
+- Thumbnail rendering
 
 **ContextMenu** (`lib/components/ContextMenu/`)
 - Right-click actions
 - Copy, cut, paste, delete
 - Download, rename, preview
+- Share and favorite toggles
+
+**Sidebar** (`lib/components/Layout/Sidebar.tsx`)
+- Navigation sidebar
+- Active shares list with icons
+- Click-to-navigate to shared items
+- View and download shortcuts
 
 **Modals** (`lib/components/Modals/`)
 - PreviewModal: File preview
@@ -258,19 +310,28 @@ Edit `vite.config.ts` for:
 - OperationToast: Action feedback
 - DialogModal: Confirmations
 
-### Services
+**PublicSharePage** (`src/features/share/PublicSharePage.tsx`)
+- Standalone share viewer
+- Password verification
+- Inline media preview (images, video, audio, PDF)
+- Folder content browsing
+- Download controls
 
-**uploadService.ts**
-- Chunked upload orchestration
-- Parallel worker management
-- Retry logic with exponential backoff
-- Progress tracking
+### Services
 
 **fileService.ts**
 - File CRUD operations
 - Bulk actions
 - Search and filtering
 - Download ticket generation
+- Share link CRUD (create, list, revoke, logs)
+- Public share endpoints (info, verify password, download URL, folder listing)
+
+**uploadService.ts**
+- Chunked upload orchestration
+- Parallel worker management
+- Retry logic with exponential backoff
+- Progress tracking
 
 **httpClient.ts**
 - Fetch wrapper with JWT auth
@@ -307,6 +368,8 @@ Custom utilities defined in `tailwind.config.cjs`:
 Component-specific styles in `.css` files:
 - `Workspace.css` - File manager styles
 - `ContextMenu.css` - Menu positioning
+- `PublicSharePage.css` - Share page styles
+- `FileIcon.css` - File icon and thumbnail styles
 - `tailwind.css` - Global styles and utilities
 
 ---

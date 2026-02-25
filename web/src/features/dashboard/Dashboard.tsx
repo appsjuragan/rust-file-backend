@@ -101,7 +101,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       validationRulesRef.current = rules;
       if (rules && rules.chunk_size) {
         setChunkSize(rules.chunk_size);
-        // console.log(`[Dashboard] Configured chunk size: ${rules.chunk_size} bytes`);
       }
       return rules;
     } catch (e) {
