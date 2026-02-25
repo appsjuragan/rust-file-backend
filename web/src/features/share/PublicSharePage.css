@@ -1,0 +1,153 @@
+.rfm-public-share-container {
+    @apply min-h-screen flex items-center justify-center p-6 bg-stone-50 dark:bg-[#0f172a] transition-colors duration-500;
+    background-image: radial-gradient(circle at top right, rgba(20, 184, 166, 0.05), transparent 400px),
+        radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.05), transparent 400px);
+}
+
+.rfm-share-card {
+    @apply w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl border border-stone-200 dark:border-slate-800 transition-all duration-500 overflow-hidden relative;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+
+.rfm-share-card::before {
+    content: "";
+    @apply absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-500 to-sky-500 opacity-80;
+}
+
+.rfm-share-header {
+    @apply flex flex-col items-center text-center mb-8;
+}
+
+.rfm-share-icon-wrapper {
+    @apply w-24 h-24 mb-6 rounded-[2rem] bg-stone-100 dark:bg-slate-800 flex items-center justify-center relative shadow-inner transition-transform duration-500;
+}
+
+.rfm-share-card:hover .rfm-share-icon-wrapper {
+    @apply scale-105;
+}
+
+.rfm-share-icon {
+    @apply w-12 h-12 text-stone-400 dark:text-slate-500;
+}
+
+.rfm-share-title {
+    @apply text-2xl font-black text-stone-900 dark:text-white tracking-tight leading-tight mb-2 break-all;
+}
+
+.rfm-share-meta {
+    @apply flex items-center gap-3 text-xs font-bold text-stone-400 uppercase tracking-widest;
+}
+
+.rfm-share-meta-dot {
+    @apply w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-slate-700;
+}
+
+.rfm-share-content {
+    @apply flex flex-col gap-6;
+}
+
+.rfm-share-password-box {
+    @apply space-y-4;
+}
+
+.rfm-share-input-group {
+    @apply relative flex flex-col gap-2;
+}
+
+.rfm-share-input-label {
+    @apply text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1;
+}
+
+.rfm-share-input {
+    @apply w-full bg-stone-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-teal-500 transition-all dark:text-white dark:placeholder-slate-600;
+}
+
+.rfm-share-button {
+    @apply w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.rfm-share-button-primary {
+    @apply bg-stone-900 dark:bg-white text-white dark:text-slate-900 shadow-xl hover:shadow-2xl hover:-translate-y-0.5;
+}
+
+.rfm-share-button-download {
+    @apply bg-teal-500 text-white shadow-lg shadow-teal-500/20 hover:bg-teal-600;
+}
+
+.rfm-share-error {
+    @apply text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 rounded-xl border border-rose-100 dark:border-rose-800/50;
+}
+
+.rfm-share-footer {
+    @apply mt-10 text-center;
+}
+
+.rfm-share-logo {
+    @apply text-[10px] font-black uppercase tracking-[0.3em] text-stone-300 dark:text-slate-700 select-none;
+}
+
+.rfm-share-loading {
+    @apply flex items-center justify-center gap-2 text-stone-400 font-bold uppercase tracking-widest text-[10px];
+}
+
+.rfm-share-loading-spinner {
+    @apply w-4 h-4 border-2 border-stone-200 dark:border-slate-800 border-t-teal-500 rounded-full animate-spin;
+}
+
+/* Animations from previous step (making sure they exist) */
+@keyframes rfm-fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-share-in {
+    animation: rfm-fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.rfm-share-folder-list {
+    @apply flex flex-col gap-2 mt-4 max-h-[400px] overflow-y-auto px-1;
+}
+
+.rfm-share-file-item {
+    @apply flex items-center justify-between p-4 bg-stone-50 dark:bg-slate-800/40 rounded-2xl border border-transparent hover:border-teal-500/30 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer;
+}
+
+.rfm-share-file-info {
+    @apply flex items-center gap-4 min-w-0;
+}
+
+.rfm-share-file-icon {
+    @apply w-10 h-10 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm;
+}
+
+.rfm-share-file-name {
+    @apply text-sm font-bold text-stone-700 dark:text-slate-200 truncate;
+}
+
+.rfm-share-file-size {
+    @apply text-[10px] font-black text-stone-400 uppercase tracking-widest;
+}
+
+.rfm-share-download-btn {
+    @apply p-2 rounded-lg text-stone-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all;
+}
+
+.rfm-share-media-container {
+    @apply mt-6 rounded-[2rem] overflow-hidden bg-stone-100 dark:bg-slate-800/40 border border-stone-100 dark:border-slate-800/50 shadow-inner;
+}
+
+.rfm-share-media-preview {
+    @apply w-full h-auto max-h-[400px] object-contain block mx-auto;
+}
+
+.rfm-share-pdf-viewer {
+    @apply w-full h-[500px] border-none rounded-2xl;
+}

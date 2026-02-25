@@ -49,6 +49,7 @@ pub struct FileMetadataResponse {
     pub is_favorite: bool,
     pub has_thumbnail: bool,
     pub is_encrypted: bool,
+    pub is_shared: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -738,6 +739,13 @@ pub async fn list_files(
             None
         };
 
+        let is_shared = crate::services::share_service::ShareService::has_active_shares(
+            &state.db,
+            &user_file.id,
+        )
+        .await
+        .unwrap_or(false);
+
         result.push(FileMetadataResponse {
             id: user_file.id,
             filename: user_file.filename,
@@ -762,6 +770,7 @@ pub async fn list_files(
                 .as_ref()
                 .map(|s| s.is_encrypted)
                 .unwrap_or(false),
+            is_shared,
         });
     }
 
@@ -830,6 +839,7 @@ pub async fn create_folder(
         is_favorite: res.is_favorite,
         has_thumbnail: false,
         is_encrypted: false,
+        is_shared: false,
     }))
 }
 
@@ -892,6 +902,7 @@ pub async fn get_folder_path(
                 is_favorite: folder.is_favorite,
                 has_thumbnail: false,
                 is_encrypted: false,
+                is_shared: false,
             },
         );
 
@@ -1004,6 +1015,7 @@ pub async fn toggle_favorite(
             .as_ref()
             .map(|s| s.is_encrypted)
             .unwrap_or(false),
+        is_shared: false,
     }))
 }
 
@@ -1468,6 +1480,7 @@ async fn return_file_metadata(
             .as_ref()
             .map(|s| s.is_encrypted)
             .unwrap_or(false),
+        is_shared: false,
     }))
 }
 

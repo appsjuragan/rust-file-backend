@@ -7,6 +7,8 @@
 @import "./components/Layout/Sidebar.css";
 @import "./components/Toasts/Toasts.css";
 @import "./components/Modals/Forms.css";
+@import "./components/Modals/ShareModal.css";
+@import "./components/Modals/ShareAccessLogModal.css";
 @import "./components/Workspace/Workspace.css";
 
 @tailwind base;
@@ -56,6 +58,7 @@
 }
 
 @layer utilities {
+
   /* Layout */
   .rfm-main-container {
     @apply flex flex-col box-border h-full w-full;

@@ -6,6 +6,7 @@ import {
 } from "./services/httpClient";
 import { AuthPage } from "./features/auth/AuthPage";
 import Dashboard from "./features/dashboard/Dashboard";
+import { PublicSharePage } from "./features/share/PublicSharePage";
 import { BackendStatusMonitor } from "./components/BackendStatusMonitor";
 import "./App.css";
 import "../lib/tailwind.css";
@@ -15,7 +16,6 @@ function App() {
 
   useEffect(() => {
     // Optional: validate token validity on mount?
-    // keeping it simple as per original logic which just checked existence
   }, []);
 
   const handleLogin = (token: string) => {
@@ -31,6 +31,12 @@ function App() {
     localStorage.removeItem("username");
     localStorage.removeItem("theme");
   };
+
+  const isSharePage = window.location.pathname.startsWith("/s/");
+
+  if (isSharePage) {
+    return <PublicSharePage />;
+  }
 
   return (
     <div className="app-root">

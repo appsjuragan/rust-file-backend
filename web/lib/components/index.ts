@@ -17,3 +17,5 @@ export { default as UploadProgressToast } from "./Toasts/UploadProgressToast";
 export { default as OperationToast } from "./Toasts/OperationToast";
 export { default as AvatarCropModal } from "./Modals/AvatarCropModal";
 export { default as ContextMenu } from "./ContextMenu/ContextMenu";
+export { default as ShareModal } from "./Modals/ShareModal";
+export { default as ShareAccessLogModal } from "./Modals/ShareAccessLogModal";

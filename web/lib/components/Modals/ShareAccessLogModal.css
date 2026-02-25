@@ -1,0 +1,66 @@
+@layer utilities {
+    .rfm-access-log-modal {
+        @apply flex flex-col gap-4 min-h-[300px];
+    }
+
+    .rfm-access-log-tabs {
+        @apply flex gap-2 overflow-x-auto pb-2 -mx-1 px-1;
+    }
+
+    .rfm-access-log-tab {
+        @apply flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold text-stone-500 border border-transparent hover:bg-stone-100 dark:hover:bg-slate-800 transition-all;
+    }
+
+    .rfm-access-log-tab.active {
+        @apply bg-white dark:bg-slate-800 text-teal-600 border-stone-200 dark:border-slate-700 shadow-sm;
+    }
+
+    .rfm-access-log-tab-badge {
+        @apply px-1.5 py-0.5 rounded-md bg-stone-100 dark:bg-slate-700 text-[8px] uppercase tracking-widest text-stone-400;
+    }
+
+    .rfm-access-log-loading,
+    .rfm-access-log-empty {
+        @apply flex flex-1 items-center justify-center p-12 text-stone-400 text-xs font-bold uppercase tracking-widest text-center;
+    }
+
+    .rfm-access-log-list {
+        @apply flex flex-col gap-2;
+    }
+
+    .rfm-access-log-item {
+        @apply flex gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-slate-800/20 border border-stone-100 dark:border-slate-800/50 transition-all hover:bg-white dark:hover:bg-slate-800/40;
+    }
+
+    .rfm-access-log-action-dot {
+        @apply w-2 h-2 rounded-full mt-1.5 shrink-0;
+    }
+
+    .rfm-access-log-item-content {
+        @apply flex flex-col gap-1 flex-1 min-w-0;
+    }
+
+    .rfm-access-log-item-top {
+        @apply flex justify-between items-center;
+    }
+
+    .rfm-access-log-action {
+        @apply text-xs font-black uppercase tracking-wider;
+    }
+
+    .rfm-access-log-time {
+        @apply text-[10px] font-bold text-stone-400;
+    }
+
+    .rfm-access-log-item-bottom {
+        @apply flex flex-wrap gap-x-4 gap-y-1 mt-1;
+    }
+
+    .rfm-access-log-ip {
+        @apply text-[10px] font-mono text-stone-400 bg-stone-100 dark:bg-slate-800 px-1.5 py-0.5 rounded;
+    }
+
+    .rfm-access-log-ua {
+        @apply text-[10px] text-stone-400 truncate opacity-60;
+    }
+}

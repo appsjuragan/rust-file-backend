@@ -4,6 +4,8 @@ pub use super::blocked_extensions::Entity as BlockedExtensions;
 pub use super::file_metadata::Entity as FileMetadata;
 pub use super::file_tags::Entity as FileTags;
 pub use super::magic_signatures::Entity as MagicSignatures;
+pub use super::share_access_logs::Entity as ShareAccessLogs;
+pub use super::share_links::Entity as ShareLinks;
 pub use super::storage_files::Entity as StorageFiles;
 pub use super::tags::Entity as Tags;
 pub use super::tokens::Entity as Tokens;

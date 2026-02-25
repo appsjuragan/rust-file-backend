@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useFileManager } from "../context";
+import { FileType } from "../types";
 
 export const useFileActions = () => {
   const {
@@ -18,6 +19,8 @@ export const useFileActions = () => {
     onRefresh,
     setClipboardSourceFolder,
     setDialogState,
+    setShareFile,
+    setShareModalVisible,
   } = useFileManager();
 
   const handleCopy = useCallback(
@@ -146,10 +149,16 @@ export const useFileActions = () => {
     ]
   );
 
+  const handleShare = useCallback((file: FileType) => {
+    setShareFile(file);
+    setShareModalVisible(true);
+  }, [setShareFile, setShareModalVisible]);
+
   return {
     handleCopy,
     handleCut,
     handlePaste,
     handleDelete,
+    handleShare,
   };
 };

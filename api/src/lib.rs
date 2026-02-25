@@ -61,6 +61,13 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::upload::upload_chunk_handler,
         api::handlers::upload::complete_upload_handler,
         api::handlers::upload::abort_upload_handler,
+        api::handlers::shares::create_share,
+        api::handlers::shares::list_shares,
+        api::handlers::shares::revoke_share,
+        api::handlers::shares::get_share_logs,
+        api::handlers::shares::get_public_share,
+        api::handlers::shares::verify_share_password,
+        api::handlers::shares::download_shared_file,
     ),
     components(
         schemas(
@@ -93,6 +100,12 @@ use utoipa_swagger_ui::SwaggerUi;
             crate::services::upload_service::UploadPartResponse,
             crate::services::upload_service::CompleteUploadRequest,
             crate::services::upload_service::FileResponse,
+            api::handlers::shares::CreateShareRequest,
+            api::handlers::shares::ShareResponse,
+            api::handlers::shares::ShareAccessLogResponse,
+            api::handlers::shares::PublicShareInfoResponse,
+            api::handlers::shares::VerifySharePasswordRequest,
+            api::handlers::shares::VerifySharePasswordResponse,
         )
     ),
     tags(
@@ -100,7 +113,8 @@ use utoipa_swagger_ui::SwaggerUi;
         (name = "files", description = "File management endpoints"),
         (name = "users", description = "User profile endpoints"),
         (name = "settings", description = "User preferences endpoints"),
-        (name = "system", description = "System health and status")
+        (name = "system", description = "System health and status"),
+        (name = "shares", description = "File sharing endpoints")
     )
 )]
 pub struct ApiDoc;
@@ -143,6 +157,22 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/download/:ticket",
             get(api::handlers::files::download_file_with_ticket),
+        )
+        .route(
+            "/share/:token",
+            get(api::handlers::shares::get_public_share),
+        )
+        .route(
+            "/share/:token/verify",
+            post(api::handlers::shares::verify_share_password),
+        )
+        .route(
+            "/share/:token/list",
+            get(api::handlers::shares::list_shared_folder),
+        )
+        .route(
+            "/share/:token/download",
+            get(api::handlers::shares::download_shared_file),
         );
 
     // Protected routes
@@ -226,6 +256,18 @@ pub fn create_app(state: AppState) -> Router {
             post(api::handlers::users::upload_avatar),
         )
         .route("/users/me/facts", get(api::handlers::users::get_user_facts))
+        .route(
+            "/shares",
+            get(api::handlers::shares::list_shares).post(api::handlers::shares::create_share),
+        )
+        .route(
+            "/shares/:id",
+            axum::routing::delete(api::handlers::shares::revoke_share),
+        )
+        .route(
+            "/shares/:id/logs",
+            get(api::handlers::shares::get_share_logs),
+        )
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

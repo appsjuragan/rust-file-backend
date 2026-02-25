@@ -1,10 +1,7 @@
 use crate::entities::prelude::*;
 use crate::entities::{allowed_mimes, blocked_extensions, magic_signatures, users};
 use argon2::PasswordHasher;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use tracing::info;
 use uuid::Uuid;
 
@@ -12,8 +9,12 @@ pub async fn seed_initial_data(db: &DatabaseConnection) -> anyhow::Result<()> {
     info!("🌱 Checking for initial data seeding...");
 
     // Seed Admin User if none exists
-    let user_count = Users::find().count(db).await?;
-    if user_count == 0 {
+    let admin_exists = Users::find()
+        .filter(users::Column::Username.eq("admin"))
+        .one(db)
+        .await?;
+
+    if admin_exists.is_none() {
         info!("👤 Creating initial admin user...");
 
         let argon2 = argon2::Argon2::default();
@@ -33,8 +34,13 @@ pub async fn seed_initial_data(db: &DatabaseConnection) -> anyhow::Result<()> {
             ..Default::default()
         };
 
-        admin.insert(db).await?;
-        info!("✅ Admin user created (admin / admin123456)");
+        match admin.insert(db).await {
+            Ok(_) => info!("✅ Admin user created (admin / admin123456)"),
+            Err(e) if e.to_string().contains("duplicate key") => {
+                info!("ℹ️ Admin user already exists (skipped parallel creation)");
+            }
+            Err(e) => return Err(e.into()),
+        }
     }
 
     info!("✅ Initial seeding completed.");

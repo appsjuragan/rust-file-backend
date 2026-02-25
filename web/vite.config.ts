@@ -12,6 +12,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
+      "/obj": {
+        target: "http://192.168.1.106:9200",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/obj/, ""),
+      },
     },
   },
 });

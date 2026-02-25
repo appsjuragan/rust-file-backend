@@ -103,7 +103,7 @@ const Workspace = () => {
   const lastScrollTopRef = React.useRef(0);
   const scrollThreshold = 10;
 
-  const { handlePaste } = useFileActions();
+  const { handlePaste, handleShare } = useFileActions();
 
   useEffect(() => {
     setLastSelectedId(null);
@@ -521,9 +521,8 @@ const Workspace = () => {
   return (
     <section
       id="react-file-manager-workspace"
-      className={`rfm-workspace ${
-        isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
-      } ${marquee ? "rfm-selecting" : ""}`}
+      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
+        } ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
       onClick={(e) => {
@@ -562,7 +561,7 @@ const Workspace = () => {
           if (
             window.innerWidth <= 768 &&
             Math.abs(currentScrollTop - lastScrollTopRef.current) >
-              scrollThreshold
+            scrollThreshold
           ) {
             if (currentScrollTop > lastScrollTopRef.current) {
               // User is scrolling DOWN - hide header
@@ -701,9 +700,8 @@ const Workspace = () => {
           </div>
 
           <div
-            className={`rfm-fab sm:hidden transition-transform duration-300 ${
-              fabMenuOpen ? "rotate-45 bg-rose-500 !shadow-rose-500/30" : ""
-            }`}
+            className={`rfm-fab sm:hidden transition-transform duration-300 ${fabMenuOpen ? "rotate-45 bg-rose-500 !shadow-rose-500/30" : ""
+              }`}
             onClick={(e) => {
               e.stopPropagation();
               setFabMenuOpen(!fabMenuOpen);
@@ -779,17 +777,16 @@ const Workspace = () => {
             title="Toggle Select All"
           >
             <div
-              className={`rfm-selection-checkbox ${
-                currentFolderFiles.length > 0 &&
+              className={`rfm-selection-checkbox ${currentFolderFiles.length > 0 &&
                 currentFolderFiles.every((f) => selectedIds.includes(f.id))
-                  ? "is-checked"
-                  : ""
-              }`}
+                ? "is-checked"
+                : ""
+                }`}
             >
               <SvgIcon
                 svgType={
                   currentFolderFiles.length > 0 &&
-                  currentFolderFiles.every((f) => selectedIds.includes(f.id))
+                    currentFolderFiles.every((f) => selectedIds.includes(f.id))
                     ? "check"
                     : "square"
                 }
@@ -832,11 +829,10 @@ const Workspace = () => {
           </div>
 
           <div
-            className={`rfm-selection-action-btn ${
-              selectedIds.every((id) => favorites.some((f) => f.id === id))
-                ? "rfm-active-star"
-                : ""
-            }`}
+            className={`rfm-selection-action-btn ${selectedIds.every((id) => favorites.some((f) => f.id === id))
+              ? "rfm-active-star"
+              : ""
+              }`}
             onClick={(e) => {
               e.stopPropagation();
               const filesToToggle = currentFolderFiles.filter((f) =>
@@ -850,6 +846,22 @@ const Workspace = () => {
             <SvgIcon svgType="star" />
           </div>
 
+          {selectedIds.length === 1 && (
+            <div
+              className="rfm-selection-action-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                const file =
+                  currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
+                  fs.find((f) => f.id === selectedIds[0]);
+                if (file) handleShare(file);
+              }}
+              title="Share"
+            >
+              <SvgIcon svgType="share" />
+            </div>
+          )}
+
           <div
             className="rfm-selection-action-btn"
             onClick={(e) => {
@@ -858,8 +870,8 @@ const Workspace = () => {
               const targetFile =
                 selectedIds.length === 1
                   ? currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
-                    fs.find((f) => f.id === selectedIds[0]) ||
-                    null
+                  fs.find((f) => f.id === selectedIds[0]) ||
+                  null
                   : null;
 
               setContextMenu({

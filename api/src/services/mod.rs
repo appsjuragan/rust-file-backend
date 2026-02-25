@@ -4,6 +4,7 @@ pub mod facts_service;
 pub mod file_service;
 pub mod metadata;
 pub mod scanner;
+pub mod share_service;
 pub mod storage;
 pub mod storage_lifecycle;
 pub mod thumbnail_service;

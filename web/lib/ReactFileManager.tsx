@@ -21,9 +21,11 @@ import {
   RenameModal,
   OperationToast,
   DialogModal,
+  ShareModal,
+  ShareAccessLogModal,
 } from "./components";
 // Types
-import type { FileSystemType, FileType, FolderNode } from "./types";
+import type { FileSystemType, FileType, FolderNode, ShareLink } from "./types";
 import {
   ViewStyle,
   UploadStatus,
@@ -33,6 +35,7 @@ import {
 } from "./types";
 // HTTP Client
 import { setOnRequestCallback } from "../src/services/httpClient";
+import { fileService } from "../src/services/fileService";
 
 export interface IFileManagerProps {
   fs: FileSystemType;
@@ -142,6 +145,10 @@ export const ReactFileManager = ({
     y: number;
     file: FileType | null;
   } | null>(null);
+  const [shareModalVisible, setShareModalVisible] = useState<boolean>(false);
+  const [shareFile, setShareFile] = useState<FileType | null>(null);
+  const [accessLogVisible, setAccessLogVisible] = useState<boolean>(false);
+  const [accessLogFile, setAccessLogFile] = useState<FileType | null>(null);
   // Responsive sidebar
   const isDesktop = useMediaQuery("(min-width: 769px)");
   const [internalSidebarVisible, setInternalSidebarVisible] =
@@ -537,6 +544,14 @@ export const ReactFileManager = ({
       setDialogState,
       showAlert,
       showConfirm,
+      shareModalVisible,
+      setShareModalVisible,
+      shareFile,
+      setShareFile,
+      accessLogVisible,
+      setAccessLogVisible,
+      accessLogFile,
+      setAccessLogFile,
     }),
     [
       newFolderModalVisible,
@@ -552,6 +567,10 @@ export const ReactFileManager = ({
       modalPosition,
       isMoving,
       dialogState,
+      shareModalVisible,
+      shareFile,
+      accessLogVisible,
+      accessLogFile,
     ]
   );
 
@@ -679,8 +698,31 @@ export const ReactFileManager = ({
               setNewFolderModalVisible(true);
             }}
             onUpload={triggerOpenUpload}
+            onShare={(file) => {
+              setShareFile(file);
+              setShareModalVisible(true);
+            }}
+            onViewAccessLog={(file) => {
+              setAccessLogFile(file);
+              setAccessLogVisible(true);
+            }}
           />
         )}
+        <ShareModal
+          isVisible={shareModalVisible}
+          file={shareFile}
+          onClose={() => setShareModalVisible(false)}
+          onCreateShare={fileService.createShare}
+          onListShares={fileService.listShares}
+          onRevokeShare={fileService.revokeShare}
+        />
+        <ShareAccessLogModal
+          isVisible={accessLogVisible}
+          file={accessLogFile}
+          onClose={() => setAccessLogVisible(false)}
+          onListShares={fileService.listShares}
+          onGetLogs={fileService.getShareLogs}
+        />
         <MetadataModal
           isVisible={metadataVisible}
           onClose={() => setMetadataVisible(false)}

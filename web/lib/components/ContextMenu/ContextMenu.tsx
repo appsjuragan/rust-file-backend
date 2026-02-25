@@ -16,6 +16,8 @@ interface IContextMenuProps {
   onRename: (file: FileType) => void;
   onNewFolder: () => void;
   onUpload: () => void;
+  onShare?: (file: FileType) => void;
+  onViewAccessLog?: (file: FileType) => void;
 }
 
 const ContextMenu: React.FC<IContextMenuProps> = ({
@@ -28,6 +30,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   onRename,
   onNewFolder,
   onUpload,
+  onShare,
+  onViewAccessLog,
 }) => {
   const {
     fs,
@@ -212,13 +216,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
           isMobile
             ? {}
             : {
-                top: y > window.innerHeight - 300 ? "auto" : y,
-                bottom:
-                  y > window.innerHeight - 300
-                    ? window.innerHeight - y + 5
-                    : "auto",
-                left: x,
-              }
+              top: y > window.innerHeight - 300 ? "auto" : y,
+              bottom:
+                y > window.innerHeight - 300
+                  ? window.innerHeight - y + 5
+                  : "auto",
+              left: x,
+            }
         }
       >
         {isMobile && (
@@ -228,10 +232,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               {selectedIds.length > 1
                 ? `${selectedIds.length} items selected`
                 : file
-                ? file.name
-                : selectedIds.length === 1
-                ? fs.find((f) => f.id === selectedIds[0])?.name
-                : "Action Menu"}
+                  ? file.name
+                  : selectedIds.length === 1
+                    ? fs.find((f) => f.id === selectedIds[0])?.name
+                    : "Action Menu"}
             </div>
           </div>
         )}
@@ -242,14 +246,14 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               {(() => {
                 const targetFiles =
                   file &&
-                  selectedIds.includes(file.id) &&
-                  selectedIds.length > 1
+                    selectedIds.includes(file.id) &&
+                    selectedIds.length > 1
                     ? fs.filter((f) => selectedIds.includes(f.id))
                     : file
-                    ? [file]
-                    : selectedIds.length > 0
-                    ? fs.filter((f) => selectedIds.includes(f.id))
-                    : [];
+                      ? [file]
+                      : selectedIds.length > 0
+                        ? fs.filter((f) => selectedIds.includes(f.id))
+                        : [];
 
                 const targetFile =
                   file ||
@@ -265,11 +269,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                   <>
                     {/* Open (Preview) - Bold */}
                     <div
-                      className={`rfm-context-menu-item font-bold ${
-                        isScanBusy
+                      className={`rfm-context-menu-item font-bold ${isScanBusy
                           ? "disabled opacity-50 cursor-not-allowed"
                           : ""
-                      }`}
+                        }`}
                       onClick={isScanBusy ? undefined : handleOpen}
                     >
                       <SvgIcon
@@ -298,11 +301,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {/* Rename - Only for single file */}
                     {targetFile && (
                       <div
-                        className={`rfm-context-menu-item ${
-                          isScanBusy
+                        className={`rfm-context-menu-item ${isScanBusy
                             ? "disabled opacity-50 cursor-not-allowed"
                             : ""
-                        }`}
+                          }`}
                         onClick={isScanBusy ? undefined : handleRename}
                       >
                         <SvgIcon
@@ -370,11 +372,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                             <>
                               <SvgIcon
                                 svgType="star"
-                                className={`rfm-context-menu-icon ${
-                                  isAllFav
+                                className={`rfm-context-menu-icon ${isAllFav
                                     ? "fill-yellow-400 text-yellow-500"
                                     : ""
-                                }`}
+                                  }`}
                               />
                               {isAllFav
                                 ? "Remove from Favorites"
@@ -385,17 +386,52 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       </div>
                     )}
 
+                    {/* Share */}
+                    {targetFile && onShare && (
+                      <div
+                        className="rfm-context-menu-item"
+                        onClick={() =>
+                          triggerAction(() => onShare(targetFile))
+                        }
+                      >
+                        <SvgIcon
+                          svgType="share"
+                          className="rfm-context-menu-icon"
+                        />
+                        Share
+                      </div>
+                    )}
+
+                    {/* Access Log */}
+                    {targetFile &&
+                      targetFile.isShared &&
+                      onViewAccessLog && (
+                        <div
+                          className="rfm-context-menu-item"
+                          onClick={() =>
+                            triggerAction(() =>
+                              onViewAccessLog(targetFile)
+                            )
+                          }
+                        >
+                          <SvgIcon
+                            svgType="log"
+                            className="rfm-context-menu-icon"
+                          />
+                          Access Log
+                        </div>
+                      )}
+
                     <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
                     {/* Download - Allowed for files and folders */}
                     {targetFile && (
                       <>
                         <div
-                          className={`rfm-context-menu-item ${
-                            isScanBusy
+                          className={`rfm-context-menu-item ${isScanBusy
                               ? "disabled opacity-50 cursor-not-allowed"
                               : ""
-                          }`}
+                            }`}
                           onClick={isScanBusy ? undefined : handleDownload}
                         >
                           <SvgIcon

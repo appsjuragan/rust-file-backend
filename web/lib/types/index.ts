@@ -5,5 +5,7 @@ export type {
   FolderNode,
   UserFacts,
   BackendFile,
+  ShareLink,
+  ShareAccessLog,
 } from "./Types";
 export { ViewStyle, SortField, SortDirection, IconSize } from "./Enums";

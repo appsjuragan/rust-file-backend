@@ -117,6 +117,15 @@ interface ProviderInterface {
   setFavoritesMinimized: Dispatch<boolean>;
   storageUsageMinimized: boolean;
   setStorageUsageMinimized: Dispatch<boolean>;
+  // Sharing states
+  shareModalVisible: boolean;
+  setShareModalVisible: Dispatch<SetStateAction<boolean>>;
+  shareFile: FileType | null;
+  setShareFile: Dispatch<SetStateAction<FileType | null>>;
+  accessLogVisible: boolean;
+  setAccessLogVisible: Dispatch<SetStateAction<boolean>>;
+  accessLogFile: FileType | null;
+  setAccessLogFile: Dispatch<SetStateAction<FileType | null>>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

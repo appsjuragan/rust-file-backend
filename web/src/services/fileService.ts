@@ -127,4 +127,43 @@ export const fileService = {
     request(`/files/${id}/favorite`, { method: "POST" }),
 
   getValidationRules: () => request("/system/validation-rules"),
+
+  // ── Sharing ──────────────────────────────────────────
+  createShare: (params: {
+    user_file_id: string;
+    share_type: "public" | "user";
+    shared_with_user_id?: string;
+    password?: string;
+    permission: "view" | "download";
+    expires_in_hours: number;
+  }) =>
+    request("/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+
+  listShares: (userFileId?: string) => {
+    const q = userFileId ? `?user_file_id=${userFileId}` : "";
+    return request(`/shares${q}`);
+  },
+
+  revokeShare: (shareId: string) =>
+    request(`/shares/${shareId}`, { method: "DELETE" }),
+
+  getShareLogs: (shareId: string) => request(`/shares/${shareId}/logs`),
+
+  getPublicShare: (token: string) =>
+    fetch(`${BASE_URL}/share/${token}`).then((r) => r.json()),
+
+  verifySharePassword: (token: string, password: string) =>
+    fetch(`${BASE_URL}/share/${token}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    }).then((r) => r.json()),
+
+  getShareDownloadUrl: (token: string) => `${BASE_URL}/share/${token}/download`,
+  listSharedFolder: (token: string) =>
+    fetch(`${BASE_URL}/share/${token}/list`).then((r) => r.json()),
 };

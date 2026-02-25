@@ -50,6 +50,8 @@ export interface BackendFile {
   hasThumbnail?: boolean;
   is_encrypted?: boolean;
   isEncrypted?: boolean;
+  is_shared?: boolean;
+  isShared?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -75,6 +77,7 @@ export type FileType = {
   isFavorite?: boolean;
   hasThumbnail?: boolean;
   isEncrypted?: boolean;
+  isShared?: boolean;
 };
 
 export type FileSystemType = FileType[];
@@ -91,3 +94,26 @@ export type FolderNode = {
   filename: string;
   parent_id: string | null;
 };
+
+export interface ShareLink {
+  id: string;
+  user_file_id: string;
+  share_token: string;
+  share_type: "public" | "user";
+  shared_with_user_id?: string;
+  has_password: boolean;
+  permission: "view" | "download";
+  expires_at: string;
+  created_at: string;
+  filename?: string;
+  is_folder?: boolean;
+}
+
+export interface ShareAccessLog {
+  id: string;
+  accessed_by_user_id?: string;
+  ip_address?: string;
+  user_agent?: string;
+  action: string;
+  accessed_at: string;
+}
