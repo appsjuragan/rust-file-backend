@@ -43,7 +43,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     (mimeType?.startsWith("text/") ||
       mimeType === "application/json" ||
       mimeType === "application/javascript" ||
-      ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py", "log", "env", "conf"].includes(
+      ["txt", "md", "json", "js", "css", "html", "rs", "py", "log", "env", "conf"].includes(
         extension
       )) &&
     (size || 0) < 10 * 1024 * 1024; // Increased to 10MB for text files
@@ -209,12 +209,6 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
             <source src={secureUrl} type={mimeType || "video/mp4"} />
             Your browser does not support the video tag.
           </video>
-          {(mimeType === "video/mp2t" || extension === "ts") && (
-            <div className="mt-2 text-xs text-amber-600 font-medium bg-amber-50 p-2 rounded border border-amber-100">
-              ⚠️ This file is in MPEG-TS format, which may not play in all
-              browsers. If it doesn't play, please download it to view.
-            </div>
-          )}
         </div>
       );
     }

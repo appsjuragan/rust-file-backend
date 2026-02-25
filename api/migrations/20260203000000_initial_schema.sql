@@ -226,7 +226,10 @@ INSERT INTO allowed_mimes (mime_type, category) VALUES
 ('application/x-gtar', 'Archives'),
 ('application/x-tgz', 'Archives'),
 ('application/x-gzip', 'Archives'),
-('video/mp2t', 'Video')
+('video/mp2t', 'Video'),
+('video/avi', 'Video'),
+('video/x-matroska', 'Video'),
+('video/x-flv', 'Video')
 ON CONFLICT (mime_type) DO NOTHING;
 
 INSERT INTO magic_signatures (signature, mime_type) VALUES
@@ -256,7 +259,7 @@ ON CONFLICT (signature, mime_type) DO NOTHING;
 
 INSERT INTO blocked_extensions (extension) VALUES
 ('exe'), ('dll'), ('so'), ('dylib'), ('bin'), ('com'), ('bat'), ('cmd'), ('ps1'), ('sh'), ('bash'),
-('js'), ('ts'), ('jsx'), ('tsx'), ('py'), ('pyw'), ('rb'), ('php'), ('pl'), ('cgi'), ('asp'), ('aspx'), ('jsp'), ('jspx'),
+('js'), ('jsx'), ('tsx'), ('py'), ('pyw'), ('rb'), ('php'), ('pl'), ('cgi'), ('asp'), ('aspx'), ('jsp'), ('jspx'),
 ('cfm'), ('go'), ('rs'), ('java'), ('class'), ('jar'), ('war'), ('c'), ('cpp'), ('h'), ('hpp'), ('cs'), ('vb'), ('vbs'),
 ('lua'), ('r'), ('swift'), ('kt'), ('scala'), ('groovy'), ('html'), ('htm'), ('xhtml'), ('shtml'), ('svg'), ('xml'), ('xsl'), ('xslt'),
 ('htaccess'), ('htpasswd'), ('json'), ('yaml'), ('yml'), ('toml'), ('ini'), ('conf'), ('config'),

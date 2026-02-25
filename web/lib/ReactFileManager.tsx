@@ -452,6 +452,20 @@ export const ReactFileManager = ({
       if (onDelete) {
         await onDelete(id);
         refreshShares();
+        setFavorites((prev) => {
+          const toRemove = new Set([id]);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const f of prev) {
+              if (!toRemove.has(f.id) && f.parentId && toRemove.has(f.parentId)) {
+                toRemove.add(f.id);
+                changed = true;
+              }
+            }
+          }
+          return prev.filter((f) => !toRemove.has(f.id));
+        });
       }
     },
     [onDelete, refreshShares]
@@ -462,6 +476,20 @@ export const ReactFileManager = ({
       if (onBulkDelete) {
         await onBulkDelete(ids);
         refreshShares();
+        setFavorites((prev) => {
+          const toRemove = new Set(ids);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const f of prev) {
+              if (!toRemove.has(f.id) && f.parentId && toRemove.has(f.parentId)) {
+                toRemove.add(f.id);
+                changed = true;
+              }
+            }
+          }
+          return prev.filter((f) => !toRemove.has(f.id));
+        });
       }
     },
     [onBulkDelete, refreshShares]

@@ -10,7 +10,7 @@ import { request } from "../../../src/services/httpClient";
 // File types that support thumbnail generation
 const THUMBNAIL_EXTENSIONS = new Set([
   "jpg", "jpeg", "png", "gif", "webp", "bmp", "ico", "svg",
-  "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mpg", "mpeg",
+  "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mpg", "mpeg", "ts",
   "pdf",
 ]);
 
@@ -26,10 +26,11 @@ interface IFileIcon {
   hasThumbnail?: boolean;
   scanStatus?: string;
   isEncrypted?: boolean;
+  isShared?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
-  const { setCurrentFolder, onRefresh, clipboardIds, isCut, favorites } =
+  const { setCurrentFolder, onRefresh, clipboardIds, isCut, favorites, shares } =
     useFileManager();
   const isBeingCut = !!(
     isCut &&
@@ -42,6 +43,11 @@ const FileIcon = (props: IFileIcon) => {
     props.isFavorite !== undefined
       ? props.isFavorite
       : favorites?.some((f) => f.id === props.id) || false;
+
+  const isShared =
+    props.isShared !== undefined
+      ? props.isShared
+      : shares?.some((s) => s.user_file_id === props.id) || props.isShared || false;
 
   const fileExtension = useMemo((): string => {
     if (props.isDir || !props.name.includes(".")) {
@@ -80,6 +86,7 @@ const FileIcon = (props: IFileIcon) => {
         "webm",
         "mpg",
         "mpeg",
+        "ts",
       ].includes(ext)
     )
       return "video";
@@ -98,7 +105,6 @@ const FileIcon = (props: IFileIcon) => {
     if (
       [
         "js",
-        "ts",
         "tsx",
         "jsx",
         "py",
@@ -267,6 +273,14 @@ const FileIcon = (props: IFileIcon) => {
             <SvgIcon
               svgType="star"
               className="w-full h-full text-yellow-500 fill-current shadow-sm"
+            />
+          </div>
+        )}
+        {isShared && (
+          <div className="rfm-file-icon-shared-badge z-10">
+            <SvgIcon
+              svgType="share"
+              className="w-full h-full text-blue-500 fill-current shadow-sm"
             />
           </div>
         )}
