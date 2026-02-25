@@ -81,6 +81,63 @@ async fn main() -> anyhow::Result<()> {
         info!("👷 Worker service initialized.");
     }
 
+    // 4.5 Initialize Thumbnail Worker Service
+    if args.mode == "thumbnail-worker" || args.mode == "all" {
+        let thumb_db = db.clone();
+        let thumb_storage = storage_service.clone();
+        let mut thumb_shutdown = shutdown_rx.clone();
+
+        let thumb_worker_handle = tokio::spawn(async move {
+            info!("🖼️ Thumbnail Worker starting up...");
+            let thumbnail_service =
+                rust_file_backend::services::thumbnail_service::ThumbnailService::new(
+                    thumb_db.clone(),
+                    thumb_storage.clone(),
+                );
+
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+                        use rust_file_backend::entities::storage_files;
+
+                        let files_res = storage_files::Entity::find()
+                            .filter(storage_files::Column::HasThumbnail.eq(false))
+                            .filter(storage_files::Column::IsEncrypted.eq(false))
+                            .filter(
+                                sea_orm::Condition::any()
+                                    .add(storage_files::Column::MimeType.like("image/%"))
+                                    .add(storage_files::Column::MimeType.like("video/%"))
+                                    .add(storage_files::Column::MimeType.eq("application/pdf"))
+                            )
+                            .all(&thumb_db)
+                            .await;
+
+                        match files_res {
+                            Ok(files) => {
+                                for file in files {
+                                    if let Err(e) = thumbnail_service.generate_thumbnail(&file.id).await {
+                                        tracing::error!("Failed to generate thumbnail for {}: {}", file.id, e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Error querying files for thumbnail generation: {}", e);
+                            }
+                        }
+                    }
+                    _ = thumb_shutdown.changed() => {
+                        info!("🛑 Thumbnail Worker received shutdown signal");
+                        break;
+                    }
+                }
+            }
+        });
+        handles.push(thumb_worker_handle);
+        info!("🖼️ Thumbnail Worker service initialized.");
+    }
+
     // 5. Initialize API Service
     if args.mode == "api" || args.mode == "all" {
         let file_service = Arc::new(FileService::new(

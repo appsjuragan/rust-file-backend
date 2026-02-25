@@ -1,119 +1,118 @@
 @layer utilities {
+  /* Operation Toast */
+  .rfm-operation-toast {
+    @apply fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-[10000] flex items-center border border-slate-700/50;
+    animation: rfm-toast-in 0.3s ease-out;
+  }
 
-    /* Operation Toast */
-    .rfm-operation-toast {
-        @apply fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-[10000] flex items-center border border-slate-700/50;
-        animation: rfm-toast-in 0.3s ease-out;
+  .rfm-operation-toast-content {
+    @apply flex items-center;
+  }
+
+  @keyframes rfm-toast-in {
+    from {
+      transform: translate(-50%, 20px);
+      opacity: 0;
     }
 
-    .rfm-operation-toast-content {
-        @apply flex items-center;
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
     }
+  }
 
-    @keyframes rfm-toast-in {
-        from {
-            transform: translate(-50%, 20px);
-            opacity: 0;
-        }
+  /* Upload Toast & Progress */
+  .rfm-upload-toast {
+    @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[10000] transition-all duration-300 dark:bg-slate-900 dark:border-slate-800;
+  }
 
-        to {
-            transform: translate(-50%, 0);
-            opacity: 1;
-        }
-    }
+  .rfm-upload-toast--minimized {
+    @apply min-h-[48px] h-auto;
+  }
 
-    /* Upload Toast & Progress */
+  .rfm-upload-toast-header {
+    @apply flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 dark:bg-slate-800 dark:border-slate-700;
+  }
+
+  .rfm-upload-toast-title {
+    @apply text-sm font-bold text-slate-800 truncate dark:text-slate-100;
+  }
+
+  .rfm-upload-toast-actions {
+    @apply flex items-center gap-1.5;
+  }
+
+  .rfm-upload-toast-btn {
+    @apply p-1 hover:bg-slate-200 rounded-lg transition-all duration-200 text-slate-600 dark:hover:bg-slate-700 dark:text-slate-300;
+  }
+
+  .rfm-upload-toast-body {
+    @apply p-1 bg-white dark:bg-slate-900;
+  }
+
+  .rfm-upload-progress-container {
+    @apply h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-2 dark:bg-slate-800;
+  }
+
+  .rfm-upload-progress-bar {
+    @apply h-full bg-sky-500 transition-all duration-300 ease-out;
+  }
+
+  .rfm-upload-progress-text {
+    @apply text-xs font-bold text-slate-500 dark:text-slate-400;
+  }
+
+  .rfm-upload-list {
+    @apply flex flex-col gap-1 max-h-60 overflow-y-auto mt-2;
+  }
+
+  .rfm-upload-item {
+    @apply flex items-center justify-between gap-3 p-2 rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-slate-800;
+  }
+
+  .rfm-upload-item-info {
+    @apply flex flex-col flex-1 min-w-0;
+  }
+
+  .rfm-upload-item-name {
+    @apply text-xs font-medium text-slate-700 truncate dark:text-slate-300;
+  }
+
+  .rfm-upload-item-progress-container {
+    @apply h-1 w-full bg-slate-100 rounded-full overflow-hidden mt-1 dark:bg-slate-700;
+  }
+
+  .rfm-upload-item-progress-bar {
+    @apply h-full bg-indigo-500 transition-all duration-300 ease-out;
+  }
+
+  .rfm-upload-item-icon {
+    @apply w-5 h-5 flex-shrink-0 flex items-center justify-center;
+  }
+
+  /* ==================== Responsive Toasts ==================== */
+
+  /* Mobile */
+  @media (max-width: 768px) {
     .rfm-upload-toast {
-        @apply fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[10000] transition-all duration-300 dark:bg-slate-900 dark:border-slate-800;
+      @apply w-[calc(100vw-1rem)] right-2 left-2;
+      max-width: none !important;
+      width: calc(100vw - 1rem) !important;
+      /* iOS safe-area: keep toast above home indicator */
+      bottom: calc(0.5rem + env(safe-area-inset-bottom));
     }
 
-    .rfm-upload-toast--minimized {
-        @apply min-h-[48px] h-auto;
+    .rfm-operation-toast {
+      @apply bottom-4 text-sm px-4 py-2;
+      bottom: calc(1rem + env(safe-area-inset-bottom));
     }
+  }
 
-    .rfm-upload-toast-header {
-        @apply flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 dark:bg-slate-800 dark:border-slate-700;
+  /* Small phones */
+  @media (max-width: 480px) {
+    .rfm-upload-toast {
+      @apply right-1 bottom-1 left-1;
+      width: calc(100vw - 0.5rem) !important;
     }
-
-    .rfm-upload-toast-title {
-        @apply text-sm font-bold text-slate-800 truncate dark:text-slate-100;
-    }
-
-    .rfm-upload-toast-actions {
-        @apply flex items-center gap-1.5;
-    }
-
-    .rfm-upload-toast-btn {
-        @apply p-1 hover:bg-slate-200 rounded-lg transition-all duration-200 text-slate-600 dark:hover:bg-slate-700 dark:text-slate-300;
-    }
-
-    .rfm-upload-toast-body {
-        @apply p-1 bg-white dark:bg-slate-900;
-    }
-
-    .rfm-upload-progress-container {
-        @apply h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-2 dark:bg-slate-800;
-    }
-
-    .rfm-upload-progress-bar {
-        @apply h-full bg-sky-500 transition-all duration-300 ease-out;
-    }
-
-    .rfm-upload-progress-text {
-        @apply text-xs font-bold text-slate-500 dark:text-slate-400;
-    }
-
-    .rfm-upload-list {
-        @apply flex flex-col gap-1 max-h-60 overflow-y-auto mt-2;
-    }
-
-    .rfm-upload-item {
-        @apply flex items-center justify-between gap-3 p-2 rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-slate-800;
-    }
-
-    .rfm-upload-item-info {
-        @apply flex flex-col flex-1 min-w-0;
-    }
-
-    .rfm-upload-item-name {
-        @apply text-xs font-medium text-slate-700 truncate dark:text-slate-300;
-    }
-
-    .rfm-upload-item-progress-container {
-        @apply h-1 w-full bg-slate-100 rounded-full overflow-hidden mt-1 dark:bg-slate-700;
-    }
-
-    .rfm-upload-item-progress-bar {
-        @apply h-full bg-indigo-500 transition-all duration-300 ease-out;
-    }
-
-    .rfm-upload-item-icon {
-        @apply w-5 h-5 flex-shrink-0 flex items-center justify-center;
-    }
-
-    /* ==================== Responsive Toasts ==================== */
-
-    /* Mobile */
-    @media (max-width: 768px) {
-        .rfm-upload-toast {
-            @apply w-[calc(100vw-1rem)] right-2 left-2;
-            max-width: none !important;
-            width: calc(100vw - 1rem) !important;
-            /* iOS safe-area: keep toast above home indicator */
-            bottom: calc(0.5rem + env(safe-area-inset-bottom));
-        }
-
-        .rfm-operation-toast {
-            @apply bottom-4 text-sm px-4 py-2;
-            bottom: calc(1rem + env(safe-area-inset-bottom));
-        }
-    }
-
-    /* Small phones */
-    @media (max-width: 480px) {
-        .rfm-upload-toast {
-            @apply right-1 bottom-1 left-1;
-            width: calc(100vw - 0.5rem) !important;
-        }
-    }
+  }
 }

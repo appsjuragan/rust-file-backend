@@ -186,6 +186,7 @@ impl FileService {
                 .as_str()
                 .unwrap_or("application/octet-stream")
                 .to_string();
+            let is_encrypted = analysis.is_encrypted;
             analysis_result = Some(analysis);
 
             let id = Uuid::new_v4().to_string();
@@ -215,6 +216,7 @@ impl FileService {
                 size: Set(staged.size),
                 ref_count: Set(1),
                 mime_type: Set(Some(mime_type)),
+                is_encrypted: Set(is_encrypted),
                 scan_status: Set(Some(scan_status)),
                 scan_result: Set(None),
                 scanned_at: Set(None),
@@ -416,6 +418,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
+                is_favorite: Set(false),
                 // file_signature: Set(Some(wrapped_key)), // No Key
                 ..Default::default()
             };
@@ -527,6 +530,7 @@ impl FileService {
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
+                is_favorite: Set(false),
                 ..Default::default()
             };
 
@@ -865,6 +869,7 @@ impl FileService {
             is_folder: Set(item.is_folder),
             storage_file_id: Set(item.storage_file_id.clone()),
             created_at: Set(Some(Utc::now())),
+            is_favorite: Set(item.is_favorite),
             ..Default::default()
         };
 
@@ -875,18 +880,19 @@ impl FileService {
 
         // 2. Increment ref count if it's a file
         if !item.is_folder
-            && let Some(ref sid) = item.storage_file_id {
-                let sf = storage_files::Entity::find_by_id(sid.clone())
-                    .one(txn)
-                    .await?
-                    .ok_or_else(|| {
-                        AppError::NotFound("Storage file missing during copy".to_string())
-                    })?;
+            && let Some(ref sid) = item.storage_file_id
+        {
+            let sf = storage_files::Entity::find_by_id(sid.clone())
+                .one(txn)
+                .await?
+                .ok_or_else(|| {
+                    AppError::NotFound("Storage file missing during copy".to_string())
+                })?;
 
-                let mut active_sf: storage_files::ActiveModel = sf.into();
-                active_sf.ref_count = Set(active_sf.ref_count.unwrap() + 1);
-                active_sf.update(txn).await?;
-            }
+            let mut active_sf: storage_files::ActiveModel = sf.into();
+            active_sf.ref_count = Set(active_sf.ref_count.unwrap() + 1);
+            active_sf.update(txn).await?;
+        }
 
         // 3. If folder, copy children (keeping original names)
         if item.is_folder {

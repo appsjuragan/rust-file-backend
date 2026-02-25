@@ -7,7 +7,7 @@ use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{StatusCode, header},
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use chrono::Utc;
 use futures::TryStreamExt;
@@ -18,7 +18,7 @@ use sea_orm::{
     sea_query::{Expr, Func},
 };
 use serde::{Deserialize, Serialize};
-use tokio_util::io::{ReaderStream, StreamReader};
+use tokio_util::io::StreamReader;
 use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
@@ -47,6 +47,9 @@ pub struct FileMetadataResponse {
     pub scan_result: Option<String>,
     pub hash: Option<String>,
     pub is_favorite: bool,
+    pub has_thumbnail: bool,
+    pub is_encrypted: bool,
+    pub is_shared: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -377,7 +380,6 @@ pub async fn upload_file(
 pub async fn download_file(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
-    headers: header::HeaderMap,
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
@@ -413,7 +415,7 @@ pub async fn download_file(
         .await?
         .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
 
-    // 3. Security: Check Virus Scan Status
+    // 4. Security: Check Virus Scan Status
     if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
         tracing::warn!("Blocked access to infected file: {}", file_id);
         return Err(AppError::Forbidden(format!(
@@ -425,8 +427,143 @@ pub async fn download_file(
         )));
     }
 
-    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-    serve_file_stream(&state, user_file, storage_file, range_header).await
+    // 5. Generate presigned URL and redirect (no data through backend memory)
+    let (content_type, content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    let presigned_url = state
+        .storage
+        .generate_presigned_url_raw(
+            &storage_file.s3_key,
+            43200, // 12 hours
+            &content_type,
+            &content_disposition,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {}", e);
+            AppError::Internal("Failed to generate download URL".to_string())
+        })?;
+
+    tracing::info!(
+        "📎 Presigned redirect for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
+
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate download URL".to_string())
+    })?;
+
+    // Extract path and query for X-Accel-Redirect
+    // Should be /bucket/key?Signature=...
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
+    tracing::info!(
+        "📎 X-Accel-Redirect for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        // Nginx internal redirect
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        // Content headers for the client
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_DISPOSITION, content_disposition)
+        .header(header::CACHE_CONTROL, "private, max-age=31536000") // 1 year cache since it's immutable
+        .body(Body::empty())
+        .unwrap())
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/{id}/thumbnail",
+    params(
+        ("id" = String, Path, description = "User File ID")
+    ),
+    responses(
+        (status = 200, description = "File thumbnail stream"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Thumbnail not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_thumbnail(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(file_id): Path<String>,
+) -> Result<Response, AppError> {
+    // 1. Verify file ownership and existence
+    let user_file = UserFiles::find_by_id(file_id.clone())
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound(
+            "File not found or access denied".to_string(),
+        ))?;
+
+    if user_file.is_folder {
+        return Err(AppError::BadRequest(
+            "Cannot get thumbnail for a folder".to_string(),
+        ));
+    }
+
+    let storage_file_id = user_file
+        .storage_file_id
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
+
+    // 2. Get storage file
+    let storage_file = StorageFiles::find_by_id(storage_file_id.clone())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    if !storage_file.has_thumbnail {
+        return Err(AppError::NotFound(
+            "Thumbnail not generated yet".to_string(),
+        ));
+    }
+
+    // 3. Generate presigned URL for proxy
+    let thumbnail_key = format!("thumbnails/{}.webp", storage_file_id);
+    let presigned_url = state
+        .storage
+        .generate_presigned_url_raw(
+            &thumbnail_key,
+            43200, // 12 hours
+            "image/webp",
+            "inline",
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL for thumbnail: {}", e);
+            AppError::Internal("Failed to generate thumbnail URL".to_string())
+        })?;
+
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate thumbnail URL".to_string())
+    })?;
+
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        .header(axum::http::header::CONTENT_TYPE, "image/webp")
+        .header(axum::http::header::CACHE_CONTROL, "public, max-age=86400")
+        .body(Body::empty())
+        .unwrap())
 }
 
 #[utoipa::path(
@@ -602,6 +739,13 @@ pub async fn list_files(
             None
         };
 
+        let is_shared = crate::services::share_service::ShareService::has_active_shares(
+            &state.db,
+            &user_file.id,
+        )
+        .await
+        .unwrap_or(false);
+
         result.push(FileMetadataResponse {
             id: user_file.id,
             filename: user_file.filename,
@@ -618,6 +762,15 @@ pub async fn list_files(
             scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
             hash: storage_file.as_ref().map(|s| s.hash.clone()),
             is_favorite: user_file.is_favorite,
+            has_thumbnail: storage_file
+                .as_ref()
+                .map(|s| s.has_thumbnail)
+                .unwrap_or(false),
+            is_encrypted: storage_file
+                .as_ref()
+                .map(|s| s.is_encrypted)
+                .unwrap_or(false),
+            is_shared,
         });
     }
 
@@ -662,6 +815,7 @@ pub async fn create_folder(
         is_folder: Set(true),
         parent_id: Set(req.parent_id.clone()),
         created_at: Set(Some(Utc::now())),
+        is_favorite: Set(false),
         ..Default::default()
     };
 
@@ -683,6 +837,9 @@ pub async fn create_folder(
         scan_result: None,
         hash: None,
         is_favorite: res.is_favorite,
+        has_thumbnail: false,
+        is_encrypted: false,
+        is_shared: false,
     }))
 }
 
@@ -743,6 +900,9 @@ pub async fn get_folder_path(
                 scan_result: None,
                 hash: None,
                 is_favorite: folder.is_favorite,
+                has_thumbnail: false,
+                is_encrypted: false,
+                is_shared: false,
             },
         );
 
@@ -847,6 +1007,15 @@ pub async fn toggle_favorite(
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         hash: storage_file.as_ref().map(|s| s.hash.clone()),
         is_favorite: res.is_favorite,
+        has_thumbnail: storage_file
+            .as_ref()
+            .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
+        is_encrypted: storage_file
+            .as_ref()
+            .map(|s| s.is_encrypted)
+            .unwrap_or(false),
+        is_shared: false,
     }))
 }
 
@@ -924,11 +1093,12 @@ pub async fn rename_item(
 
                 // Verify it's actually a folder
                 if let Some(ref parent) = parent_folder
-                    && !parent.is_folder {
-                        return Err(AppError::BadRequest(
-                            "Parent ID must refer to a folder, not a file".to_string(),
-                        ));
-                    }
+                    && !parent.is_folder
+                {
+                    return Err(AppError::BadRequest(
+                        "Parent ID must refer to a folder, not a file".to_string(),
+                    ));
+                }
             }
             Some(p)
         }
@@ -1302,6 +1472,15 @@ async fn return_file_metadata(
         scan_result: storage_file.as_ref().and_then(|s| s.scan_result.clone()),
         hash: storage_file.as_ref().map(|s| s.hash.clone()),
         is_favorite: updated.is_favorite,
+        has_thumbnail: storage_file
+            .as_ref()
+            .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
+        is_encrypted: storage_file
+            .as_ref()
+            .map(|s| s.is_encrypted)
+            .unwrap_or(false),
+        is_shared: false,
     }))
 }
 
@@ -1420,22 +1599,58 @@ pub async fn generate_download_ticket(
     Extension(claims): Extension<Claims>,
     Path(file_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_file = UserFiles::find_by_id(file_id.clone())
+    let user_file = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
         .ok_or(AppError::NotFound("File not found".to_string()))?;
 
+    // Generate ticket for backward compat
     let ticket = Uuid::new_v4().to_string();
-    let expiry = Utc::now() + chrono::Duration::minutes(5);
+    let expiry = Utc::now() + chrono::Duration::hours(12);
 
     state
         .download_tickets
-        .insert(ticket.clone(), (file_id, expiry));
+        .insert(ticket.clone(), (file_id.clone(), expiry));
+
+    // Generate presigned URL (12 hours)
+    let storage_file_id = user_file
+        .storage_file_id
+        .clone()
+        .ok_or(AppError::NotFound("Storage file missing".to_string()))?;
+
+    let storage_file = StorageFiles::find_by_id(storage_file_id)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Storage file not found".to_string()))?;
+
+    // Check virus scan
+    if matches!(storage_file.scan_status.as_deref(), Some("infected")) {
+        return Err(AppError::Forbidden(format!(
+            "File is infected with malware: {}",
+            storage_file
+                .scan_result
+                .as_deref()
+                .unwrap_or("unknown threat")
+        )));
+    }
+
+    let (_content_type, _content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    // Generate a public URL pointing to the download endpoint with ticket
+    let public_url = format!("/api/download/{}", ticket);
+
+    tracing::info!(
+        "📎 Ticket generated for file_id={} user={}",
+        file_id,
+        claims.sub
+    );
 
     Ok(Json(serde_json::json!({
         "ticket": ticket,
+        "url": public_url,
         "expires_at": expiry
     })))
 }
@@ -1453,7 +1668,6 @@ pub async fn generate_download_ticket(
 )]
 pub async fn download_file_with_ticket(
     State(state): State<crate::AppState>,
-    headers: header::HeaderMap,
     Path(ticket): Path<String>,
 ) -> Result<Response, AppError> {
     let (file_id, _) = {
@@ -1505,28 +1719,61 @@ pub async fn download_file_with_ticket(
         )));
     }
 
-    let range_header = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-    serve_file_stream(&state, user_file, storage_file, range_header).await
+    // Generate presigned URL and redirect
+    let (content_type, content_disposition) =
+        resolve_file_headers(&user_file.filename, &storage_file);
+
+    let presigned_url = state
+        .storage
+        .generate_presigned_url_raw(
+            &storage_file.s3_key,
+            43200, // 12 hours
+            &content_type,
+            &content_disposition,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to generate presigned URL: {}", e);
+            AppError::Internal("Failed to generate download URL".to_string())
+        })?;
+
+    let url = url::Url::parse(&presigned_url).map_err(|e| {
+        tracing::error!("Failed to parse presigned URL: {}", e);
+        AppError::Internal("Failed to generate download URL".to_string())
+    })?;
+
+    // Extract path and query for X-Accel-Redirect
+    // Should be /bucket/key?Signature=...
+    let path = url.path();
+    let query = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        // Nginx internal redirect
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        // Content headers for the client
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_DISPOSITION, content_disposition)
+        // Cache for ticket duration approx? Or strict validation.
+        // We'll trust the browser cache for a bit if needed.
+        .header(header::CACHE_CONTROL, "private, max-age=3600")
+        .body(Body::empty())
+        .unwrap())
 }
 
-async fn serve_file_stream(
-    state: &crate::AppState,
-    user_file: crate::entities::user_files::Model,
-    storage_file: crate::entities::storage_files::Model,
-    range_header: Option<&str>,
-) -> Result<Response, AppError> {
+/// Resolve content-type and content-disposition for a file.
+fn resolve_file_headers(
+    filename: &str,
+    storage_file: &crate::entities::storage_files::Model,
+) -> (String, String) {
     let mut content_type = storage_file
         .mime_type
         .clone()
         .unwrap_or_else(|| "application/octet-stream".to_string());
 
     if content_type == "application/octet-stream" || content_type == "application/stream" {
-        let extension = user_file
-            .filename
-            .split('.')
-            .next_back()
-            .unwrap_or("")
-            .to_lowercase();
+        let extension = filename.split('.').next_back().unwrap_or("").to_lowercase();
         content_type = match extension.as_str() {
             "mp4" => "video/mp4".to_string(),
             "webm" => "video/webm".to_string(),
@@ -1543,8 +1790,7 @@ async fn serve_file_stream(
         };
     }
 
-    let ascii_filename = user_file
-        .filename
+    let ascii_filename = filename
         .chars()
         .filter(|c| c.is_ascii() && !c.is_control() && *c != '"' && *c != '\\' && *c != ';')
         .take(64)
@@ -1555,7 +1801,7 @@ async fn serve_file_stream(
         &ascii_filename
     };
 
-    let encoded_filename = utf8_percent_encode(&user_file.filename, NON_ALPHANUMERIC).to_string();
+    let encoded_filename = utf8_percent_encode(filename, NON_ALPHANUMERIC).to_string();
 
     let disposition_type = if content_type.starts_with("video/")
         || content_type.starts_with("audio/")
@@ -1573,111 +1819,7 @@ async fn serve_file_stream(
         disposition_type, fallback_filename, encoded_filename
     );
 
-    if let Some(range) = range_header {
-        let s3_res = state
-            .storage
-            .get_object_range(&storage_file.s3_key, range)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get S3 object range: {}", e);
-                AppError::Internal("Failed to retrieve file range".to_string())
-            })?;
-
-        let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-        let mut response = (
-            [
-                (header::CONTENT_TYPE, content_type.clone()),
-                (header::ACCEPT_RANGES, "bytes".to_string()),
-                (header::CONTENT_DISPOSITION, content_disposition.clone()),
-            ],
-            body,
-        )
-            .into_response();
-
-        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
-
-        if let Some(h_val) = s3_res.content_range.and_then(|c| c.parse().ok()) {
-            response.headers_mut().insert(header::CONTENT_RANGE, h_val);
-        }
-        if let Some(content_length) = s3_res.content_length {
-            response.headers_mut().insert(
-                header::CONTENT_LENGTH,
-                content_length
-                    .to_string()
-                    .parse()
-                    .unwrap_or(header::HeaderValue::from_static("0")),
-            );
-        }
-        if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-            response.headers_mut().insert(header::ETAG, h_val);
-        }
-        if let Some(last_modified) = s3_res.last_modified {
-            let dt = chrono::DateTime::from_timestamp(
-                last_modified.secs(),
-                last_modified.subsec_nanos(),
-            )
-            .unwrap_or_default();
-            let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-            if let Ok(h_val) = rfc1123.parse() {
-                response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-            }
-        }
-        response.headers_mut().insert(
-            header::CACHE_CONTROL,
-            header::HeaderValue::from_static("private, max-age=31536000"),
-        );
-        return Ok(response);
-    }
-
-    let s3_res = state
-        .storage
-        .get_object_stream(&storage_file.s3_key)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get S3 object stream: {}", e);
-            AppError::Internal("Failed to retrieve file".to_string())
-        })?;
-
-    let body = Body::from_stream(ReaderStream::new(s3_res.body.into_async_read()));
-
-    let mut response = (
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::ACCEPT_RANGES, "bytes".to_string()),
-            (header::CONTENT_DISPOSITION, content_disposition),
-        ],
-        body,
-    )
-        .into_response();
-
-    if let Some(content_length) = s3_res.content_length {
-        response.headers_mut().insert(
-            header::CONTENT_LENGTH,
-            content_length
-                .to_string()
-                .parse()
-                .unwrap_or(header::HeaderValue::from_static("0")),
-        );
-    }
-    if let Some(h_val) = s3_res.e_tag.and_then(|t| t.parse().ok()) {
-        response.headers_mut().insert(header::ETAG, h_val);
-    }
-    if let Some(last_modified) = s3_res.last_modified {
-        let dt =
-            chrono::DateTime::from_timestamp(last_modified.secs(), last_modified.subsec_nanos())
-                .unwrap_or_default();
-        let rfc1123 = dt.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
-        if let Ok(h_val) = rfc1123.parse() {
-            response.headers_mut().insert(header::LAST_MODIFIED, h_val);
-        }
-    }
-    response.headers_mut().insert(
-        header::CACHE_CONTROL,
-        header::HeaderValue::from_static("private, max-age=31536000"),
-    );
-
-    Ok(response)
+    (content_type, content_disposition)
 }
 
 #[utoipa::path(

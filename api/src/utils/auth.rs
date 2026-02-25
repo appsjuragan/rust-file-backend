@@ -8,6 +8,7 @@ use std::env;
 pub struct Claims {
     pub sub: String, // user_id
     pub exp: usize,
+    pub jti: String,
 }
 
 pub fn create_jwt(user_id: &str, secret: &str) -> Result<String> {
@@ -19,6 +20,7 @@ pub fn create_jwt(user_id: &str, secret: &str) -> Result<String> {
     let claims = Claims {
         sub: user_id.to_owned(),
         exp: expiration as usize,
+        jti: uuid::Uuid::new_v4().to_string(),
     };
 
     let token = encode(

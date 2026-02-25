@@ -31,8 +31,8 @@ const CommonModal: React.FC<IModalProps> = ({
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const onCloseRef = useRef(onClose);
@@ -57,7 +57,7 @@ const CommonModal: React.FC<IModalProps> = ({
 
       return () => {
         window.removeEventListener("popstate", handlePopState);
-        // If the modal is closed manually (not via back button), 
+        // If the modal is closed manually (not via back button),
         // we should remove the history entry we added if it's still there
         if (window.history.state?.modalId === stateId) {
           window.history.back();
@@ -89,7 +89,7 @@ const CommonModal: React.FC<IModalProps> = ({
       setPositionStyle({
         top: `${top}px`,
         left: `${left}px`,
-        position: 'fixed'
+        position: "fixed",
       });
     } else if (isVisible && (!clickPosition || isMobile)) {
       setPositionStyle({});
@@ -110,10 +110,12 @@ const CommonModal: React.FC<IModalProps> = ({
     >
       <div
         ref={nodeRef}
-        className={`rfm-modal-container ${className || ""} ${centered ? "rfm-modal--centered" : ""}`}
+        className={`rfm-modal-container ${className || ""} ${
+          centered ? "rfm-modal--centered" : ""
+        }`}
         style={{
-          ...(autoHeight ? { height: 'auto' } : {}),
-          ...positionStyle
+          ...(autoHeight ? { height: "auto" } : {}),
+          ...positionStyle,
         }}
       >
         {isMobile && <div className="rfm-modal-handle" onClick={onClose} />}
@@ -129,18 +131,16 @@ const CommonModal: React.FC<IModalProps> = ({
             size={20}
           />
         </div>
-        <div className="rfm-modal-body">
-          {children}
-        </div>
+        <div className="rfm-modal-body">{children}</div>
       </div>
     </Draggable>
   );
 
   const content = centered ? (
-    <div className="rfm-modal-centered-wrapper">
-      {modalContent}
-    </div>
-  ) : modalContent;
+    <div className="rfm-modal-centered-wrapper">{modalContent}</div>
+  ) : (
+    modalContent
+  );
 
   // Render modal to body using portal so it can be dragged anywhere
   return createPortal(content, document.body);

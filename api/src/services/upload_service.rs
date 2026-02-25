@@ -26,7 +26,7 @@ pub struct InitUploadRequest {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct InitUploadResponse {
-    pub upload_id: Uuid,
+    pub upload_id: String,
     pub chunk_size: i64,
     pub key: String,
 }
@@ -62,7 +62,7 @@ pub struct PartInfo {
 
 #[derive(Serialize, ToSchema)]
 pub struct PendingSessionResponse {
-    pub upload_id: Uuid,
+    pub upload_id: String,
     pub file_name: String,
     pub file_type: Option<String>,
     pub total_size: i64,
@@ -114,7 +114,7 @@ impl UploadService {
         let s3_upload_id = self.storage.create_multipart_upload(&s3_key).await?;
 
         let session = upload_sessions::ActiveModel {
-            id: Set(Uuid::new_v4()),
+            id: Set(Uuid::new_v4().to_string()),
             user_id: Set(user_id),
             file_name: Set(req.file_name),
             file_type: Set(req.file_type),
@@ -142,12 +142,12 @@ impl UploadService {
     pub async fn upload_chunk(
         &self,
         user_id: String,
-        session_id: Uuid,
+        session_id: String,
         part_number: i32,
         data: Vec<u8>,
     ) -> Result<UploadPartResponse> {
-        let session = upload_sessions::Entity::find_by_id(session_id)
-            .filter(upload_sessions::Column::UserId.eq(user_id.clone()))
+        let session = upload_sessions::Entity::find_by_id(&session_id)
+            .filter(upload_sessions::Column::UserId.eq(&user_id))
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow!("Upload session not found"))?;
@@ -171,8 +171,10 @@ impl UploadService {
         let db = self.db.clone();
 
         db.transaction::<_, (), anyhow::Error>(|txn| {
+            let session_id = session_id.clone();
             let user_id = user_id.clone();
             let etag = etag.clone();
+            let part_number = part_number;
             Box::pin(async move {
                 use sea_orm::QuerySelect;
                 let session = upload_sessions::Entity::find_by_id(session_id)
@@ -186,10 +188,7 @@ impl UploadService {
 
                 // Remove if existing (retry)
                 parts.retain(|p| p.part_number != part_number);
-                parts.push(PartInfo {
-                    part_number,
-                    etag,
-                });
+                parts.push(PartInfo { part_number, etag });
 
                 // Sort by part number for tidiness
                 parts.sort_by_key(|p| p.part_number);
@@ -210,10 +209,10 @@ impl UploadService {
     pub async fn complete_upload(
         &self,
         user_id: String,
-        session_id: Uuid,
+        session_id: String,
         req: CompleteUploadRequest,
     ) -> Result<FileResponse> {
-        let session = upload_sessions::Entity::find_by_id(session_id)
+        let session = upload_sessions::Entity::find_by_id(session_id.clone())
             .filter(upload_sessions::Column::UserId.eq(user_id.clone()))
             .one(&self.db)
             .await?
@@ -339,14 +338,14 @@ impl UploadService {
             name: file.filename,
             is_folder: file.is_folder,
             size: Some(session_total_size),
-            created_at: file.created_at.unwrap_or(Utc::now().into()),
-            updated_at: Utc::now().into(),
+            created_at: file.created_at.unwrap_or(Utc::now()),
+            updated_at: Utc::now(),
             mime_type: file_type,
             parent_id: file.parent_id,
         })
     }
 
-    pub async fn abort_upload(&self, user_id: String, session_id: Uuid) -> Result<()> {
+    pub async fn abort_upload(&self, user_id: String, session_id: String) -> Result<()> {
         let session = upload_sessions::Entity::find_by_id(session_id)
             .filter(upload_sessions::Column::UserId.eq(user_id))
             .one(&self.db)

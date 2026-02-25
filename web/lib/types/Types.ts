@@ -2,7 +2,13 @@ export type UploadStatus = {
   id: string;
   name: string;
   progress: number;
-  status: 'queued' | 'hashing' | 'uploading' | 'processing' | 'completed' | 'error';
+  status:
+  | "queued"
+  | "hashing"
+  | "uploading"
+  | "processing"
+  | "completed"
+  | "error";
   error?: string;
   size?: number;
   uploadId?: string;
@@ -40,6 +46,12 @@ export interface BackendFile {
   isFavorite?: boolean;
   extra_metadata?: any;
   extraMetadata?: any;
+  has_thumbnail?: boolean;
+  hasThumbnail?: boolean;
+  is_encrypted?: boolean;
+  isEncrypted?: boolean;
+  is_shared?: boolean;
+  isShared?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -50,17 +62,25 @@ export type FileType = {
   path?: string; // Optional because files inherit the path from the parentId folder
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
-  scanStatus?: "pending" | "scanning" | "clean" | "infected" | "unchecked" | "not_supported";
+  scanStatus?:
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "infected"
+  | "unchecked"
+  | "not_supported";
   size?: number;
   mimeType?: string;
   hash?: string;
   extraMetadata?: any;
   expiresAt?: string;
   isFavorite?: boolean;
+  hasThumbnail?: boolean;
+  isEncrypted?: boolean;
+  isShared?: boolean;
 };
 
 export type FileSystemType = FileType[];
-
 
 export type ValidationRules = {
   allowed_mimes: string[];
@@ -74,3 +94,27 @@ export type FolderNode = {
   filename: string;
   parent_id: string | null;
 };
+
+export interface ShareLink {
+  id: string;
+  user_file_id: string;
+  share_token: string;
+  share_type: "public" | "user";
+  shared_with_user_id?: string;
+  has_password: boolean;
+  permission: "view" | "download";
+  expires_at: string;
+  created_at: string;
+  filename?: string;
+  is_folder?: boolean;
+  parent_id?: string;
+}
+
+export interface ShareAccessLog {
+  id: string;
+  accessed_by_user_id?: string;
+  ip_address?: string;
+  user_agent?: string;
+  action: string;
+  accessed_at: string;
+}

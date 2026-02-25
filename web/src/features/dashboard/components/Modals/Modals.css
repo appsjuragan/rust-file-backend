@@ -1,419 +1,419 @@
 /* ==================== Refactored Modal Styles ==================== */
 .rfm-profile-modal {
-    width: 100%;
-    max-width: 420px;
+  width: 100%;
+  max-width: 420px;
 }
 
 .rfm-confirm-modal {
-    width: 100%;
-    max-width: 400px;
+  width: 100%;
+  max-width: 400px;
 }
 
 .rfm-profile-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    max-height: calc(90vh - 60px);
-    overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-height: calc(90vh - 60px);
+  overflow-y: auto;
 }
 
 .rfm-confirm-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  color: var(--text);
 }
 
 .rfm-profile-avatar-section {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    margin-bottom: 0.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .rfm-profile-avatar-large {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    flex-shrink: 0;
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
 }
 
 .rfm-profile-avatar-large img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid var(--border);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .rfm-avatar-placeholder-large {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    font-weight: 700;
-    border: 3px solid var(--border);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  border: 3px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .rfm-avatar-upload-btn {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 28px;
-    height: 28px;
-    background: var(--primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    border: 2px solid var(--card-bg);
-    cursor: pointer;
-    transition: transform 0.2s;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  background: var(--primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: 2px solid var(--card-bg);
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
 .rfm-avatar-upload-btn:hover {
-    transform: scale(1.1);
-    background: var(--primary-hover);
+  transform: scale(1.1);
+  background: var(--primary-hover);
 }
 
 .rfm-profile-header-text h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text);
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .rfm-profile-header-text p {
-    margin: 0.25rem 0 0;
-    font-size: 0.9rem;
-    color: var(--text-muted);
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {
-    .rfm-profile-modal {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        left: 0 !important;
-        right: 0 !important;
-        margin: 0 !important;
-    }
+  .rfm-profile-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+  }
 
-    .rfm-profile-avatar-section {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-        padding-bottom: 2rem;
-    }
+  .rfm-profile-avatar-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+    padding-bottom: 2rem;
+  }
 
-    .rfm-profile-header-text {
-        text-align: center;
-    }
+  .rfm-profile-header-text {
+    text-align: center;
+  }
 
-    .rfm-modal-actions {
-        flex-direction: column-reverse;
-        gap: 0.75rem;
-        margin-top: 2rem;
-    }
+  .rfm-modal-actions {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
 
-    .rfm-btn-primary,
-    .rfm-btn-secondary,
-    .rfm-btn-danger {
-        width: 100%;
-        padding: 0.9rem;
-        font-size: 1rem;
-    }
+  .rfm-btn-primary,
+  .rfm-btn-secondary,
+  .rfm-btn-danger {
+    width: 100%;
+    padding: 0.9rem;
+    font-size: 1rem;
+  }
 
-    .rfm-modal-actions.right {
-        justify-content: flex-start;
-    }
+  .rfm-modal-actions.right {
+    justify-content: flex-start;
+  }
 }
 
 .rfm-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .rfm-form-group label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .rfm-input {
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 0.95rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .rfm-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
 }
 
 .rfm-modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .rfm-modal-actions.right {
-    justify-content: flex-end;
+  justify-content: flex-end;
 }
 
 .rfm-btn-secondary {
-    padding: 0.6rem 1.25rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
 .rfm-btn-secondary:hover {
-    background: var(--bg);
+  background: var(--bg);
 }
 
 .rfm-btn-primary {
-    padding: 0.6rem 1.25rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: var(--primary);
-    color: white;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
 }
 
 .rfm-btn-primary:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 .rfm-btn-danger {
-    padding: 0.6rem 1.25rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: #ef4444;
-    color: white;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #ef4444;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
 .rfm-btn-danger:hover {
-    background: #dc2626;
+  background: #dc2626;
 }
 
 /* ==================== Generic Modal & Avatar Crop Styles ==================== */
 .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.2s ease-out;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content {
-    background: var(--card-bg);
-    padding: 2rem;
-    border-radius: 1.5rem;
-    width: 100%;
-    max-width: 500px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--border);
-    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 1.5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
+  from {
+    opacity: 0;
+  }
 
-    to {
-        opacity: 1;
-    }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scaleIn {
-    from {
-        transform: scale(0.95);
-        opacity: 0;
-    }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
 
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
 
 .modal-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text);
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: color 0.2s;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
 .close-btn:hover {
-    color: var(--error);
+  color: var(--error);
 }
 
 .modal-body {
-    margin-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 /* Generic Form Group (Alternative to rfm-form-group if needed) */
 .form-group {
-    margin-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: var(--text);
-    font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.9rem;
 }
 
 .form-group input {
-    width: 100%;
-    padding: 0.75rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    color: var(--text);
-    font-size: 1rem;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .form-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
 }
 
 .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
 }
 
 .cancel-btn,
 .save-btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
 }
 
 .cancel-btn {
-    background: var(--bg);
-    color: var(--text-muted);
+  background: var(--bg);
+  color: var(--text-muted);
 }
 
 .cancel-btn:hover {
-    background: var(--border);
-    color: var(--text);
+  background: var(--border);
+  color: var(--text);
 }
 
 .save-btn {
-    background: var(--primary);
-    color: white;
+  background: var(--primary);
+  color: white;
 }
 
 .save-btn:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 /* Avatar Upload specific styles */
 .avatar-preview-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
 }
 
 .avatar-preview-large {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid var(--border);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--border);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .file-input-wrapper {
-    position: relative;
-    overflow: hidden;
-    display: inline-block;
-    width: 100%;
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  width: 100%;
 }
 
-.file-input-wrapper input[type=file] {
-    font-size: 100px;
-    position: absolute;
-    left: 0;
-    top: 0;
-    opacity: 0;
-    cursor: pointer;
+.file-input-wrapper input[type="file"] {
+  font-size: 100px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .file-input-btn {
-    border: 2px dashed var(--border);
-    color: var(--text-muted);
-    background: var(--bg);
-    padding: 1rem;
-    border-radius: 0.75rem;
-    text-align: center;
-    width: 100%;
-    cursor: pointer;
-    transition: all 0.2s;
+  border: 2px dashed var(--border);
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .file-input-wrapper:hover .file-input-btn {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: rgba(var(--primary-rgb), 0.05);
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
 }

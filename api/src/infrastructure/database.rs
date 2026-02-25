@@ -1,7 +1,7 @@
 use crate::entities::{
     allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
-    storage_files, tags, tokens, upload_sessions, user_file_facts, user_files, user_settings,
-    users,
+    share_access_logs, share_links, storage_files, tags, tokens, upload_sessions, user_file_facts,
+    user_files, user_settings, users,
 };
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Schema};
 use std::env;
@@ -46,7 +46,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
             Err(e) => {
                 let err_msg = e.to_string();
                 if err_msg.contains("was previously applied but has been modified") {
-                    info!("⚠️ Migration checksum mismatch detected, but skipping as requested: {}", err_msg);
+                    info!(
+                        "⚠️ Migration checksum mismatch detected, but skipping as requested: {}",
+                        err_msg
+                    );
                 } else {
                     return Err(anyhow::anyhow!("Migration failed: {}", err_msg));
                 }
@@ -114,26 +117,20 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
                 .create_table_from_entity(upload_sessions::Entity)
                 .if_not_exists()
                 .to_owned(),
+            schema
+                .create_table_from_entity(share_links::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(share_access_logs::Entity)
+                .if_not_exists()
+                .to_owned(),
         ];
 
         for stmt in stmts {
             let stmt = builder.build(&stmt);
             let _ = db.execute(stmt).await;
         }
-
-        // Manual check for is_favorite column in user_files (added in migration 20260217000000)
-        let _ = db
-            .execute(sea_orm::Statement::from_string(
-                builder,
-                "ALTER TABLE user_files ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE;".to_string(),
-            ))
-            .await;
-
-        // Manual check for missing indexes if any
-        let _ = db.execute(sea_orm::Statement::from_string(
-            builder,
-            "CREATE INDEX IF NOT EXISTS idx_user_files_is_favorite ON user_files(is_favorite) WHERE is_favorite = TRUE;".to_string(),
-        )).await;
 
         // Seed validation data for SQLite
         crate::infrastructure::seed::seed_validation_data_sqlite(db).await?;

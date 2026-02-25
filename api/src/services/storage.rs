@@ -1,8 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use aws_sdk_s3::Client;
+use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
+use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use xxhash_rust::xxh3::Xxh3;
 
@@ -28,7 +30,20 @@ pub trait StorageService: Send + Sync {
     async fn copy_object(&self, source_key: &str, dest_key: &str) -> Result<()>;
     async fn delete_file(&self, key: &str) -> Result<()>;
     async fn file_exists(&self, key: &str) -> Result<bool>;
-    async fn get_download_url(&self, key: &str) -> Result<String>;
+    async fn generate_presigned_url(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String>;
+    async fn generate_presigned_url_raw(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String>;
     async fn get_object_stream(
         &self,
         key: &str,
@@ -61,11 +76,20 @@ pub trait StorageService: Send + Sync {
 pub struct S3StorageService {
     client: Client,
     bucket: String,
+    endpoint_url: String,
+    public_base_url: String,
 }
 
 impl S3StorageService {
-    pub fn new(client: Client, bucket: String) -> Self {
-        Self { client, bucket }
+    pub fn new(client: Client, bucket: String, endpoint_url: String) -> Self {
+        let public_base_url =
+            std::env::var("S3_PUBLIC_BASE_URL").unwrap_or_else(|_| "/obj".to_string());
+        Self {
+            client,
+            bucket,
+            endpoint_url,
+            public_base_url,
+        }
     }
 }
 
@@ -221,8 +245,44 @@ impl StorageService for S3StorageService {
         }
     }
 
-    async fn get_download_url(&self, key: &str) -> Result<String> {
-        Ok(format!("{}/{}", self.bucket, key))
+    async fn generate_presigned_url_raw(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String> {
+        let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires_in_secs))?;
+
+        let presigned_request = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .response_content_type(content_type)
+            .response_content_disposition(content_disposition)
+            .presigned(presigning_config)
+            .await?;
+
+        Ok(presigned_request.uri().to_string())
+    }
+
+    async fn generate_presigned_url(
+        &self,
+        key: &str,
+        expires_in_secs: u64,
+        content_type: &str,
+        content_disposition: &str,
+    ) -> Result<String> {
+        let raw_url = self
+            .generate_presigned_url_raw(key, expires_in_secs, content_type, content_disposition)
+            .await?;
+
+        // Rewrite URL: replace MinIO internal endpoint with public base path
+        // e.g. http://localhost:9000/uploads/key?X-Amz-... → /obj/uploads/key?X-Amz-...
+        let rewritten = raw_url.replace(&self.endpoint_url, &self.public_base_url);
+
+        Ok(rewritten)
     }
 
     async fn get_object_stream(

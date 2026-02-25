@@ -1,585 +1,935 @@
-import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
-import type { FileType, FolderNode } from "../../types";
-import { isDescendantOrSelf, formatSize } from "../../utils/fileUtils";
+import type { FileType, FolderNode, ShareLink } from "../../types";
+import { isDescendantOrSelf, formatSize, formatShareExpiry } from "../../utils/fileUtils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { fileService } from "../../../src/services/fileService";
 
 // Build a map of parentId -> children for O(1) child lookups
 const buildChildrenMap = (tree: FolderNode[]): Map<string, FolderNode[]> => {
-    const map = new Map<string, FolderNode[]>();
-    for (const node of tree) {
-        let key = node.parent_id || "0";
-        if (key === "root") key = "0";
+  const map = new Map<string, FolderNode[]>();
+  for (const node of tree) {
+    let key = node.parent_id || "0";
+    if (key === "root") key = "0";
 
-        const list = map.get(key);
-        if (list) {
-            list.push(node);
-        } else {
-            map.set(key, [node]);
-        }
+    const list = map.get(key);
+    if (list) {
+      list.push(node);
+    } else {
+      map.set(key, [node]);
     }
-    return map;
+  }
+  return map;
 };
-
 
 // Helper: convert FolderNode to a FileType-like object for drag-drop / context menu
 const nodeToFileType = (node: FolderNode): FileType => ({
-    id: node.id,
-    name: node.filename,
-    isDir: true,
-    parentId: node.parent_id ?? "0",
+  id: node.id,
+  name: node.filename,
+  isDir: true,
+  parentId: node.parent_id ?? "0",
 });
 
 interface FolderTreeItemProps {
-    node: FolderNode;
-    childrenMap: Map<string, FolderNode[]>;
-    level: number;
-    expandedIds: Set<string>;
-    onToggle: (id: string) => void;
-    idToNodeMap: Map<string, FolderNode>;
+  node: FolderNode;
+  childrenMap: Map<string, FolderNode[]>;
+  level: number;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  idToNodeMap: Map<string, FolderNode>;
 }
 
-const FavoriteItem = ({ fav, onRemove, onSelect }: { fav: FileType, onRemove: () => void, onSelect: (f: FileType) => void }) => {
-    const [swipeX, setSwipeX] = useState(0);
-    const [touchStartX, setTouchStartX] = useState(0);
-    const [isSwiping, setIsSwiping] = useState(false);
+const FavoriteItem = ({
+  fav,
+  onRemove,
+  onSelect,
+}: {
+  fav: FileType;
+  onRemove: () => void;
+  onSelect: (f: FileType) => void;
+}) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (!e.touches[0]) return;
-        setTouchStartX(e.touches[0].clientX);
-        setIsSwiping(true);
-    };
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!e.touches[0]) return;
+    setTouchStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (!isSwiping || !e.touches[0]) return;
-        const currentX = e.touches[0].clientX;
-        const diff = currentX - touchStartX;
-        // Only allow swiping left
-        if (diff < 0) {
-            setSwipeX(Math.max(diff, -70)); // Limit swipe to 70px
-        } else {
-            setSwipeX(0);
-        }
-    };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping || !e.touches[0]) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX;
+    // Only allow swiping left
+    if (diff < 0) {
+      setSwipeX(Math.max(diff, -70)); // Limit swipe to 70px
+    } else {
+      setSwipeX(0);
+    }
+  };
 
-    const handleTouchEnd = () => {
-        setIsSwiping(false);
-        if (swipeX < -40) {
-            setSwipeX(-70);
-        } else {
-            setSwipeX(0);
-        }
-    };
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeX < -40) {
+      setSwipeX(-70);
+    } else {
+      setSwipeX(0);
+    }
+  };
 
-    return (
-        <div className="rfm-swipe-item-container">
-            <div
-                className="rfm-swipe-action-bg"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove();
-                }}
-            >
-                <SvgIcon svgType="trash" size={20} className="text-white" />
-            </div>
-            <div
-                className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 group"
-                style={{
-                    transform: `translateX(${swipeX}px)`,
-                    transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-                onClick={() => {
-                    if (swipeX === 0) onSelect(fav);
-                    else setSwipeX(0);
-                }}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-            >
-                <SvgIcon svgType={fav.isDir ? "folder" : "file"} size={16} className="mr-2 opacity-70" />
-                <span className="flex-1 truncate">{fav.name}</span>
+  return (
+    <div className="rfm-swipe-item-container">
+      <div
+        className="rfm-swipe-action-bg"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+      >
+        <SvgIcon svgType="trash" size={20} className="text-white" />
+      </div>
+      <div
+        className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 group"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: isSwiping
+            ? "none"
+            : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
+        onClick={() => {
+          if (swipeX === 0) onSelect(fav);
+          else setSwipeX(0);
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <SvgIcon
+          svgType={fav.isDir ? "folder" : "file"}
+          size={16}
+          className="mr-2 opacity-70"
+        />
+        <span className="flex-1 truncate">{fav.name}</span>
 
-                {/* Desktop-only remove icon */}
-                <button
-                    type="button"
-                    className="rfm-favorite-remove-btn"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRemove();
-                    }}
-                    title="Remove from Favorites"
-                >
-                    <SvgIcon svgType="trash" size={14} />
-                </button>
-            </div>
-        </div>
-    );
+        {/* Desktop-only remove icon */}
+        <button
+          type="button"
+          className="rfm-favorite-remove-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          title="Remove from Favorites"
+        >
+          <SvgIcon svgType="trash" size={14} />
+        </button>
+      </div>
+    </div>
+  );
 };
 
-const FolderTreeItem = ({ node, childrenMap, level, expandedIds, onToggle, idToNodeMap }: FolderTreeItemProps) => {
-    const { fs, currentFolder, setCurrentFolder, onRefresh, setContextMenu, onBulkMove, onMove, selectedIds, setSelectedIds, setIsMoving, setSidebarVisible } = useFileManager();
-    const [isDragOver, setIsDragOver] = useState(false);
-    const isMobile = !useMediaQuery("(min-width: 769px)");
+const ShareItem = ({
+  share,
+  onRemove,
+  onCopyLink,
+  onSelect,
+}: {
+  share: ShareLink;
+  onRemove: () => void;
+  onCopyLink: () => void;
+  onSelect: () => void;
+}) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
 
-    const children = childrenMap.get(node.id) ?? [];
-    const hasChildren = children.length > 0;
-    const isExpanded = expandedIds.has(node.id);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!e.touches[0]) return;
+    setTouchStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        // Use O(1) lookup via callback
-        const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
-        const canDrop = !selectedIds.some(id => isDescendantOrSelf(getParentId, id, node.id));
-        if (canDrop) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setIsDragOver(true);
-        }
-    };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping || !e.touches[0]) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX;
+    if (diff < 0) {
+      setSwipeX(Math.max(diff, -70));
+    } else {
+      setSwipeX(0);
+    }
+  };
 
-    const handleDragLeave = () => {
-        setIsDragOver(false);
-    };
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeX < -40) {
+      setSwipeX(-70);
+    } else {
+      setSwipeX(0);
+    }
+  };
 
-    const handleDrop = async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOver(false);
-
-        const data = e.dataTransfer.getData("application/json");
-        if (!data) return;
-
-        try {
-            const idsToMove = JSON.parse(data);
-            // Use O(1) lookup via callback
-            const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
-            const validIds = idsToMove.filter((id: string) => !isDescendantOrSelf(getParentId, id, node.id));
-            if (validIds.length > 0) {
-                setIsMoving(true);
-                if (onBulkMove) {
-                    await onBulkMove(idsToMove, node.id);
-                } else if (onMove) {
-                    for (const id of idsToMove) await onMove(id, node.id);
-                }
-                if (onRefresh) await onRefresh(currentFolder);
-                setSelectedIds([]);
-                setIsMoving(false);
-            }
-        } catch (err) {
-            console.error("Sidebar move failed", err);
-            setIsMoving(false);
-        }
-    };
-
-    const handleFolderClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-
-        // 1. Navigate immediately
-        setCurrentFolder(node.id);
-
-        // 2. Trigger data fetch if callback exists
-        if (onRefresh) {
-            onRefresh(node.id).catch(err => console.error("Sidebar navigation refresh failed", err));
-        }
-
-        const isExpanding = hasChildren && !isExpanded;
-        // 3. Auto-expand if we are currently collapsed
-        if (isExpanding) {
-            onToggle(node.id);
-        }
-
-        // 4. Handle mobile sidebar auto-hide
-        if (isMobile && setSidebarVisible) {
-            // Only hide if we aren't drilling down into a sub-tree
-            if (!isExpanding) {
-                setTimeout(() => setSidebarVisible(false), 50);
-            }
-        }
-    };
-
-    const handleToggleClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        onToggle(node.id);
-    };
-
-    return (
-        <div className="rfm-folder-branch">
-            <div
-                className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""} ${isDragOver ? "rfm-drag-over" : ""}`}
-                style={{ paddingLeft: `${Math.max(0.75, level * 0.75)}rem` }}
-                onClick={handleFolderClick}
-                onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setCurrentFolder(node.id);
-                    setContextMenu({ x: e.clientX, y: e.clientY, file: nodeToFileType(node) });
-                }}
-                draggable
-                onDragStart={(e) => {
-                    e.dataTransfer.setData("application/json", JSON.stringify([node.id]));
-                    e.dataTransfer.effectAllowed = "move";
-                }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-            >
-                {hasChildren ? (
-                    <span className="rfm-sidebar-chevron" onClick={handleToggleClick}>
-                        <SvgIcon svgType={isExpanded ? "arrow-down" : "arrow-right"} className="rfm-chevron-icon" />
-                    </span>
-                ) : (
-                    <span className="rfm-sidebar-chevron rfm-chevron-spacer" />
-                )}
-                <SvgIcon svgType="folder" className="rfm-sidebar-icon" />
-                <span className="rfm-sidebar-item-text" data-text={node.filename}>{node.filename}</span>
-            </div>
-
-            {isExpanded && children.length > 0 && (
-                <div className="rfm-sidebar-subfolders">
-                    {children.map(child => (
-                        <FolderTreeItem
-                            key={child.id}
-                            node={child}
-                            childrenMap={childrenMap}
-                            level={level + 1}
-                            expandedIds={expandedIds}
-                            onToggle={onToggle}
-                            idToNodeMap={idToNodeMap}
-                        />
-                    ))}
-                </div>
-            )}
+  return (
+    <div className="rfm-swipe-item-container">
+      <div
+        className="rfm-swipe-action-bg"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        style={{ backgroundColor: "#ef4444" }}
+      >
+        <SvgIcon svgType="trash" size={20} className="text-white" />
+      </div>
+      <div
+        className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 group"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: isSwiping
+            ? "none"
+            : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          padding: "0.5rem 0.75rem",
+          gap: "0.25rem",
+        }}
+        onClick={() => {
+          if (swipeX === 0) onSelect();
+          else setSwipeX(0);
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div style={{ display: "flex", width: "100%", alignItems: "center" }}>
+          <SvgIcon
+            svgType={share.is_folder ? "folder" : "file"}
+            size={16}
+            className="mr-2 opacity-70"
+          />
+          <span className="flex-1 truncate text-xs font-semibold">
+            {share.filename || "Unknown"}
+          </span>
+          <button
+            type="button"
+            className="rfm-favorite-remove-btn mr-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopyLink();
+            }}
+            title="Copy Share Link"
+          >
+            <SvgIcon svgType="copy" size={14} />
+          </button>
+          <button
+            type="button"
+            className="rfm-favorite-remove-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            title="Revoke Share"
+          >
+            <SvgIcon svgType="trash" size={14} />
+          </button>
         </div>
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            alignItems: "center",
+            gap: "0.375rem",
+            paddingLeft: "1.5rem",
+            opacity: 0.8,
+          }}
+        >
+          <span className="flex items-center justify-center bg-stone-200 dark:bg-slate-700 p-1 rounded text-stone-600 dark:text-slate-300" title={share.permission === "download" ? "Download" : "View Only"}>
+            <SvgIcon svgType={share.permission === "download" ? "download" : "eye"} size={10} />
+          </span>
+          <span
+            className="text-[10px] text-stone-500 truncate min-w-0"
+            style={{ maxWidth: "80px" }}
+          >
+            {formatShareExpiry(share.expires_at)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const FolderTreeItem = ({
+  node,
+  childrenMap,
+  level,
+  expandedIds,
+  onToggle,
+  idToNodeMap,
+}: FolderTreeItemProps) => {
+  const {
+    fs,
+    currentFolder,
+    setCurrentFolder,
+    onRefresh,
+    setContextMenu,
+    onBulkMove,
+    onMove,
+    selectedIds,
+    setSelectedIds,
+    setIsMoving,
+    setSidebarVisible,
+  } = useFileManager();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const isMobile = !useMediaQuery("(min-width: 769px)");
+
+  const children = childrenMap.get(node.id) ?? [];
+  const hasChildren = children.length > 0;
+  const isExpanded = expandedIds.has(node.id);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // Use O(1) lookup via callback
+    const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
+    const canDrop = !selectedIds.some((id) =>
+      isDescendantOrSelf(getParentId, id, node.id)
     );
+    if (canDrop) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const data = e.dataTransfer.getData("application/json");
+    if (!data) return;
+
+    try {
+      const idsToMove = JSON.parse(data);
+      // Use O(1) lookup via callback
+      const getParentId = (id: string) => idToNodeMap.get(id)?.parent_id;
+      const validIds = idsToMove.filter(
+        (id: string) => !isDescendantOrSelf(getParentId, id, node.id)
+      );
+      if (validIds.length > 0) {
+        setIsMoving(true);
+        if (onBulkMove) {
+          await onBulkMove(idsToMove, node.id);
+        } else if (onMove) {
+          for (const id of idsToMove) await onMove(id, node.id);
+        }
+        if (onRefresh) await onRefresh(currentFolder);
+        setSelectedIds([]);
+        setIsMoving(false);
+      }
+    } catch (err) {
+      console.error("Sidebar move failed", err);
+      setIsMoving(false);
+    }
+  };
+
+  const handleFolderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // 1. Navigate immediately
+    setCurrentFolder(node.id);
+
+    // 2. Trigger data fetch if callback exists
+    if (onRefresh) {
+      onRefresh(node.id).catch((err) =>
+        console.error("Sidebar navigation refresh failed", err)
+      );
+    }
+
+    const isExpanding = hasChildren && !isExpanded;
+    // 3. Auto-expand if we are currently collapsed
+    if (isExpanding) {
+      onToggle(node.id);
+    }
+
+    // 4. Handle mobile sidebar auto-hide
+    if (isMobile && setSidebarVisible) {
+      // Only hide if we aren't drilling down into a sub-tree
+      if (!isExpanding) {
+        setTimeout(() => setSidebarVisible(false), 50);
+      }
+    }
+  };
+
+  const handleToggleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggle(node.id);
+  };
+
+  return (
+    <div className="rfm-folder-branch">
+      <div
+        className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""
+          } ${isDragOver ? "rfm-drag-over" : ""}`}
+        style={{ paddingLeft: `${Math.max(0.75, level * 0.75)}rem` }}
+        onClick={handleFolderClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setCurrentFolder(node.id);
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            file: nodeToFileType(node),
+          });
+        }}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("application/json", JSON.stringify([node.id]));
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {hasChildren ? (
+          <span className="rfm-sidebar-chevron" onClick={handleToggleClick}>
+            <SvgIcon
+              svgType={isExpanded ? "arrow-down" : "arrow-right"}
+              className="rfm-chevron-icon"
+            />
+          </span>
+        ) : (
+          <span className="rfm-sidebar-chevron rfm-chevron-spacer" />
+        )}
+        <SvgIcon svgType="folder" className="rfm-sidebar-icon" />
+        <span className="rfm-sidebar-item-text" data-text={node.filename}>
+          {node.filename}
+        </span>
+      </div>
+
+      {isExpanded && children.length > 0 && (
+        <div className="rfm-sidebar-subfolders">
+          {children.map((child) => (
+            <FolderTreeItem
+              key={child.id}
+              node={child}
+              childrenMap={childrenMap}
+              level={level + 1}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              idToNodeMap={idToNodeMap}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const Sidebar = () => {
-    const {
-        currentFolder,
-        setCurrentFolder,
-        onRefresh,
-        setContextMenu,
-        onBulkMove,
-        onMove,
-        setSelectedIds,
-        setIsMoving,
-        userFacts,
-        folderTree,
-        sidebarVisible,
-        setSidebarVisible,
-        favorites,
-        setHighlightedId,
-        favoritesMinimized,
-        setFavoritesMinimized,
-        storageUsageMinimized: factsMinimized, // Aliasing for clarity in this file if desired, or just replace usage
-        setStorageUsageMinimized: setFactsMinimized,
-        toggleFavorite
-    } = useFileManager();
-    const [isDragOverRoot, setIsDragOverRoot] = useState(false);
-    const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set<string>());
-    const isMobile = !useMediaQuery("(min-width: 769px)");
+  const {
+    currentFolder,
+    setCurrentFolder,
+    onRefresh,
+    setContextMenu,
+    onBulkMove,
+    onMove,
+    setSelectedIds,
+    setIsMoving,
+    userFacts,
+    folderTree,
+    sidebarVisible,
+    setSidebarVisible,
+    favorites,
+    setHighlightedId,
+    favoritesMinimized,
+    setFavoritesMinimized,
+    storageUsageMinimized: factsMinimized, // Aliasing for clarity in this file if desired, or just replace usage
+    setStorageUsageMinimized: setFactsMinimized,
+    toggleFavorite,
+    shares,
+    sharesMinimized,
+    setSharesMinimized,
+    refreshShares,
+  } = useFileManager();
+  const [isDragOverRoot, setIsDragOverRoot] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set<string>()
+  );
+  const isMobile = !useMediaQuery("(min-width: 769px)");
 
-    // Build the children lookup map from the dedicated folder tree
-    const childrenMap = useMemo(() => buildChildrenMap(folderTree), [folderTree]);
+  // Build the children lookup map from the dedicated folder tree
+  const childrenMap = useMemo(() => buildChildrenMap(folderTree), [folderTree]);
 
-    // Build id -> node map for quick ancestor lookup
-    const idToNodeMap = useMemo(() => {
-        const map = new Map<string, FolderNode>();
-        for (const node of folderTree) map.set(node.id, node);
-        return map;
-    }, [folderTree]);
+  // Build id -> node map for quick ancestor lookup
+  const idToNodeMap = useMemo(() => {
+    const map = new Map<string, FolderNode>();
+    for (const node of folderTree) map.set(node.id, node);
+    return map;
+  }, [folderTree]);
 
-    // Root folders = those with no parent (parent_id is null or "0")
-    const rootFolders = useMemo(() => {
-        return childrenMap.get("0") ?? [];
-    }, [childrenMap]);
+  // Root folders = those with no parent (parent_id is null or "0")
+  const rootFolders = useMemo(() => {
+    return childrenMap.get("0") ?? [];
+  }, [childrenMap]);
 
-    // Auto-expand ancestors of current folder so the active item is always visible
-    useEffect(() => {
-        if (currentFolder && currentFolder !== "0") {
-            const ancestors = new Set<string>();
-            let current = idToNodeMap.get(currentFolder);
-            while (current) {
-                const parentKey = current.parent_id ?? "0";
-                if (parentKey === "0" || ancestors.has(parentKey)) break;
-                ancestors.add(parentKey);
-                current = idToNodeMap.get(parentKey);
+  // Auto-expand ancestors of current folder so the active item is always visible
+  useEffect(() => {
+    if (currentFolder && currentFolder !== "0") {
+      const ancestors = new Set<string>();
+      let current = idToNodeMap.get(currentFolder);
+      while (current) {
+        const parentKey = current.parent_id ?? "0";
+        if (parentKey === "0" || ancestors.has(parentKey)) break;
+        ancestors.add(parentKey);
+        current = idToNodeMap.get(parentKey);
+      }
+
+      if (ancestors.size > 0) {
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          let changed = false;
+          for (const id of ancestors) {
+            if (!next.has(id)) {
+              next.add(id);
+              changed = true;
             }
-
-            if (ancestors.size > 0) {
-                setExpandedIds(prev => {
-                    const next = new Set(prev);
-                    let changed = false;
-                    for (const id of ancestors) {
-                        if (!next.has(id)) {
-                            next.add(id);
-                            changed = true;
-                        }
-                    }
-                    return changed ? next : prev;
-                });
-            }
-        }
-    }, [currentFolder, idToNodeMap]);
-
-    const handleToggle = useCallback((id: string) => {
-        setExpandedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
+          }
+          return changed ? next : prev;
         });
-    }, []);
+      }
+    }
+  }, [currentFolder, idToNodeMap]);
 
-    const handleDragOverRoot = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        setIsDragOverRoot(true);
-    };
+  const handleToggle = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
-    const handleDragLeaveRoot = () => {
-        setIsDragOverRoot(false);
-    };
+  const handleDragOverRoot = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDragOverRoot(true);
+  };
 
-    const handleDropRoot = async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOverRoot(false);
+  const handleDragLeaveRoot = () => {
+    setIsDragOverRoot(false);
+  };
 
-        const data = e.dataTransfer.getData("application/json");
-        if (!data) return;
+  const handleDropRoot = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverRoot(false);
 
-        try {
-            const idsToMove = JSON.parse(data);
-            if (idsToMove.length > 0) {
-                setIsMoving(true);
-                if (onBulkMove) {
-                    await onBulkMove(idsToMove, "0");
-                } else if (onMove) {
-                    for (const id of idsToMove) await onMove(id, "0");
-                }
-                if (onRefresh) await onRefresh(currentFolder);
-                setSelectedIds([]);
-                setIsMoving(false);
-            }
-        } catch (err) {
-            console.error("Sidebar root move failed", err);
-            setIsMoving(false);
+    const data = e.dataTransfer.getData("application/json");
+    if (!data) return;
+
+    try {
+      const idsToMove = JSON.parse(data);
+      if (idsToMove.length > 0) {
+        setIsMoving(true);
+        if (onBulkMove) {
+          await onBulkMove(idsToMove, "0");
+        } else if (onMove) {
+          for (const id of idsToMove) await onMove(id, "0");
         }
-    };
+        if (onRefresh) await onRefresh(currentFolder);
+        setSelectedIds([]);
+        setIsMoving(false);
+      }
+    } catch (err) {
+      console.error("Sidebar root move failed", err);
+      setIsMoving(false);
+    }
+  };
 
-    const handleRootClick = () => {
-        setCurrentFolder("0");
-        // Always close on mobile when going home
-        if (isMobile && setSidebarVisible) {
-            setSidebarVisible(false);
-        }
-    };
+  const handleRootClick = () => {
+    setCurrentFolder("0");
+    // Always close on mobile when going home
+    if (isMobile && setSidebarVisible) {
+      setSidebarVisible(false);
+    }
+  };
 
-    // Calculate facts for storage stats
-    const totalStorage = userFacts?.storage_limit || (5 * 1024 * 1024 * 1024); // Dynamic limit with 5GB fallback
-    const usedStorage = userFacts?.total_size || 0;
-    const storagePercentage = Math.min(100, Math.round((usedStorage / totalStorage) * 100));
+  // Calculate facts for storage stats
+  const totalStorage = userFacts?.storage_limit || 5 * 1024 * 1024 * 1024; // Dynamic limit with 5GB fallback
+  const usedStorage = userFacts?.total_size || 0;
+  const storagePercentage = Math.min(
+    100,
+    Math.round((usedStorage / totalStorage) * 100)
+  );
 
-    // Manual mapping of categories from the flat metrics in the backend
-    const sortedCategories = useMemo(() => {
-        if (!userFacts) return [];
-        return [
-            { cat: 'Images', count: userFacts.image_count, label: 'images' },
-            { cat: 'Videos', count: userFacts.video_count, label: 'videos' },
-            { cat: 'Docs', count: userFacts.document_count, label: 'documents' },
-            { cat: 'Audio', count: userFacts.audio_count, label: 'audio' },
-            { cat: 'Other', count: userFacts.others_count, label: 'others' },
-        ].filter(c => c.count > 0).sort((a, b) => b.count - a.count);
-    }, [userFacts]);
+  // Manual mapping of categories from the flat metrics in the backend
+  const sortedCategories = useMemo(() => {
+    if (!userFacts) return [];
+    return [
+      { cat: "Images", count: userFacts.image_count, label: "images" },
+      { cat: "Videos", count: userFacts.video_count, label: "videos" },
+      { cat: "Docs", count: userFacts.document_count, label: "documents" },
+      { cat: "Audio", count: userFacts.audio_count, label: "audio" },
+      { cat: "Other", count: userFacts.others_count, label: "others" },
+    ]
+      .filter((c) => c.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [userFacts]);
 
-    return (
-        <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
-            <div className="rfm-sidebar-header">
-                <div className="rfm-app-logo">
-                    <SvgIcon svgType="rocket" className="rfm-app-logo-icon" />
-                </div>
-                <div className="rfm-app-title">
-                    <span className="rfm-app-title-main">Juragan <span className="rfm-app-title-sub">Cloud</span></span>
+  const activeShares = useMemo(() => {
+    return shares
+      .filter((s) => new Date(s.expires_at) > new Date())
+      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+  }, [shares]);
 
-                </div>
+  return (
+    <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
+      <div className="rfm-sidebar-header">
+        <div className="rfm-app-logo">
+          <SvgIcon svgType="rocket" className="rfm-app-logo-icon" />
+        </div>
+        <div className="rfm-app-title">
+          <span className="rfm-app-title-main">
+            Juragan <span className="rfm-app-title-sub">Cloud</span>
+          </span>
+        </div>
+      </div>
+      <div className="rfm-sidebar-list">
+        <div
+          className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""
+            } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
+          onClick={handleRootClick}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setCurrentFolder("0");
+            setContextMenu({ x: e.clientX, y: e.clientY, file: null });
+          }}
+          onDragOver={handleDragOverRoot}
+          onDragLeave={handleDragLeaveRoot}
+          onDrop={handleDropRoot}
+        >
+          <SvgIcon svgType="home" className="rfm-sidebar-icon" />
+          <span className="rfm-sidebar-item-text" data-text="Home">
+            Home
+          </span>
+        </div>
+        <div className="rfm-sidebar-indent">
+          {rootFolders.map((node) => (
+            <FolderTreeItem
+              key={node.id}
+              node={node}
+              childrenMap={childrenMap}
+              level={1}
+              expandedIds={expandedIds}
+              onToggle={handleToggle}
+              idToNodeMap={idToNodeMap}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Favorites Accordion */}
+      {favorites.length > 0 && (
+        <div
+          className={`rfm-sidebar-facts ${favoritesMinimized ? "minimized" : ""
+            }`}
+        >
+          <div
+            className="rfm-facts-header"
+            onClick={() => setFavoritesMinimized(!favoritesMinimized)}
+          >
+            <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+              <SvgIcon svgType="star" size={14} className="mr-1.5 opacity-70" />
+              Favorites
             </div>
-            <div className="rfm-sidebar-list">
-                <div
-                    className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""} ${isDragOverRoot ? "rfm-drag-over" : ""}`}
-                    onClick={handleRootClick}
-                    onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setCurrentFolder("0");
-                        setContextMenu({ x: e.clientX, y: e.clientY, file: null });
-                    }}
-                    onDragOver={handleDragOverRoot}
-                    onDragLeave={handleDragLeaveRoot}
-                    onDrop={handleDropRoot}
-                >
-                    <SvgIcon svgType="home" className="rfm-sidebar-icon" />
-                    <span className="rfm-sidebar-item-text" data-text="Home">Home</span>
-                </div>
-                <div className="rfm-sidebar-indent">
-                    {rootFolders.map((node) => (
-                        <FolderTreeItem
-                            key={node.id}
-                            node={node}
-                            childrenMap={childrenMap}
-                            level={1}
-                            expandedIds={expandedIds}
-                            onToggle={handleToggle}
-                            idToNodeMap={idToNodeMap}
-                        />
+            <button
+              type="button"
+              className="rfm-facts-toggle-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setFavoritesMinimized(!favoritesMinimized);
+              }}
+            >
+              <SvgIcon
+                svgType={favoritesMinimized ? "plus" : "minus"}
+                size={12}
+              />
+            </button>
+          </div>
+
+          {!favoritesMinimized && (
+            <div className="rfm-facts-container">
+              <div className="rfm-facts-content">
+                <div className="rfm-sidebar-favorites-scroll">
+                  <div className="rfm-fact-category-list">
+                    {favorites.map((fav) => (
+                      <FavoriteItem
+                        key={fav.id}
+                        fav={fav}
+                        onRemove={() => toggleFavorite(fav)}
+                        onSelect={(item) => {
+                          if (item.isDir) {
+                            setCurrentFolder(item.id);
+                            // Always close on mobile for favorite selection
+                            if (isMobile && setSidebarVisible) {
+                              setSidebarVisible(false);
+                            }
+                          } else {
+                            if (item.parentId) {
+                              setCurrentFolder(item.parentId);
+                              setTimeout(() => {
+                                if (setHighlightedId) {
+                                  setHighlightedId(item.id);
+                                }
+                              }, 100);
+                              if (isMobile && setSidebarVisible) {
+                                setSidebarVisible(false);
+                              }
+                            }
+                          }
+                        }}
+                      />
                     ))}
+                  </div>
                 </div>
+              </div>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Favorites Accordion */}
-            {favorites.length > 0 && (
-                <div className={`rfm-sidebar-facts ${favoritesMinimized ? 'minimized' : ''}`}>
-                    <div className="rfm-facts-header" onClick={() => setFavoritesMinimized(!favoritesMinimized)}>
-                        <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
-                            <SvgIcon svgType="star" size={14} className="mr-1.5 opacity-70" />
-                            Favorites
-                        </div>
-                        <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setFavoritesMinimized(!favoritesMinimized);
-                        }}>
-                            <SvgIcon svgType={favoritesMinimized ? "plus" : "minus"} size={12} />
-                        </button>
-                    </div>
+      {/* Shares Accordion */}
+      {activeShares.length > 0 && (
+        <div
+          className={`rfm-sidebar-facts ${sharesMinimized ? "minimized" : ""
+            }`}
+        >
+          <div
+            className="rfm-facts-header"
+            onClick={() => setSharesMinimized(!sharesMinimized)}
+          >
+            <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+              <SvgIcon svgType="share" size={14} className="mr-1.5 opacity-70" />
+              Shared Links
+            </div>
+            <button
+              type="button"
+              className="rfm-facts-toggle-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSharesMinimized(!sharesMinimized);
+              }}
+            >
+              <SvgIcon
+                svgType={sharesMinimized ? "plus" : "minus"}
+                size={12}
+              />
+            </button>
+          </div>
 
-                    {!favoritesMinimized && (
-                        <div className="rfm-facts-container">
-                            <div className="rfm-facts-content">
-                                <div className="rfm-sidebar-favorites-scroll">
-                                    <div className="rfm-fact-category-list">
-                                        {favorites.map((fav) => (
-                                            <FavoriteItem
-                                                key={fav.id}
-                                                fav={fav}
-                                                onRemove={() => toggleFavorite(fav)}
-                                                onSelect={(item) => {
-                                                    if (item.isDir) {
-                                                        setCurrentFolder(item.id);
-                                                        // Always close on mobile for favorite selection
-                                                        if (isMobile && setSidebarVisible) {
-                                                            setSidebarVisible(false);
-                                                        }
-                                                    } else {
-                                                        if (item.parentId) {
-                                                            setCurrentFolder(item.parentId);
-                                                            setTimeout(() => {
-                                                                if (setHighlightedId) {
-                                                                    setHighlightedId(item.id);
-                                                                }
-                                                            }, 100);
-                                                            if (isMobile && setSidebarVisible) {
-                                                                setSidebarVisible(false);
-                                                            }
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+          {!sharesMinimized && (
+            <div className="rfm-facts-container">
+              <div className="rfm-facts-content">
+                <div className="rfm-sidebar-favorites-scroll" style={{ maxHeight: '200px' }}>
+                  <div className="rfm-fact-category-list">
+                    {activeShares.map((share) => (
+                      <ShareItem
+                        key={share.id}
+                        share={share}
+                        onRemove={async () => {
+                          try {
+                            await fileService.revokeShare(share.id);
+                            refreshShares();
+                          } catch { /* ignore */ }
+                        }}
+                        onCopyLink={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/s/${share.share_token}`);
+                        }}
+                        onSelect={() => {
+                          if (share.is_folder) {
+                            setCurrentFolder(share.user_file_id);
+                            if (onRefresh) {
+                              onRefresh(share.user_file_id).catch(() => { });
+                            }
+                            if (isMobile && setSidebarVisible) {
+                              setSidebarVisible(false);
+                            }
+                          } else {
+                            const pid = share.parent_id || "0";
+                            setCurrentFolder(pid);
+                            if (onRefresh) {
+                              onRefresh(pid).catch(() => { });
+                            }
+                            setTimeout(() => {
+                              if (setHighlightedId) {
+                                setHighlightedId(share.user_file_id);
+                              }
+                            }, 100);
+                            if (isMobile && setSidebarVisible) {
+                              setSidebarVisible(false);
+                            }
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-            )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-            {/* Storage Statistics */}
-            {userFacts && (
-                <div className={`rfm-sidebar-facts ${factsMinimized ? 'minimized' : ''}`}>
-                    <div className="rfm-facts-header" onClick={() => setFactsMinimized(!factsMinimized)}>
-                        <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
-                            <SvgIcon svgType="info" size={14} className="mr-1.5 opacity-70" />
-                            Storage Usage
-                        </div>
-                        <button type="button" className="rfm-facts-toggle-btn" onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setFactsMinimized(!factsMinimized);
-                        }}>
-                            <SvgIcon svgType={factsMinimized ? "plus" : "minus"} size={12} />
-                        </button>
-                    </div>
+      {/* Storage Statistics */}
+      {userFacts && (
+        <div
+          className={`rfm-sidebar-facts ${factsMinimized ? "minimized" : ""}`}
+        >
+          <div
+            className="rfm-facts-header"
+            onClick={() => setFactsMinimized(!factsMinimized)}
+          >
+            <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+              <SvgIcon svgType="info" size={14} className="mr-1.5 opacity-70" />
+              Storage Usage
+            </div>
+            <button
+              type="button"
+              className="rfm-facts-toggle-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setFactsMinimized(!factsMinimized);
+              }}
+            >
+              <SvgIcon svgType={factsMinimized ? "plus" : "minus"} size={12} />
+            </button>
+          </div>
 
-                    {!factsMinimized ? (
-                        <div className="rfm-facts-container">
-                            <div className="rfm-facts-content">
-                                <div className="flex items-center gap-4 mb-3 mt-1">
-                                    <div className="rfm-facts-pie-container">
-                                        {usedStorage > 0 ? (
-                                            <svg className="rfm-facts-pie-svg" viewBox="0 0 32 32">
-                                                {/* Background Circle */}
-                                                <circle r="12" cx="16" cy="16" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-stone-200 dark:text-slate-700" />
-                                                {/* Progress Circle (Circumference = 2 * pi * 12 ~= 75.4) */}
-                                                <circle r="12" cx="16" cy="16" fill="transparent"
-                                                    stroke="#0d9488"
-                                                    strokeWidth="4"
-                                                    strokeDasharray={`${(storagePercentage / 100) * 75.4} 75.4`}
-                                                    strokeLinecap="round"
-                                                />
-                                                <text x="16" y="16" textAnchor="middle" dominantBaseline="central" className="rfm-pie-percentage">{storagePercentage}%</text>
-                                            </svg>
-                                        ) : (
-                                            <div className="rfm-facts-pie-empty" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="rfm-fact-item truncate">
-                                            {formatSize(usedStorage)} of {formatSize(totalStorage)}
-                                        </div>
-                                        <div className="text-[10px] text-stone-500 dark:text-slate-400 font-medium">
-                                            {formatSize(totalStorage - usedStorage)} free
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rfm-fact-category-list">
-                                    {sortedCategories.slice(0, 3).map((item) => (
-                                        <div key={item.label} className="rfm-fact-sub-item">
-                                            <span className="dot" style={{ backgroundColor: getCategoryColor(item.label) }} />
-                                            <span className="flex-1 truncate capitalize">{item.cat}</span>
-                                            <span className="font-semibold text-stone-700 dark:text-slate-300 text-[10px]">
-                                                {item.count} items
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+          {!factsMinimized ? (
+            <div className="rfm-facts-container">
+              <div className="rfm-facts-content">
+                <div className="flex items-center gap-4 mb-3 mt-1">
+                  <div className="rfm-facts-pie-container">
+                    {usedStorage > 0 ? (
+                      <svg className="rfm-facts-pie-svg" viewBox="0 0 32 32">
+                        {/* Background Circle */}
+                        <circle
+                          r="12"
+                          cx="16"
+                          cy="16"
+                          fill="transparent"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          className="text-stone-200 dark:text-slate-700"
+                        />
+                        {/* Progress Circle (Circumference = 2 * pi * 12 ~= 75.4) */}
+                        <circle
+                          r="12"
+                          cx="16"
+                          cy="16"
+                          fill="transparent"
+                          stroke="#0d9488"
+                          strokeWidth="4"
+                          strokeDasharray={`${(storagePercentage / 100) * 75.4
+                            } 75.4`}
+                          strokeLinecap="round"
+                        />
+                        <text
+                          x="16"
+                          y="16"
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          className="rfm-pie-percentage"
+                        >
+                          {storagePercentage}%
+                        </text>
+                      </svg>
                     ) : (
-                        <div className="rfm-facts-minimized-info" onClick={() => setFactsMinimized(false)}>
-                            {storagePercentage}% used • {formatSize(usedStorage)}
-                        </div>
+                      <div className="rfm-facts-pie-empty" />
                     )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="rfm-fact-item truncate">
+                      {formatSize(usedStorage)} of {formatSize(totalStorage)}
+                    </div>
+                    <div className="text-[10px] text-stone-500 dark:text-slate-400 font-medium">
+                      {formatSize(totalStorage - usedStorage)} free
+                    </div>
+                  </div>
                 </div>
-            )}
-        </aside>
-    );
+
+                <div className="rfm-fact-category-list">
+                  {sortedCategories.slice(0, 3).map((item) => (
+                    <div key={item.label} className="rfm-fact-sub-item">
+                      <span
+                        className="dot"
+                        style={{
+                          backgroundColor: getCategoryColor(item.label),
+                        }}
+                      />
+                      <span className="flex-1 truncate capitalize">
+                        {item.cat}
+                      </span>
+                      <span className="font-semibold text-stone-700 dark:text-slate-300 text-[10px]">
+                        {item.count} items
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="rfm-facts-minimized-info"
+              onClick={() => setFactsMinimized(false)}
+            >
+              {storagePercentage}% used • {formatSize(usedStorage)}
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
+  );
 };
 
 // Helper for category colors
 const getCategoryColor = (cat: string): string => {
-    switch (cat.toLowerCase()) {
-        case 'images': return '#f43f5e';
-        case 'videos': return '#8b5cf6';
-        case 'documents': return '#0ea5e9';
-        case 'archives': return '#f59e0b';
-        case 'audio': return '#10b981';
-        default: return '#94a3b8';
-    }
+  switch (cat.toLowerCase()) {
+    case "images":
+      return "#f43f5e";
+    case "videos":
+      return "#8b5cf6";
+    case "documents":
+      return "#0ea5e9";
+    case "archives":
+      return "#f59e0b";
+    case "audio":
+      return "#10b981";
+    default:
+      return "#94a3b8";
+  }
 };
 
 export default Sidebar;

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     name TEXT,
     avatar_url TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- User Settings
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     user_id TEXT PRIMARY KEY NOT NULL,
     theme TEXT NOT NULL DEFAULT 'dark',
     view_style TEXT NOT NULL DEFAULT 'grid',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS storage_files (
     scan_result TEXT,
     scanned_at TIMESTAMPTZ,
     mime_type TEXT,
-    content_type TEXT
+    content_type TEXT,
+    has_thumbnail BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- User Files (File System Layer)
@@ -58,11 +59,30 @@ CREATE TABLE IF NOT EXISTS user_files (
     is_folder BOOLEAN DEFAULT FALSE,
     filename TEXT NOT NULL,
     file_signature TEXT, -- Obfuscated: was encryption_key
+    is_favorite BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMPTZ,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE SET NULL
+);
+
+-- Upload Sessions
+CREATE TABLE IF NOT EXISTS upload_sessions (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_type TEXT,
+    s3_key TEXT NOT NULL,
+    upload_id TEXT NOT NULL,
+    chunk_size BIGINT NOT NULL,
+    total_size BIGINT NOT NULL,
+    total_chunks INT NOT NULL,
+    uploaded_chunks INT DEFAULT 0,
+    parts JSONB DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 -- Tags
@@ -85,14 +105,14 @@ CREATE TABLE IF NOT EXISTS file_metadata (
     id TEXT PRIMARY KEY NOT NULL,
     storage_file_id TEXT NOT NULL,
     category TEXT NOT NULL,
-    metadata TEXT DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE CASCADE
 );
 
 -- Audit Logs
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY NOT NULL,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     event_type TEXT NOT NULL,
     user_id TEXT,
     resource_id TEXT,
@@ -113,28 +133,28 @@ CREATE TABLE IF NOT EXISTS user_file_facts (
     document_count BIGINT DEFAULT 0,
     image_count BIGINT DEFAULT 0,
     others_count BIGINT DEFAULT 0,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Validation Tables
 CREATE TABLE IF NOT EXISTS allowed_mimes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     mime_type TEXT UNIQUE NOT NULL,
     category TEXT NOT NULL,
     description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS magic_signatures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    signature BLOB NOT NULL,
+    id SERIAL PRIMARY KEY,
+    signature BYTEA NOT NULL,
     mime_type TEXT NOT NULL,
     description TEXT,
     UNIQUE (signature, mime_type)
 );
 
 CREATE TABLE IF NOT EXISTS blocked_extensions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     extension TEXT UNIQUE NOT NULL,
     description TEXT
 );
@@ -149,6 +169,9 @@ CREATE INDEX IF NOT EXISTS idx_storage_files_hash_size ON storage_files(hash, si
 CREATE INDEX IF NOT EXISTS idx_file_metadata_category ON file_metadata(category);
 CREATE INDEX IF NOT EXISTS idx_file_metadata_storage_file_id ON file_metadata(storage_file_id);
 CREATE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub);
+CREATE INDEX IF NOT EXISTS idx_user_files_is_favorite ON user_files(is_favorite);
+CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_id ON upload_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_upload_sessions_status ON upload_sessions(status);
 -- GIN index (PostgreSQL only - commented for SQLite compatibility)
 -- CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops);
 

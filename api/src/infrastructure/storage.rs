@@ -41,5 +41,5 @@ pub async fn setup_storage() -> Arc<S3StorageService> {
         }
     }
 
-    Arc::new(S3StorageService::new(s3_client, bucket))
+    Arc::new(S3StorageService::new(s3_client, bucket, endpoint_url))
 }

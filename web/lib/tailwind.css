@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Amarna:ital,wght@0,100..700;1,100..700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Amarna:ital,wght@0,100..700;1,100..700&display=swap");
 
 /* Modularized CSS Imports must be at the top */
 @import "./components/Modals/CommonModal.css";
@@ -7,6 +7,8 @@
 @import "./components/Layout/Sidebar.css";
 @import "./components/Toasts/Toasts.css";
 @import "./components/Modals/Forms.css";
+@import "./components/Modals/ShareModal.css";
+@import "./components/Modals/ShareAccessLogModal.css";
 @import "./components/Workspace/Workspace.css";
 
 @tailwind base;
@@ -15,17 +17,17 @@
 
 @layer base {
   body {
-    font-family: 'Amarna', Arial, sans-serif;
+    font-family: "Amarna", Arial, sans-serif;
   }
 
   /* Custom Scrollbar Styling */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.slate.400') transparent;
+    scrollbar-color: theme("colors.slate.400") transparent;
   }
 
   .dark * {
-    scrollbar-color: theme('colors.slate.700') transparent;
+    scrollbar-color: theme("colors.slate.700") transparent;
   }
 
   /* Webkit browsers (Chrome, Safari, Edge) */
@@ -67,7 +69,6 @@
   }
 
   /* Removed legacy mobile sidebar hiding that conflicted with new implementation */
-
 
   /* Legacy Navbar Styles */
   .rfm-navbar {

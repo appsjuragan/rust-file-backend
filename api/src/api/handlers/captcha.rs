@@ -38,14 +38,16 @@ pub fn extract_client_ip(headers: &HeaderMap) -> String {
     // Check X-Forwarded-For first (proxy)
     if let Some(forwarded) = headers.get("x-forwarded-for")
         && let Ok(val) = forwarded.to_str()
-            && let Some(ip) = val.split(',').next() {
-                return ip.trim().to_string();
-            }
+        && let Some(ip) = val.split(',').next()
+    {
+        return ip.trim().to_string();
+    }
     // Check X-Real-IP
     if let Some(real_ip) = headers.get("x-real-ip")
-        && let Ok(val) = real_ip.to_str() {
-            return val.trim().to_string();
-        }
+        && let Ok(val) = real_ip.to_str()
+    {
+        return val.trim().to_string();
+    }
     "unknown".to_string()
 }
 
@@ -55,16 +57,17 @@ pub fn check_cooldown(
     ip: &str,
 ) -> Result<(), AppError> {
     if let Some(entry) = cooldowns.get(ip)
-        && let Some(locked_until) = entry.locked_until {
-            let now = chrono::Utc::now();
-            if now < locked_until {
-                let remaining = (locked_until - now).num_seconds();
-                return Err(AppError::BadRequest(format!(
-                    "Too many failed attempts. Please wait {} seconds before trying again.",
-                    remaining
-                )));
-            }
+        && let Some(locked_until) = entry.locked_until
+    {
+        let now = chrono::Utc::now();
+        if now < locked_until {
+            let remaining = (locked_until - now).num_seconds();
+            return Err(AppError::BadRequest(format!(
+                "Too many failed attempts. Please wait {} seconds before trying again.",
+                remaining
+            )));
         }
+    }
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "rust-file-backend"
-version = "1.0.9"
+version = "1.1.0"
 edition = "2024"
 default-run = "rust-file-backend"
 
@@ -65,6 +65,10 @@ tempfile = "3.24.0"
 validator = { version = "0.20.0", features = ["derive"] }
 clap = { version = "4.0", features = ["derive"] }
 dashmap = "6.1.0"
+url = "2.5"
+
+[profile.dev]
+incremental = false
 
 # Optimize dependencies in debug builds to make hashing/crypto fast
 [profile.dev.package."*"]

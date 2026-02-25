@@ -1,5 +1,45 @@
 # Release Notes
 
+## Version 1.1.0 (2026-02-25)
+
+### 🔗 File Sharing
+- **Share Link Management**: Create, list, and revoke share links for files and folders.
+- **Password Protection**: Argon2id-hashed passwords with per-share random salts.
+- **Permission Model**: `view` (inline display) and `download` (attachment) modes.
+- **Expiration Control**: Configurable expiry up to 1 year with server-side enforcement.
+- **Access Logging**: Track every view, download, and password attempt with IP/User-Agent.
+- **Public Share Page**: Standalone viewer with password gate, media preview (image, video, audio, PDF), folder browsing, and branded design.
+- **Sidebar Integration**: Active shares listed in sidebar with click-to-navigate and view/download shortcuts.
+
+### 🖼️ Thumbnail Generation
+- **WebP Thumbnails**: Auto-generated for images, PDFs, and videos (256×256).
+- **Thumbnail Worker**: Dedicated `--mode thumbnail-worker` process for background generation.
+- **PDF Thumbnails**: First-page rendering via `pdftocairo` (poppler-utils).
+- **Video Thumbnails**: Frame extraction at 1s mark via `ffmpeg`.
+- **Encrypted Detection**: Password-protected PDFs flagged with `is_encrypted` instead of failing.
+- **Lazy Loading**: Frontend loads thumbnails asynchronously with smooth fade-in animations.
+
+### ⭐ Favorites
+- **Toggle Favorites**: Star/unstar files and folders from context menu.
+- **Favorites Filter**: Filter file listing to show only favorited items.
+- **Sidebar Favorites**: Quick access to favorited items from the sidebar.
+
+### 🧩 Features & UX
+- **Folder Tree**: Full navigational tree for move/copy target selection.
+- **Advanced Search**: Regex, wildcard, fuzzy, date/size range, tag, and category filters.
+- **Sidebar Navigation**: Click shared items to navigate directly to their location.
+- **Icon Sizing**: Fixed icon scaling on large/extra-large displays.
+
+### 🧹 Cleanup & Release Prep
+- **Version Unified**: Synchronized all version references to `1.1.0` (Cargo.toml, package.json, README, Postman, Architecture docs).
+- **Removed Stale Files**: Cleaned up `minio.log`, `admin_files.txt`, `test_output.txt`, duplicate Postman collection, OIDC analysis doc.
+- **Removed Debug Logs**: Cleaned all commented-out `console.log` statements from frontend.
+- **Updated Postman Collection**: Added new endpoints for shares, thumbnails, favorites, folder tree, upload sessions.
+- **Updated Documentation**: Root README, API README, Web README, ARCHITECTURE.md all refreshed for v1.1.0.
+- **Docker**: Updated GHCR image tags and compose stack documentation.
+
+---
+
 ## Version 1.0.8-beta (2026-02-11)
 
 ### 🛡️ Security & Stability

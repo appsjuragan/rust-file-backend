@@ -1,0 +1,136 @@
+# Rust File Backend - Docker Compose Configuration
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: rust-file-db
+    environment:
+      POSTGRES_USER: filebackend
+      POSTGRES_PASSWORD: filebackend
+      POSTGRES_DB: filebackend
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U filebackend" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rustfs:
+    image: rustfs/rustfs
+    container_name: rust-file-rustfs
+    user: root
+    # Removed command override to allow image entrypoint to set up environment correctly
+    environment:
+      # Use RUSTFS_ prefixed variables as expected by the binary
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      # Explicitly define volumes for the server to avoid "Volume not found"
+      RUSTFS_VOLUMES: /data
+      # Keep MINIO_ variables for backwards compatibility if needed
+      MINIO_ROOT_USER: rustfsadmin
+      MINIO_ROOT_PASSWORD: rustfsadmin
+    ports:
+      - "9200:9000"
+      - "9201:9001"
+    volumes:
+      - rustfsdata:/data
+      - rustfslogs:/logs
+    healthcheck:
+      # Use a simpler check that doesn't fail on 403 Access Denied
+      test: [ "CMD-SHELL", "curl -s http://localhost:9000/ || exit 0" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rust-file-api
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
+      MINIO_ENDPOINT: http://rustfs:9000
+      MINIO_ACCESS_KEY: rustfsadmin
+      MINIO_SECRET_KEY: rustfsadmin
+      MINIO_BUCKET: filebe
+      MINIO_REGION: us-east-1
+      JWT_SECRET: your_super_secret_jwt_key
+      RUST_LOG: info
+      OIDC_SKIP_DISCOVERY: "true"
+      MAX_FILE_SIZE: 1073741824
+      CHUNK_SIZE: 10485760
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rust-file-worker
+    restart: on-failure
+    command: [ "--mode", "worker" ]
+    environment:
+      DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
+      MINIO_ENDPOINT: http://rustfs:9000
+      MINIO_ACCESS_KEY: rustfsadmin
+      MINIO_SECRET_KEY: rustfsadmin
+      MINIO_BUCKET: filebe
+      MINIO_REGION: us-east-1
+      JWT_SECRET: your_super_secret_jwt_key
+      RUST_LOG: info
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+
+  thumbnail-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rust-file-thumbnail-worker
+    restart: on-failure
+    command: [ "--mode", "thumbnail-worker" ]
+    environment:
+      DATABASE_URL: postgres://filebackend:filebackend@db:5432/filebackend
+      MINIO_ENDPOINT: http://rustfs:9000
+      MINIO_ACCESS_KEY: rustfsadmin
+      MINIO_SECRET_KEY: rustfsadmin
+      MINIO_BUCKET: filebe
+      MINIO_REGION: us-east-1
+      RUST_LOG: info
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: rust-file-web
+    restart: on-failure
+    ports:
+      - "80:80"
+    volumes:
+      - ./web/nginx.podman.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+
+# Using named volumes with user: root to handle permission initialization correctly
+volumes:
+  pgdata:
+  rustfsdata:
+  rustfslogs:

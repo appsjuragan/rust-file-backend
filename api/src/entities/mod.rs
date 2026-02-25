@@ -14,4 +14,6 @@ pub mod users;
 pub mod allowed_mimes;
 pub mod blocked_extensions;
 pub mod magic_signatures;
+pub mod share_access_logs;
+pub mod share_links;
 pub mod upload_sessions;

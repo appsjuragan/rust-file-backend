@@ -1,786 +1,817 @@
 /* Workspace */
 .rfm-workspace {
-    @apply bg-stone-50 relative flex flex-col w-full h-full gap-1 p-2 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
-    min-height: 400px;
+  @apply bg-stone-50 relative flex flex-col w-full h-full gap-1 p-2 transition-colors duration-200 dark:bg-gray-800 dark:text-slate-100;
+  min-height: 400px;
 }
 
 .rfm-workspace.rfm-selecting {
-    user-select: none !important;
+  user-select: none !important;
 }
 
 .rfm-workspace-dropzone {
-    @apply bg-amber-50;
+  @apply bg-amber-50;
 }
 
 .rfm-workspace-file-listing {
-    @apply flex flex-col gap-1 flex-1 overflow-y-auto overflow-x-hidden;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-    /* Prevent iOS page bounce when scrolling the file list */
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+  @apply flex flex-col gap-1 flex-1 overflow-y-auto overflow-x-hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  /* Prevent iOS page bounce when scrolling the file list */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rfm-workspace-file-listing::-webkit-scrollbar {
-    width: 6px;
+  width: 6px;
 }
 
 .rfm-workspace-file-listing::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 .rfm-workspace-file-listing::-webkit-scrollbar-thumb {
-    @apply bg-stone-300 dark:bg-slate-700 rounded-full;
+  @apply bg-stone-300 dark:bg-slate-700 rounded-full;
 }
 
 .rfm-empty-folder {
-    @apply flex items-center justify-center w-full py-10;
+  @apply flex items-center justify-center w-full py-10;
 }
 
 .rfm-empty-folder p {
-    @apply px-6 py-2 bg-stone-100 border border-stone-200 rounded-lg text-stone-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500;
+  @apply px-6 py-2 bg-stone-100 border border-stone-200 rounded-lg text-stone-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500;
 }
 
 /* List View */
 .rfm-workspace-list-th {
-    @apply text-left last:text-right px-4 py-1 sticky top-0 bg-stone-100 z-10 dark:bg-gray-800 border-b border-stone-200 dark:border-gray-700 whitespace-nowrap;
+  @apply text-left last:text-right px-4 py-1 sticky top-0 bg-stone-100 z-10 dark:bg-gray-800 border-b border-stone-200 dark:border-gray-700 whitespace-nowrap;
 }
 
 .rfm-workspace-list-th-content {
-    @apply flex items-center gap-1;
+  @apply flex items-center gap-1;
 }
 
 .rfm-workspace-list-th:last-child .rfm-workspace-list-th-content {
-    @apply justify-end;
+  @apply justify-end;
 }
 
 .rfm-workspace-list-align-txt {
-    @apply text-left last:text-right px-4 py-1;
-    white-space: normal;
-    word-break: break-word;
+  @apply text-left last:text-right px-4 py-1;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .rfm-workspace-list-align-txt:not(:first-child) {
-    white-space: nowrap;
+  white-space: nowrap;
 }
 
 .rfm-workspace-list-icon-row {
-    @apply cursor-pointer hover:bg-stone-100 dark:hover:bg-gray-600 active:bg-stone-200 transition-all duration-200 select-none;
+  @apply cursor-pointer hover:bg-stone-100 dark:hover:bg-gray-600 active:bg-stone-200 transition-all duration-200 select-none;
 }
 
 .rfm-workspace-list-icon-row.rfm-selected {
-    @apply bg-sky-50 dark:bg-sky-900/30 ring-0 border-l-4 border-sky-500 relative z-10 !important;
+  @apply bg-sky-50 dark:bg-sky-900/30 ring-0 border-l-4 border-sky-500 relative z-10 !important;
 }
 
 .rfm-workspace-list-icon-td {
-    @apply flex gap-3 py-0 items-center h-full transition-all duration-200;
+  @apply flex gap-3 py-0 items-center h-full transition-all duration-200;
 }
 
 .rfm-workspace-list-icon {
-    @apply w-5 h-5;
+  @apply w-5 h-5;
 }
 
 /* List View - Sizes */
 .rfm-file-table.size-small td {
-    @apply py-0.5 text-xs;
+  @apply py-0.5 text-xs;
 }
 
 .rfm-file-table.size-small .rfm-workspace-list-icon-td {
-    @apply gap-2;
+  @apply gap-2;
 }
 
 .rfm-file-table.size-small .rfm-list-icon {
-    width: 22px !important;
-    height: 22px !important;
-    margin-right: 0;
+  width: 22px !important;
+  height: 22px !important;
+  margin-right: 0;
 }
 
-.rfm-file-table.size-small .rfm-list-icon .rfm-file-icon-svg {
-    width: 20px !important;
-    height: 20px !important;
+.rfm-file-table.size-small .rfm-list-icon .rfm-file-icon-svg,
+.rfm-file-table.size-small .rfm-list-icon .rfm-file-icon-wrapper {
+  width: 20px !important;
+  height: 20px !important;
 }
 
 .rfm-file-table.size-medium td {
-    @apply py-1.5 text-sm;
+  @apply py-1.5 text-sm;
 }
 
 .rfm-file-table.size-medium .rfm-workspace-list-icon-td {
-    @apply gap-2.5;
+  @apply gap-2.5;
 }
 
 .rfm-file-table.size-medium .rfm-list-icon {
-    width: 32px !important;
-    height: 32px !important;
-    margin-right: 0;
+  width: 32px !important;
+  height: 32px !important;
+  margin-right: 0;
 }
 
-.rfm-file-table.size-medium .rfm-list-icon .rfm-file-icon-svg {
-    width: 28px !important;
-    height: 28px !important;
+.rfm-file-table.size-medium .rfm-list-icon .rfm-file-icon-svg,
+.rfm-file-table.size-medium .rfm-list-icon .rfm-file-icon-wrapper {
+  width: 28px !important;
+  height: 28px !important;
 }
 
 .rfm-file-table.size-large td {
-    @apply py-3 text-base;
+  @apply py-3 text-base;
+}
+
+.rfm-file-table.size-extra-large td {
+  @apply py-4 text-lg;
 }
 
 .rfm-file-table.size-large .rfm-list-icon {
-    width: 48px !important;
-    height: 48px !important;
-    margin-right: 8px;
+  width: 48px !important;
+  height: 48px !important;
+  margin-right: 8px;
 }
 
-.rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-svg {
-    width: 42px !important;
-    height: 42px !important;
+.rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-svg,
+.rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-wrapper {
+  width: 42px !important;
+  height: 42px !important;
 }
 
 .rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-extension {
-    top: 22px !important;
-    font-size: 9px !important;
+  top: 58% !important;
+  font-size: 8px !important;
 }
 
 /* Grid View */
 .rfm-icons-grid {
-    @apply grid gap-2 p-3 mt-1 pb-10;
-    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+  @apply grid gap-2 p-3 mt-1 pb-10;
+  grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
 }
 
 .rfm-icons-grid.size-small {
-    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
-    @apply gap-1 p-2;
+  grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  @apply gap-1 p-2;
 }
 
-.rfm-icons-grid.size-small .rfm-file-icon-svg {
-    width: 32px;
-    height: 32px;
+.rfm-icons-grid.size-small .rfm-file-icon-svg,
+.rfm-icons-grid.size-small .rfm-file-icon-wrapper {
+  width: 32px;
+  height: 32px;
 }
 
 .rfm-icons-grid.size-small .rfm-file-icon-extension {
-    top: 18px;
-    font-size: 8px;
+  top: 58%;
 }
 
 .rfm-icons-grid.size-medium {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    @apply gap-3 p-3;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  @apply gap-3 p-3;
 }
 
-.rfm-icons-grid.size-medium .rfm-file-icon-svg {
-    width: 60px;
-    height: 60px;
+.rfm-icons-grid.size-medium .rfm-file-icon-svg,
+.rfm-icons-grid.size-medium .rfm-file-icon-wrapper {
+  width: 60px;
+  height: 60px;
 }
 
 .rfm-icons-grid.size-medium .rfm-file-icon-extension {
-    top: 34px;
-    font-size: 10px;
+  top: 58%;
 }
 
 .rfm-icons-grid.size-large {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    @apply gap-4 p-4;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  @apply gap-4 p-4;
 }
 
-.rfm-icons-grid.size-large .rfm-file-icon-svg {
-    width: 80px;
-    height: 80px;
+.rfm-icons-grid.size-large .rfm-file-icon-svg,
+.rfm-icons-grid.size-large .rfm-file-icon-wrapper {
+  width: 80px;
+  height: 80px;
 }
 
 .rfm-icons-grid.size-large .rfm-file-icon-extension {
-    top: 48px;
-    font-size: 14px;
-    letter-spacing: 1px;
+  top: 58%;
+  font-size: 14px;
+}
+
+.rfm-icons-grid.size-large .rfm-file-icon-name {
+  font-size: 13px;
+}
+
+.rfm-icons-grid.size-extra-large {
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  @apply gap-6 p-6;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-svg,
+.rfm-icons-grid.size-extra-large .rfm-file-icon-wrapper {
+  width: 255px;
+  height: 255px;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-extension {
+  top: 58%;
+  font-size: 40px;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-name {
+  font-size: 16px;
 }
 
 .rfm-icons-grid .rfm-file-item {
-    @apply flex flex-col items-center justify-start p-2 pt-3 pb-2 rounded-2xl hover:bg-stone-100 dark:hover:bg-slate-700/50 transition-all duration-300 cursor-pointer w-full box-border border-2 border-transparent;
-    min-height: 94px;
+  @apply flex flex-col items-center justify-start p-2 pt-3 pb-2 rounded-2xl hover:bg-stone-100 dark:hover:bg-slate-700/50 transition-all duration-300 cursor-pointer w-full box-border border-2 border-transparent;
+  min-height: 94px;
 }
 
 .rfm-icons-grid .rfm-file-item.rfm-selected {
-    @apply bg-teal-50/50 dark:bg-teal-900/20 border-teal-500 dark:border-teal-400 scale-[1.02] -translate-y-1;
-    box-shadow: 0 10px 25px -10px rgba(20, 184, 166, 0.4);
+  @apply bg-teal-50/50 dark:bg-teal-900/20 border-teal-500 dark:border-teal-400 scale-[1.02] -translate-y-1;
+  box-shadow: 0 10px 25px -10px rgba(20, 184, 166, 0.4);
 }
 
 .rfm-file-item {
-    @apply relative transition-all duration-300 outline-none select-none active:scale-[0.96] active:brightness-95;
-    /* Eliminate 300ms tap delay on iOS Safari */
-    touch-action: manipulation;
+  @apply relative transition-all duration-300 outline-none select-none active:scale-[0.96] active:brightness-95;
+  /* Eliminate 300ms tap delay on iOS Safari */
+  touch-action: manipulation;
 }
 
 /* Workspace Header & Icons */
 .rfm-workspace-header {
-    @apply w-full flex flex-col gap-1 justify-start items-stretch mb-2 shrink-0 relative z-[100];
+  @apply w-full flex flex-col gap-1 justify-start items-stretch mb-2 shrink-0 relative z-[100];
 }
 
 .is-breadcrumb-hidden {
-    @apply overflow-hidden opacity-0 mb-0 pointer-events-none;
-    max-height: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    border-width: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  @apply overflow-hidden opacity-0 mb-0 pointer-events-none;
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .rfm-toolbar-breadcrumbs,
 .rfm-breadcrumb-bar {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .rfm-toolbar {
-    @apply flex items-center justify-between gap-4;
+  @apply flex items-center justify-between gap-4;
 }
 
 .rfm-toolbar-group {
-    @apply flex items-center gap-3;
+  @apply flex items-center gap-3;
 }
 
 .rfm-breadcrumb-bar {
-    @apply flex items-center bg-stone-100 dark:bg-slate-700/50 rounded-xl px-2 py-1 border border-stone-200 dark:border-slate-700 shadow-sm gap-2;
+  @apply flex items-center bg-stone-100 dark:bg-slate-700/50 rounded-xl px-2 py-1 border border-stone-200 dark:border-slate-700 shadow-sm gap-2;
 }
 
 .rfm-toolbar-breadcrumbs {
-    @apply hidden;
+  @apply hidden;
 }
 
 @media (min-width: 769px) {
-    .rfm-toolbar-breadcrumbs {
-        @apply flex items-center flex-1 min-w-0 bg-stone-100 dark:bg-slate-700/50 rounded-xl px-3 py-1 border border-stone-200 dark:border-slate-700 shadow-sm gap-2 transition-all duration-200;
-    }
+  .rfm-toolbar-breadcrumbs {
+    @apply flex items-center flex-1 min-w-0 bg-stone-100 dark:bg-slate-700/50 rounded-xl px-3 py-1 border border-stone-200 dark:border-slate-700 shadow-sm gap-2 transition-all duration-200;
+  }
 
-    .rfm-breadcrumb-bar {
-        @apply hidden;
-    }
+  .rfm-breadcrumb-bar {
+    @apply hidden;
+  }
 
-    .rfm-toolbar-breadcrumbs .rfm-breadcrumb-up-icon {
-        @apply pr-2 mr-0 border-r-0;
-    }
+  .rfm-toolbar-breadcrumbs .rfm-breadcrumb-up-icon {
+    @apply pr-2 mr-0 border-r-0;
+  }
 }
 
 .rfm-breadcrumb-up-icon {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-    @apply text-stone-500 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  @apply text-stone-400 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
 }
 
 .rfm-mobile-actions {
-    @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
+  @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
 }
 
 .rfm-header-container {
-    @apply flex justify-center items-center gap-3 rounded-xl bg-stone-200/60 dark:bg-slate-700/60 p-1.5 shadow-inner backdrop-blur-sm;
+  @apply flex justify-center items-center gap-3 rounded-xl bg-stone-200/60 dark:bg-slate-700/60 p-1.5 shadow-inner backdrop-blur-sm;
 }
 
 .rfm-header-icon {
-    width: 36px;
-    height: 36px;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    @apply rounded-lg hover:bg-white/50 dark:hover:bg-slate-600/50;
-    /* Eliminate 300ms tap delay on iOS Safari */
-    touch-action: manipulation;
+  width: 36px;
+  height: 36px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  @apply rounded-lg hover:bg-white/50 dark:hover:bg-slate-600/50;
+  /* Eliminate 300ms tap delay on iOS Safari */
+  touch-action: manipulation;
 }
 
 .rfm-header-icon--selected {
-    @apply bg-stone-700 dark:bg-sky-500 text-white rounded-md;
+  @apply bg-stone-700 dark:bg-sky-500 text-white rounded-md;
 }
 
 .rfm-header-sort-icon {
-    width: 1rem;
-    height: 1rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 /* Selection Marquee */
 .rfm-marquee-selection {
-    @apply fixed border border-sky-500 bg-sky-500/10 pointer-events-none z-[3000];
+  @apply fixed border border-sky-500 bg-sky-500/10 pointer-events-none z-[3000];
 }
 
 .rfm-selected {
-    @apply ring-0;
+  @apply ring-0;
 }
 
 .rfm-drag-over {
-    @apply bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-500 !important;
-    transform: scale(1.02);
+  @apply bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-500 !important;
+  transform: scale(1.02);
 }
 
 .rfm-highlighted {
-    @apply ring-4 ring-indigo-400 dark:ring-indigo-500 rounded-2xl !important;
-    animation: rfm-highlight-fade 3s ease-out forwards;
+  @apply ring-4 ring-indigo-400 dark:ring-indigo-500 rounded-2xl !important;
+  animation: rfm-highlight-fade 3s ease-out forwards;
 }
 
 @keyframes rfm-highlight-fade {
-    0% {
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
-    }
+  0% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+  }
 
-    60% {
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
-    }
+  60% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
 
-    100% {
-        box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
-    }
+  100% {
+    box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
+  }
 }
 
 .rfm-header-icon--pulse {
-    animation: rfm-icon-pulse 2s infinite;
+  animation: rfm-icon-pulse 2s infinite;
 }
 
 @keyframes rfm-icon-pulse {
-    0% {
-        box-shadow: 0 0 0 0px rgba(99, 102, 241, 0.4);
-    }
+  0% {
+    box-shadow: 0 0 0 0px rgba(99, 102, 241, 0.4);
+  }
 
-    70% {
-        box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
-    }
+  70% {
+    box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+  }
 
-    100% {
-        box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
-    }
+  100% {
+    box-shadow: 0 0 0 0px rgba(99, 102, 241, 0);
+  }
 }
 
 /* Scanning states */
 .rfm-pending {
-    opacity: 0.7;
-    pointer-events: none;
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .rfm-scanning-badge {
-    font-size: 10px;
-    background-color: #fef3c7;
-    color: #92400e;
-    padding: 1px 6px;
-    border-radius: 9999px;
-    font-weight: bold;
-    margin-left: 8px;
-    display: inline-flex;
-    align-items: center;
-    @apply border border-amber-200 shadow-sm;
+  font-size: 10px;
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-weight: bold;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  @apply border border-amber-200 shadow-sm;
 }
 
 .rfm-scanning-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(255, 255, 255, 0.5);
-    @apply dark:bg-slate-900/50;
-    font-size: 10px;
-    font-weight: bold;
-    color: #92400e;
-    z-index: 10;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.5);
+  @apply dark:bg-slate-900/50;
+  font-size: 10px;
+  font-weight: bold;
+  color: #92400e;
+  z-index: 10;
 }
 
 /* Loading State */
 .rfm-loading-more {
-    @apply flex items-center justify-center gap-3 py-4 text-slate-500 font-medium text-sm;
+  @apply flex items-center justify-center gap-3 py-4 text-slate-500 font-medium text-sm;
 }
 
 .rfm-spinner-small {
-    @apply inline-block rounded-full animate-spin;
-    border: 2px solid currentColor;
-    border-top-color: transparent !important;
+  @apply inline-block rounded-full animate-spin;
+  border: 2px solid currentColor;
+  border-top-color: transparent !important;
 }
 
 /* Folder Path & Breadcrumbs */
 .rfm-folder-path-container {
-    @apply flex gap-4 items-center min-w-0;
+  @apply flex gap-4 items-center min-w-0;
 }
 
 .rfm-folder-path-svg {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    @apply fill-white bg-stone-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-stone-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0 relative z-[4500];
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  @apply fill-white bg-stone-400 p-1.5 rounded-full cursor-pointer transition-colors duration-200 hover:bg-stone-600 dark:bg-slate-700 dark:hover:bg-slate-600 shrink-0 relative z-[4500];
 }
 
 @media (max-width: 768px) {
-    .rfm-folder-path-svg {
-        @apply z-[4500];
-    }
+  .rfm-folder-path-svg {
+    @apply z-[4500];
+  }
 }
 
 .rfm-folder-path-svg svg {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
 .rfm-breadcrumbs {
-    @apply flex items-center gap-2 text-sm text-stone-600 font-medium overflow-hidden flex-1;
+  @apply flex items-center gap-2 text-sm text-stone-600 font-medium overflow-hidden flex-1;
 }
 
 .rfm-breadcrumb-item {
-    @apply flex items-center cursor-pointer hover:text-teal-700 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400 whitespace-nowrap;
+  @apply flex items-center cursor-pointer hover:text-teal-700 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400 whitespace-nowrap;
 }
 
 .rfm-breadcrumb-item.active {
-    @apply text-stone-900 font-bold cursor-default dark:text-slate-100;
+  @apply text-stone-900 font-bold cursor-default dark:text-slate-100;
 }
 
 .rfm-breadcrumb-count {
-    @apply ml-auto px-3 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-[10px] uppercase font-black tracking-widest text-stone-400 dark:text-slate-500 border border-stone-200 dark:border-slate-700 select-none whitespace-nowrap;
+  @apply ml-auto px-3 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-[10px] uppercase font-black tracking-widest text-stone-400 dark:text-slate-500 border border-stone-200 dark:border-slate-700 select-none whitespace-nowrap;
 }
 
 .rfm-breadcrumb-separator {
-    @apply text-stone-300 select-none dark:text-slate-600;
+  @apply text-stone-300 select-none dark:text-slate-600;
 }
 
 /* Sort container & Menu */
 .rfm-sort-group {
-    @apply relative flex items-center gap-2;
+  @apply relative flex items-center gap-2;
 }
 
 .rfm-sort-trigger {
-    height: 36px;
-    @apply flex items-center gap-2 bg-stone-100 dark:bg-slate-800 rounded-lg px-3 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none;
+  height: 36px;
+  @apply flex items-center gap-2 bg-stone-100 dark:bg-slate-800 rounded-lg px-3 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none;
 }
 
 .rfm-sort-trigger span {
-    @apply text-xs font-bold text-stone-600 dark:text-slate-200 uppercase tracking-wider;
+  @apply text-xs font-bold text-stone-600 dark:text-slate-200 uppercase tracking-wider;
 }
 
 .rfm-sort-chevron {
-    @apply text-stone-400 transition-transform duration-200;
+  @apply text-stone-400 transition-transform duration-200;
 }
 
 .rfm-sort-chevron.open {
-    @apply rotate-180;
+  @apply rotate-180;
 }
 
 .rfm-sort-menu {
-    @apply absolute top-full right-0 mt-2 w-40 bg-white dark:bg-slate-800 backdrop-blur-md rounded-xl shadow-2xl border border-stone-200 dark:border-slate-700 py-2 z-[5000] overflow-hidden;
-    animation: rfm-sort-slide-down 0.2s ease-out;
+  @apply absolute top-full right-0 mt-2 w-40 bg-white dark:bg-slate-800 backdrop-blur-md rounded-xl shadow-2xl border border-stone-200 dark:border-slate-700 py-2 z-[5000] overflow-hidden;
+  animation: rfm-sort-slide-down 0.2s ease-out;
 }
 
 @keyframes rfm-sort-slide-down {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .rfm-sort-option {
-    @apply flex items-center justify-between px-3 py-2 text-xs font-semibold text-stone-600 dark:text-slate-300 cursor-pointer transition-colors hover:bg-stone-100 dark:hover:bg-slate-700/50;
+  @apply flex items-center justify-between px-3 py-2 text-xs font-semibold text-stone-600 dark:text-slate-300 cursor-pointer transition-colors hover:bg-stone-100 dark:hover:bg-slate-700/50;
 }
 
 .rfm-sort-option.selected {
-    @apply text-teal-600 dark:text-sky-400;
+  @apply text-teal-600 dark:text-sky-400;
 }
 
 .rfm-sort-direction {
-    width: 36px;
-    height: 36px;
-    @apply flex items-center justify-center rounded-lg bg-stone-100 dark:bg-slate-800 text-stone-400 border border-stone-200 dark:border-slate-700 hover:text-teal-600 dark:hover:text-sky-400 cursor-pointer transition-colors active:scale-95;
+  width: 36px;
+  height: 36px;
+  @apply flex items-center justify-center rounded-lg bg-stone-100 dark:bg-slate-800 text-stone-400 border border-stone-200 dark:border-slate-700 hover:text-teal-600 dark:hover:text-sky-400 cursor-pointer transition-colors active:scale-95;
 }
 
 @media (max-width: 768px) {
-    .rfm-sort-menu {
-        @apply w-40;
-        /* Make it bit wider on mobile for better touch target */
-    }
+  .rfm-sort-menu {
+    @apply w-40;
+    /* Make it bit wider on mobile for better touch target */
+  }
 }
 
 /* ==================== Responsive Workspace ==================== */
 
 /* Tablet */
 @media (max-width: 1024px) {
-    .rfm-workspace {
-        @apply p-2;
-    }
+  .rfm-workspace {
+    @apply p-2;
+  }
 
-    .rfm-icons-grid {
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-        @apply gap-2 p-2 pt-0;
-    }
+  .rfm-icons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    @apply gap-2 p-2 pt-0;
+  }
 
-    .rfm-workspace-header {
-        @apply gap-2 mb-2;
-    }
+  .rfm-workspace-header {
+    @apply gap-2 mb-2;
+  }
 }
 
 /* Mobile */
 @media (max-width: 768px) {
-    .rfm-workspace {
-        @apply p-2;
-        min-height: 200px;
-    }
+  .rfm-workspace {
+    @apply p-2;
+    min-height: 200px;
+  }
 
-    .rfm-workspace-header {
-        @apply gap-2 mb-2 flex-wrap;
-    }
+  .rfm-workspace-header {
+    @apply gap-2 mb-2 flex-wrap;
+  }
 
-    .rfm-mobile-actions {
-        @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
-    }
+  .rfm-mobile-actions {
+    @apply flex items-center gap-1 mr-2 border-r border-gray-300 dark:border-gray-500 pr-2;
+  }
 
-    .rfm-folder-path-container {
-        @apply gap-2 flex-1 min-w-0;
-    }
+  .rfm-folder-path-container {
+    @apply gap-2 flex-1 min-w-0;
+  }
 
-    .rfm-folder-path-svg {
-        @apply w-10 h-10 p-2;
-    }
+  .rfm-folder-path-svg {
+    @apply w-10 h-10 p-2;
+  }
 
-    .rfm-header-container {
-        @apply gap-3 p-1.5 rounded-xl;
-    }
+  .rfm-header-container {
+    @apply gap-3 p-1.5 rounded-xl;
+  }
 
-    .rfm-header-icon {
-        @apply w-10 h-10 p-2;
-    }
+  .rfm-header-icon {
+    @apply w-10 h-10 p-2;
+  }
 
-    .rfm-mobile-actions {
-        @apply gap-2 pr-4 border-r-2;
-    }
+  .rfm-mobile-actions {
+    @apply gap-2 pr-4 border-r-2;
+  }
 
-    .rfm-breadcrumbs {
-        @apply text-xs gap-1;
-    }
+  .rfm-breadcrumbs {
+    @apply text-xs gap-1;
+  }
 
-    .rfm-workspace-list-th {
-        @apply px-2 py-1 text-xs;
-    }
+  .rfm-workspace-list-th {
+    @apply px-2 py-1 text-xs;
+  }
 
-    .rfm-workspace-list-align-txt {
-        @apply px-3 py-1 text-[13.5px];
-    }
+  .rfm-workspace-list-align-txt {
+    @apply px-3 py-1 text-[13.5px];
+  }
 
-    .rfm-workspace-list-icon-td {
-        @apply gap-2 py-0;
-    }
+  .rfm-workspace-list-icon-td {
+    @apply gap-2 py-0;
+  }
 
-    .rfm-workspace-list-icon {
-        @apply w-7 h-7;
-    }
+  .rfm-workspace-list-icon {
+    @apply w-7 h-7;
+  }
 
-    .rfm-icons-grid {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-        @apply gap-2 p-1 pt-0;
-    }
+  .rfm-icons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    @apply gap-2 p-1 pt-0;
+  }
 
-    /* Hide Type and Last Modified columns on mobile */
-    table.w-full th:nth-child(2) {
-        @apply text-right px-4;
-    }
+  /* Hide Type and Last Modified columns on mobile */
+  table.w-full th:nth-child(2) {
+    @apply text-right px-4;
+  }
 
-    table.w-full td:nth-child(2) {
-        @apply text-right px-4 font-mono text-[11px] text-stone-500;
-        width: 80px;
-    }
+  table.w-full td:nth-child(2) {
+    @apply text-right px-4 font-mono text-[11px] text-stone-500;
+    width: 80px;
+  }
 
-    table.w-full th:nth-child(3),
-    table.w-full td:nth-child(3),
-    table.w-full th:nth-child(4),
-    table.w-full td:nth-child(4) {
-        display: none;
-    }
+  table.w-full th:nth-child(3),
+  table.w-full td:nth-child(3),
+  table.w-full th:nth-child(4),
+  table.w-full td:nth-child(4) {
+    display: none;
+  }
 }
 
 /* Small phones */
 @media (max-width: 480px) {
-    .rfm-workspace {
-        @apply p-1.5;
-    }
+  .rfm-workspace {
+    @apply p-1.5;
+  }
 
-    .rfm-breadcrumbs {
-        @apply text-[11px];
-    }
+  .rfm-breadcrumbs {
+    @apply text-[11px];
+  }
 
-    .rfm-icons-grid {
-        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-        @apply gap-1.5;
-    }
+  .rfm-icons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    @apply gap-1.5;
+  }
 }
 
 .rfm-sidebar-overlay {
-    display: none !important;
+  display: none !important;
 }
 
 @media (max-width: 768px) {
-    .rfm-sidebar-overlay {
-        display: block !important;
-    }
+  .rfm-sidebar-overlay {
+    display: block !important;
+  }
 }
 
 /* Floating Action Button */
 .rfm-fab {
-    @apply fixed bottom-8 right-8 z-[4500] w-14 h-14 bg-teal-600 text-white rounded-full shadow-xl flex items-center justify-center cursor-pointer transition-all active:scale-90 hover:bg-teal-700 hover:shadow-2xl ring-4 ring-transparent;
-    /* iOS safe-area: keep FAB above home indicator */
-    bottom: calc(2rem + env(safe-area-inset-bottom));
-    touch-action: manipulation;
+  @apply fixed bottom-8 right-8 z-[4500] w-14 h-14 bg-teal-600 text-white rounded-full shadow-xl flex items-center justify-center cursor-pointer transition-all active:scale-90 hover:bg-teal-700 hover:shadow-2xl ring-4 ring-transparent;
+  /* iOS safe-area: keep FAB above home indicator */
+  bottom: calc(2rem + env(safe-area-inset-bottom));
+  touch-action: manipulation;
 }
 
 .rfm-fab svg {
-    @apply w-7 h-7;
+  @apply w-7 h-7;
 }
 
 .rfm-fab-paste {
-    @apply right-28 bg-indigo-600 hover:bg-indigo-700;
-    animation: fab-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  @apply right-28 bg-indigo-600 hover:bg-indigo-700;
+  animation: fab-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fab-slide-in {
-    from {
-        @apply opacity-0 translate-x-4;
-    }
+  from {
+    @apply opacity-0 translate-x-4;
+  }
 
-    to {
-        @apply opacity-100 translate-x-0;
-    }
+  to {
+    @apply opacity-100 translate-x-0;
+  }
 }
 
 /* FAB Menu */
 .rfm-fab-menu {
-    @apply fixed bottom-24 right-8 z-[4501] flex flex-col items-end gap-3 pointer-events-none transition-all duration-300 opacity-0 translate-y-4 invisible;
-    visibility: hidden;
+  @apply fixed bottom-24 right-8 z-[4501] flex flex-col items-end gap-3 pointer-events-none transition-all duration-300 opacity-0 translate-y-4 invisible;
+  visibility: hidden;
 }
 
 .rfm-fab-menu.active {
-    @apply opacity-100 translate-y-0 pointer-events-auto;
-    visibility: visible;
+  @apply opacity-100 translate-y-0 pointer-events-auto;
+  visibility: visible;
 }
 
 .rfm-fab-item {
-    @apply flex items-center gap-3 cursor-pointer;
+  @apply flex items-center gap-3 cursor-pointer;
 }
 
 .rfm-fab-action {
-    @apply flex items-center justify-between gap-2 bg-white dark:bg-slate-800 px-3 pl-5 py-1.5 rounded-full shadow-lg border border-stone-100 dark:border-slate-700 opacity-0 -translate-x-2 transition-all duration-200 cursor-pointer hover:bg-stone-50 dark:hover:bg-slate-700 w-48;
+  @apply flex items-center justify-between gap-2 bg-white dark:bg-slate-800 px-3 pl-5 py-1.5 rounded-full shadow-lg border border-stone-100 dark:border-slate-700 opacity-0 -translate-x-2 transition-all duration-200 cursor-pointer hover:bg-stone-50 dark:hover:bg-slate-700 w-48;
 }
 
 .rfm-fab-menu.active .rfm-fab-action {
-    @apply opacity-100 translate-x-0;
+  @apply opacity-100 translate-x-0;
 }
 
 .rfm-fab-action-label {
-    @apply text-stone-700 dark:text-slate-200 text-sm font-bold whitespace-nowrap;
+  @apply text-stone-700 dark:text-slate-200 text-sm font-bold whitespace-nowrap;
 }
 
 .rfm-fab-item:hover .rfm-fab-action-label {
-    @apply opacity-100 translate-x-0;
+  @apply opacity-100 translate-x-0;
 }
 
 .rfm-fab-action-icon {
-    @apply w-10 h-10 bg-teal-50 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center transition-transform shrink-0;
+  @apply w-10 h-10 bg-teal-50 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center transition-transform shrink-0;
 }
 
 .rfm-fab-action:hover .rfm-fab-action-icon {
-    @apply scale-110;
+  @apply scale-110;
 }
 
 .rfm-fab-action-icon svg {
-    @apply w-6 h-6;
+  @apply w-6 h-6;
 }
 
 /* Selection Bar */
 .rfm-selection-bar {
-    @apply fixed bottom-8 left-1/2 -translate-x-1/2 z-[5000] bg-white/90 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl flex items-center gap-2 px-4 py-3 shadow-2xl border border-stone-200 dark:border-slate-800;
-    animation: slide-up-selection 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    min-width: 280px;
-    /* iOS safe-area: keep selection bar above home indicator */
-    bottom: calc(2rem + env(safe-area-inset-bottom));
+  @apply fixed bottom-8 left-1/2 -translate-x-1/2 z-[5000] bg-white/90 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl flex items-center gap-2 px-4 py-3 shadow-2xl border border-stone-200 dark:border-slate-800;
+  animation: slide-up-selection 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 280px;
+  /* iOS safe-area: keep selection bar above home indicator */
+  bottom: calc(2rem + env(safe-area-inset-bottom));
 }
 
 @keyframes slide-up-selection {
-    0% {
-        transform: translate(-50%, 100%) scale(0.9);
-        opacity: 0;
-    }
+  0% {
+    transform: translate(-50%, 100%) scale(0.9);
+    opacity: 0;
+  }
 
-    100% {
-        transform: translate(-50%, 0) scale(1);
-        opacity: 1;
-    }
+  100% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
 }
 
 .rfm-selection-pill {
-    @apply flex items-center gap-3 px-3 py-1.5 rounded-xl cursor-pointer transition-all hover:bg-stone-50 dark:hover:bg-white/5 active:scale-95 border border-transparent hover:border-stone-200 dark:hover:border-white/10;
+  @apply flex items-center gap-3 px-3 py-1.5 rounded-xl cursor-pointer transition-all hover:bg-stone-50 dark:hover:bg-white/5 active:scale-95 border border-transparent hover:border-stone-200 dark:hover:border-white/10;
 }
 
 .rfm-selection-checkbox {
-    @apply w-10 h-10 flex items-center justify-center rounded-lg bg-stone-100 dark:bg-white/10 text-stone-400 dark:text-white/40 transition-all;
+  @apply w-10 h-10 flex items-center justify-center rounded-lg bg-stone-100 dark:bg-white/10 text-stone-400 dark:text-white/40 transition-all;
 }
 
 .rfm-selection-checkbox.is-checked {
-    @apply bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border border-teal-200/50 dark:border-teal-500/30;
-    box-shadow: 0 0 15px -5px rgba(20, 184, 166, 0.4);
+  @apply bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border border-teal-200/50 dark:border-teal-500/30;
+  box-shadow: 0 0 15px -5px rgba(20, 184, 166, 0.4);
 }
 
 .rfm-selection-checkbox svg {
-    @apply w-5 h-5 transition-transform;
+  @apply w-5 h-5 transition-transform;
 }
 
 .rfm-selection-checkbox.is-checked svg {
-    @apply scale-110;
+  @apply scale-110;
 }
 
 .rfm-selection-info {
-    @apply flex flex-col;
-    min-width: 60px;
+  @apply flex flex-col;
+  min-width: 60px;
 }
 
 .rfm-selection-count {
-    @apply text-stone-900 dark:text-white text-[15px] font-black leading-none;
+  @apply text-stone-900 dark:text-white text-[15px] font-black leading-none;
 }
 
 .rfm-selection-label {
-    @apply text-stone-500 dark:text-white/50 text-[10px] uppercase font-black tracking-widest;
+  @apply text-stone-500 dark:text-white/50 text-[10px] uppercase font-black tracking-widest;
 }
 
 .rfm-selection-action-btn {
-    @apply w-12 h-12 flex items-center justify-center rounded-xl bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white hover:bg-stone-200 dark:hover:bg-white/20 active:scale-90 transition-all cursor-pointer;
+  @apply w-12 h-12 flex items-center justify-center rounded-xl bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white hover:bg-stone-200 dark:hover:bg-white/20 active:scale-90 transition-all cursor-pointer;
 }
 
 .rfm-selection-action-btn.danger {
-    @apply text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20;
+  @apply text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20;
 }
 
 .rfm-selection-action-btn.rfm-active-star {
-    @apply bg-amber-50 dark:bg-amber-900/40 text-amber-500 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30;
-    box-shadow: 0 0 15px -5px rgba(245, 158, 11, 0.4);
+  @apply bg-amber-50 dark:bg-amber-900/40 text-amber-500 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30;
+  box-shadow: 0 0 15px -5px rgba(245, 158, 11, 0.4);
 }
 
 .rfm-selection-action-btn svg {
-    @apply w-6 h-6;
+  @apply w-6 h-6;
 }
 
 @media (max-width: 768px) {
-    .rfm-selection-bar {
-        @apply bottom-6 w-[calc(100%-2rem)] max-w-[420px] px-3 py-2.5;
-        /* On mobile, account for home indicator */
-        bottom: calc(1.5rem + env(safe-area-inset-bottom));
-    }
+  .rfm-selection-bar {
+    @apply bottom-6 w-[calc(100%-2rem)] max-w-[420px] px-3 py-2.5;
+    /* On mobile, account for home indicator */
+    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
 
-    .rfm-selection-action-btn {
-        @apply w-11 h-11 transition-none;
-    }
+  .rfm-selection-action-btn {
+    @apply w-11 h-11 transition-none;
+  }
 
-    .rfm-fab {
-        @apply right-6 w-16 h-16;
-        bottom: calc(1.5rem + env(safe-area-inset-bottom));
-    }
+  .rfm-fab {
+    @apply right-6 w-16 h-16;
+    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
 
-    .rfm-fab-menu {
-        @apply right-6;
-        bottom: calc(6rem + env(safe-area-inset-bottom));
-    }
+  .rfm-fab-menu {
+    @apply right-6;
+    bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
 }

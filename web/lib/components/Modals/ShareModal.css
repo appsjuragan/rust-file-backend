@@ -1,0 +1,147 @@
+@layer utilities {
+    .rfm-share-modal {
+        @apply flex flex-col gap-6;
+    }
+
+    .rfm-share-section-title {
+        @apply text-sm font-bold text-stone-400 uppercase tracking-widest mb-3;
+    }
+
+    .rfm-share-field {
+        @apply flex flex-col gap-2;
+    }
+
+    .rfm-share-label {
+        @apply text-[10px] font-black text-stone-400 uppercase tracking-wider;
+    }
+
+    .rfm-share-toggle-group {
+        @apply flex bg-stone-100 dark:bg-slate-800 p-1 rounded-xl;
+    }
+
+    .rfm-share-toggle-btn {
+        @apply flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold text-stone-500 transition-all duration-200 hover:text-stone-700;
+    }
+
+    .rfm-share-toggle-btn.active {
+        @apply bg-white dark:bg-slate-700 text-teal-600 shadow-sm;
+    }
+
+    .rfm-share-expiry-presets {
+        @apply flex flex-wrap gap-2;
+    }
+
+    .rfm-share-expiry-btn {
+        @apply px-3 py-1.5 rounded-lg text-xs font-bold border border-stone-200 dark:border-slate-700 text-stone-500 hover:border-teal-500 hover:text-teal-600 transition-all;
+    }
+
+    .rfm-share-expiry-btn.active {
+        @apply bg-teal-500 text-white border-teal-500 shadow-lg shadow-teal-500/20;
+    }
+
+    .rfm-share-checkbox-label {
+        @apply flex items-center gap-3 text-xs font-bold text-stone-600 dark:text-slate-400 cursor-pointer py-1 mt-1;
+        transition: color 0.2s;
+    }
+
+    .rfm-share-checkbox-label:hover {
+        @apply text-stone-900 dark:text-white;
+    }
+
+    .rfm-share-checkbox-wrapper {
+        @apply relative w-4 h-4;
+    }
+
+    .rfm-share-checkbox-wrapper input {
+        @apply absolute inset-0 opacity-0 cursor-pointer z-10;
+    }
+
+    .rfm-share-checkbox-custom {
+        @apply absolute inset-0 bg-stone-100 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 rounded transition-all flex items-center justify-center text-transparent;
+    }
+
+    .rfm-share-checkbox-wrapper input:checked+.rfm-share-checkbox-custom {
+        @apply bg-teal-500 border-teal-500 text-white shadow-sm shadow-teal-500/20;
+    }
+
+    .rfm-share-input {
+        @apply bg-stone-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 transition-all dark:text-white;
+    }
+
+    .rfm-share-create-btn {
+        @apply w-full bg-teal-600 text-white font-black py-3 rounded-xl shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none;
+    }
+
+    .rfm-share-result {
+        @apply mt-2;
+        animation: rfm-fade-in-up 0.3s ease-out forwards;
+    }
+
+    @keyframes rfm-fade-in-up {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .rfm-share-link-display {
+        @apply flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-xl border border-emerald-100 dark:border-emerald-800/50;
+    }
+
+    .rfm-share-link-input {
+        @apply flex-1 bg-transparent border-none text-xs font-mono text-emerald-700 dark:text-emerald-400 outline-none;
+    }
+
+    .rfm-share-copy-btn {
+        @apply px-4 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 transition-all active:scale-90;
+    }
+
+    .rfm-share-existing-section {
+        @apply mt-4 pt-6 border-t border-stone-200 dark:border-slate-800;
+    }
+
+    .rfm-share-list {
+        @apply flex flex-col gap-3;
+    }
+
+    .rfm-share-item {
+        @apply flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-stone-100 dark:border-slate-800 transition-all hover:border-teal-500/30;
+    }
+
+    .rfm-share-item-meta {
+        @apply flex items-center gap-2;
+    }
+
+    .rfm-share-badge {
+        @apply px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter;
+    }
+
+    .rfm-share-badge-permission {
+        @apply bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400;
+    }
+
+    .rfm-share-badge-lock {
+        @apply text-amber-500 bg-amber-50 dark:bg-amber-900/20 p-1 flex items-center justify-center;
+    }
+
+    .rfm-share-item-expiry {
+        @apply text-[10px] font-bold text-stone-400;
+    }
+
+    .rfm-share-item-actions {
+        @apply flex items-center gap-1;
+    }
+
+    .rfm-share-action-btn {
+        @apply p-2 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-slate-700 transition-all active:scale-90;
+    }
+
+    .rfm-share-revoke-btn {
+        @apply hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20;
+    }
+}
