@@ -6,7 +6,6 @@ interface SelectionBarProps {
     selectedIds: string[];
     currentFolderFiles: FileType[];
     fs: FileType[];
-    favorites: FileType[];
     currentFolder: string;
     setSelectedIds: (ids: string[]) => void;
     setClipboardIds: (ids: string[]) => void;
@@ -14,9 +13,6 @@ interface SelectionBarProps {
     setClipboardSourceFolder: (folder: string) => void;
     setContextMenu: (menu: any) => void;
     setDialogState: (state: any) => void;
-    onBulkDelete?: (ids: string[]) => Promise<void>;
-    onDelete?: (id: string) => Promise<void>;
-    toggleFavorite?: (files: FileType[]) => void;
     handleShare: (file: FileType) => void;
 }
 
@@ -24,7 +20,6 @@ const SelectionBar = ({
     selectedIds,
     currentFolderFiles,
     fs,
-    favorites,
     currentFolder,
     setSelectedIds,
     setClipboardIds,
@@ -32,9 +27,6 @@ const SelectionBar = ({
     setClipboardSourceFolder,
     setContextMenu,
     setDialogState,
-    onBulkDelete,
-    onDelete,
-    toggleFavorite,
     handleShare,
 }: SelectionBarProps) => {
     if (selectedIds.length === 0) return null;
@@ -111,23 +103,6 @@ const SelectionBar = ({
                 <SvgIcon svgType="scissors" />
             </div>
 
-            <div
-                className={`rfm-selection-action-btn ${selectedIds.every((id) => favorites.some((f) => f.id === id))
-                    ? "rfm-active-star"
-                    : ""
-                    }`}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    const filesToToggle = currentFolderFiles.filter((f) =>
-                        selectedIds.includes(f.id)
-                    );
-                    if (toggleFavorite) toggleFavorite(filesToToggle);
-                    if (navigator.vibrate) navigator.vibrate(50);
-                }}
-                title="Toggle Favorite"
-            >
-                <SvgIcon svgType="star" />
-            </div>
 
             {selectedIds.length === 1 && (
                 <div
@@ -146,7 +121,7 @@ const SelectionBar = ({
             )}
 
             <div
-                className="rfm-selection-action-btn"
+                className="rfm-selection-action-btn ml-auto"
                 onClick={(e) => {
                     e.stopPropagation();
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -165,34 +140,9 @@ const SelectionBar = ({
                 }}
                 title="More Actions"
             >
-                <SvgIcon svgType="dots" />
+                <SvgIcon svgType="menu" />
             </div>
 
-            <div
-                className="rfm-selection-action-btn danger ml-auto"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setDialogState({
-                        isVisible: true,
-                        title: "Confirm Delete",
-                        message: `Are you sure you want to delete ${selectedIds.length} item(s)?`,
-                        type: "confirm",
-                        onConfirm: async () => {
-                            if (onBulkDelete) {
-                                await onBulkDelete(selectedIds);
-                            } else if (onDelete) {
-                                for (const id of selectedIds) {
-                                    await onDelete(id);
-                                }
-                            }
-                            setSelectedIds([]);
-                        },
-                    });
-                }}
-                title="Delete"
-            >
-                <SvgIcon svgType="trash" />
-            </div>
         </div>
     );
 };

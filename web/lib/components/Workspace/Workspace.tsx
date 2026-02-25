@@ -482,7 +482,6 @@ const Workspace = () => {
         selectedIds={selectedIds}
         currentFolderFiles={currentFolderFiles}
         fs={fs}
-        favorites={favorites}
         currentFolder={currentFolder}
         setSelectedIds={setSelectedIds}
         setClipboardIds={setClipboardIds}
@@ -490,9 +489,6 @@ const Workspace = () => {
         setClipboardSourceFolder={setClipboardSourceFolder}
         setContextMenu={setContextMenu}
         setDialogState={setDialogState}
-        onBulkDelete={onBulkDelete}
-        onDelete={onDelete}
-        toggleFavorite={toggleFavorite}
         handleShare={handleShare}
       />
 
