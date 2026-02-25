@@ -261,6 +261,15 @@
   animation: rfm-thumb-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Faint drop shadow on wrapper when thumbnail is loaded */
+.rfm-file-icon-wrapper:has(.rfm-thumb-loaded) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.dark .rfm-file-icon-wrapper:has(.rfm-thumb-loaded) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30), 0 1px 3px rgba(0, 0, 0, 0.20);
+}
+
 @keyframes rfm-thumb-reveal {
   0% {
     opacity: 0;

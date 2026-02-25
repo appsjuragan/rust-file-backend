@@ -119,6 +119,7 @@ const FileGridItem = React.memo(
           isFavorite={f.isFavorite}
           hasThumbnail={f.hasThumbnail}
           isEncrypted={f.isEncrypted}
+          scanStatus={f.scanStatus}
           className="rfm-grid-icon"
         />
         {isPending && (

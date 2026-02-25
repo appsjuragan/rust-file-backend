@@ -40,11 +40,13 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
   const isTextFile =
-    (mimeType === "text/plain" ||
-      ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py"].includes(
+    (mimeType?.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType === "application/javascript" ||
+      ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py", "log", "env", "conf"].includes(
         extension
       )) &&
-    (size || 0) < 100 * 1024;
+    (size || 0) < 10 * 1024 * 1024; // Increased to 10MB for text files
   const isArchiveFile =
     (mimeType === "application/zip" ||
       ["zip", "7z", "tar", "gz", "rar"].includes(extension)) &&
@@ -309,7 +311,6 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           {size && (
             <span className="rfm-float-size-info">{formatSize(size)}</span>
           )}
-          <div className="rfm-float-download-divider"></div>
           <div className="rfm-float-download-btn-content">
             <SvgIcon svgType="download" />
             <span>Download</span>

@@ -35,6 +35,7 @@ export const getColumns = () => [
               isFavorite={info.row.original.isFavorite}
               hasThumbnail={info.row.original.hasThumbnail}
               isEncrypted={info.row.original.isEncrypted}
+              scanStatus={info.row.original.scanStatus}
               hideName={true}
               className="rfm-list-icon opacity-70"
             />
@@ -60,6 +61,7 @@ export const getColumns = () => [
             isFavorite={info.row.original.isFavorite}
             hasThumbnail={info.row.original.hasThumbnail}
             isEncrypted={info.row.original.isEncrypted}
+            scanStatus={info.row.original.scanStatus}
             hideName={true}
             className="rfm-list-icon"
           />

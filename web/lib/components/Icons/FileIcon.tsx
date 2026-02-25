@@ -128,8 +128,11 @@ const FileIcon = (props: IFileIcon) => {
   // Check if this file type supports thumbnails
   const supportsThumbnail = useMemo(() => {
     if (props.isDir || props.isEncrypted) return false;
+    // Don't support thumbnails for files that are still being scanned
+    if (props.scanStatus === "pending" || props.scanStatus === "scanning")
+      return false;
     return THUMBNAIL_EXTENSIONS.has(fileExtension.toLowerCase());
-  }, [props.isDir, props.isEncrypted, fileExtension]);
+  }, [props.isDir, props.isEncrypted, fileExtension, props.scanStatus]);
 
   // Fetch thumbnail blob
   const fetchThumbnail = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
@@ -152,6 +155,11 @@ const FileIcon = (props: IFileIcon) => {
   useEffect(() => {
     if (thumbnailUrl) return; // Already loaded
     if (props.isDir || props.isEncrypted) return;
+    // Skip if scanning
+    if (props.scanStatus === "pending" || props.scanStatus === "scanning") {
+      if (isPolling) setIsPolling(false);
+      return;
+    }
 
     const controller = new AbortController();
 
@@ -167,7 +175,15 @@ const FileIcon = (props: IFileIcon) => {
     return () => {
       controller.abort();
     };
-  }, [props.hasThumbnail, props.isDir, props.id, supportsThumbnail]);
+  }, [
+    props.hasThumbnail,
+    props.isDir,
+    props.isEncrypted,
+    props.id,
+    supportsThumbnail,
+    props.scanStatus,
+    isPolling,
+  ]);
 
   // Polling effect: check for thumbnail every few seconds
   useEffect(() => {

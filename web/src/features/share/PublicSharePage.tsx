@@ -19,6 +19,37 @@ const MediaViewer: React.FC<{ info: any, token: string, fileId?: string }> = ({ 
         downloadUrl += `?file_id=${encodeURIComponent(fileId)}`;
     }
     const mime = info.mime_type;
+    const [textContent, setTextContent] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const isTextLike = (m?: string, f?: string, s?: number) => {
+        if (!m) return false;
+        if ((s || 0) > 10 * 1024 * 1024) return false; // 10MB limit
+        if (m.startsWith("text/") || m === "application/json" || m === "application/javascript") return true;
+        if (f) {
+            const ext = f.split(".").pop()?.toLowerCase() || "";
+            return ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py", "log", "env", "conf"].includes(ext);
+        }
+        return false;
+    };
+
+    useEffect(() => {
+        if (isTextLike(mime, info.filename, info.size)) {
+            setLoading(true);
+            fetch(downloadUrl)
+                .then(res => res.text())
+                .then(text => {
+                    setTextContent(text);
+                    setLoading(false);
+                })
+                .catch(err => {
+                    console.error("Failed to fetch text content", err);
+                    setLoading(false);
+                });
+        } else {
+            setTextContent(null);
+        }
+    }, [mime, downloadUrl, info.filename]);
 
     if (!mime) return null;
 
@@ -26,6 +57,15 @@ const MediaViewer: React.FC<{ info: any, token: string, fileId?: string }> = ({ 
         e.preventDefault();
         return false;
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Loading Content...</span>
+            </div>
+        );
+    }
 
     return (
         <div className="rfm-share-media-container" onContextMenu={handleContextMenu}>
@@ -73,6 +113,13 @@ const MediaViewer: React.FC<{ info: any, token: string, fileId?: string }> = ({ 
                     onContextMenu={handleContextMenu}
                 />
             )}
+            {isTextLike(mime, info.filename, info.size) && textContent !== null && (
+                <div className="p-6 max-h-[500px] overflow-auto">
+                    <pre className="text-xs font-mono text-stone-700 dark:text-slate-300 whitespace-pre-wrap break-all leading-relaxed">
+                        {textContent}
+                    </pre>
+                </div>
+            )}
         </div>
     );
 };
@@ -90,12 +137,22 @@ export const PublicSharePage: React.FC = () => {
 
     const passwordInputRef = useRef<HTMLInputElement>(null);
 
-    const isMediaSupported = (mimeType?: string) => {
+    const isMediaSupported = (mimeType?: string, filename?: string, size?: number) => {
         if (!mimeType) return false;
-        return mimeType.startsWith("image/") ||
+
+        const isText = mimeType.startsWith("text/") ||
+            mimeType === "application/json" ||
+            mimeType === "application/javascript" ||
+            (filename && ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py", "log", "env", "conf"].includes(filename.split(".").pop()?.toLowerCase() || ""));
+
+        if (isText && (size || 0) > 10 * 1024 * 1024) return false;
+
+        const isOtherMedia = mimeType.startsWith("image/") ||
             mimeType.startsWith("video/") ||
             mimeType.startsWith("audio/") ||
             mimeType === "application/pdf";
+
+        return isText || isOtherMedia;
     };
 
     const fetchShareInfo = useCallback(async () => {
@@ -209,7 +266,7 @@ export const PublicSharePage: React.FC = () => {
     return (
         <div className="rfm-public-share-container">
             <div className="rfm-share-card animate-share-in" style={{
-                maxWidth: (shareInfo?.is_folder || isMediaSupported(shareInfo?.mime_type)) && isAuthorized ? '800px' : '400px'
+                maxWidth: (shareInfo?.is_folder || isMediaSupported(shareInfo?.mime_type, shareInfo?.filename, shareInfo?.size)) && isAuthorized ? '800px' : '400px'
             }}>
                 <div className="rfm-share-header">
                     <div className="rfm-share-icon-wrapper">
@@ -321,8 +378,8 @@ export const PublicSharePage: React.FC = () => {
                                         folderContents.map(item => (
                                             <div
                                                 key={item.id}
-                                                className={`rfm-share-file-item ${!item.is_folder && isMediaSupported(item.mime_type) ? 'is-previewable' : ''}`}
-                                                onClick={() => !item.is_folder && isMediaSupported(item.mime_type) && setViewingItem(item)}
+                                                className={`rfm-share-file-item ${!item.is_folder && isMediaSupported(item.mime_type, item.filename, item.size) ? 'is-previewable' : ''}`}
+                                                onClick={() => !item.is_folder && isMediaSupported(item.mime_type, item.filename, item.size) && setViewingItem(item)}
                                             >
                                                 <div className="rfm-share-file-info">
                                                     <div className="rfm-share-file-icon">
@@ -359,7 +416,7 @@ export const PublicSharePage: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    {isMediaSupported(shareInfo?.mime_type) ? (
+                                    {isMediaSupported(shareInfo?.mime_type, shareInfo?.filename, shareInfo?.size) ? (
                                         <MediaViewer info={shareInfo} token={token} />
                                     ) : (
                                         <div className="p-8 bg-stone-50 dark:bg-slate-800/20 rounded-[2rem] border border-stone-100 dark:border-slate-800/50 flex flex-col items-center gap-4">

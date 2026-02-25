@@ -1,5 +1,6 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
+use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::Claims;
 use crate::utils::validation::sanitize_filename;
 use axum::{
@@ -933,6 +934,21 @@ pub async fn delete_item(
     Path(id): Path<String>,
 ) -> Result<StatusCode, AppError> {
     state.file_service.delete_item(&claims.sub, &id).await?;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::FileDelete,
+            Some(claims.sub),
+            Some(id),
+            "delete_item",
+            "success",
+            None,
+            None,
+        )
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1506,10 +1522,28 @@ pub async fn bulk_delete(
         return Err(AppError::BadRequest("No items provided".to_string()));
     }
 
+    let item_ids_for_audit = req.item_ids.clone();
     let deleted_count = state
         .file_service
         .bulk_delete(&claims.sub, req.item_ids)
         .await?;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::FileDelete,
+            Some(claims.sub),
+            None,
+            "bulk_delete",
+            "success",
+            Some(serde_json::json!({
+                "item_ids": item_ids_for_audit,
+                "deleted_count": deleted_count
+            })),
+            None,
+        )
+        .await;
 
     Ok(Json(BulkDeleteResponse { deleted_count }))
 }
