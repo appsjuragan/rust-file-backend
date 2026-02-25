@@ -5,7 +5,7 @@
 }
 
 .rfm-share-card {
-    @apply w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl border border-stone-200 dark:border-slate-800 transition-all duration-500 overflow-hidden relative;
+    @apply w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-2xl border border-stone-200 dark:border-slate-800 transition-all duration-500 overflow-hidden relative;
     box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15),
         0 0 0 1px rgba(0, 0, 0, 0.02);
 }
@@ -16,11 +16,11 @@
 }
 
 .rfm-share-header {
-    @apply flex flex-col items-center text-center mb-8;
+    @apply flex flex-col items-center text-center mb-5;
 }
 
 .rfm-share-icon-wrapper {
-    @apply w-24 h-24 mb-6 rounded-[2rem] bg-stone-100 dark:bg-slate-800 flex items-center justify-center relative shadow-inner transition-transform duration-500;
+    @apply w-16 h-16 mb-4 rounded-2xl bg-stone-100 dark:bg-slate-800 flex items-center justify-center relative shadow-inner transition-transform duration-500;
 }
 
 .rfm-share-card:hover .rfm-share-icon-wrapper {
@@ -28,11 +28,11 @@
 }
 
 .rfm-share-icon {
-    @apply w-12 h-12 text-stone-400 dark:text-slate-500;
+    @apply w-8 h-8 text-stone-400 dark:text-slate-500;
 }
 
 .rfm-share-title {
-    @apply text-2xl font-black text-stone-900 dark:text-white tracking-tight leading-tight mb-2 break-all;
+    @apply text-xl font-black text-stone-900 dark:text-white tracking-tight leading-tight mb-1.5 break-all;
 }
 
 .rfm-share-meta {
@@ -80,7 +80,7 @@
 }
 
 .rfm-share-footer {
-    @apply mt-10 text-center;
+    @apply mt-6 text-center;
 }
 
 .rfm-share-logo {
@@ -137,15 +137,25 @@
 }
 
 .rfm-share-download-btn {
-    @apply p-2 rounded-lg text-stone-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all;
+    @apply p-2 rounded-lg text-stone-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all z-20;
+}
+
+.rfm-share-file-item.is-previewable {
+    @apply border-stone-100 dark:border-slate-800/50 hover:border-teal-500/50 hover:bg-teal-50/30 dark:hover:bg-teal-900/10;
+}
+
+.rfm-share-file-item.is-previewable .rfm-share-file-name {
+    @apply text-stone-900 dark:text-white transition-colors group-hover:text-teal-600;
 }
 
 .rfm-share-media-container {
-    @apply mt-6 rounded-[2rem] overflow-hidden bg-stone-100 dark:bg-slate-800/40 border border-stone-100 dark:border-slate-800/50 shadow-inner;
+    @apply mt-4 rounded-3xl overflow-hidden bg-stone-100 dark:bg-slate-800/40 border border-stone-100 dark:border-slate-800/50 shadow-inner;
 }
 
 .rfm-share-media-preview {
-    @apply w-full h-auto max-h-[400px] object-contain block mx-auto;
+    @apply w-full h-auto max-h-[400px] object-contain block mx-auto select-none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
 }
 
 .rfm-share-pdf-viewer {

@@ -36,6 +36,7 @@ interface ISvgIconProps
   | "size-small"
   | "size-medium"
   | "size-large"
+  | "size-xlarge"
   | "star"
   | "share"
   | "log";
@@ -547,6 +548,20 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
             xmlns="http://www.w3.org/2000/svg"
           >
             <rect x="4" y="4" width="16" height="16" rx="2" />
+          </svg>
+        );
+      }
+      case "size-xlarge": {
+        return (
+          <svg
+            className="w-full h-full"
+            stroke="currentColor"
+            fill="none"
+            strokeWidth="3"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect x="2" y="2" width="20" height="20" rx="3" />
           </svg>
         );
       }

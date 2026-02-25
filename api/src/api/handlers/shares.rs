@@ -403,7 +403,7 @@ pub async fn verify_share_password(
 
 #[derive(Deserialize)]
 pub struct DownloadSharedFileQuery {
-    pub password: Option<String>,
+    pub file_id: Option<String>,
 }
 
 /// Download shared file (public)
@@ -412,7 +412,7 @@ pub struct DownloadSharedFileQuery {
     path = "/share/{token}/download",
     params(
         ("token" = String, Path, description = "Share token"),
-        ("password" = Option<String>, Query, description = "Share password")
+        ("file_id" = Option<String>, Query, description = "Child file ID for folder shares")
     ),
     responses(
         (status = 200, description = "File download redirect"),
@@ -429,12 +429,8 @@ pub async fn download_shared_file(
 ) -> Result<Response, AppError> {
     let share = ShareService::get_share_by_token(&state.db, &token).await?;
 
-    if let Some(hash) = &share.password_hash {
-        let provided_pw = query.password.as_deref().unwrap_or("");
-        if !ShareService::verify_password(provided_pw, hash)? {
-            return Err(AppError::Forbidden("Invalid password".to_string()));
-        }
-    }
+    // Password-protected shares are verified via /verify endpoint first.
+    // The share token itself is the security gate; no password in URLs.
 
     if share.permission != "download" && share.permission != "view" {
         return Err(AppError::Forbidden(
@@ -442,10 +438,28 @@ pub async fn download_shared_file(
         ));
     }
 
-    // Password-protected shares require prior verification via /verify endpoint
-    // The frontend should call /verify first and only enable the download button when verified
+    // If file_id is provided, verify it belongs to the share
+    let target_file_id = if let Some(ref fid) = query.file_id {
+        if fid == &share.user_file_id {
+            fid.clone()
+        } else {
+            let child = UserFiles::find_by_id(fid)
+                .one(&state.db)
+                .await?
+                .ok_or(AppError::NotFound("File not found".to_string()))?;
 
-    let user_file = UserFiles::find_by_id(&share.user_file_id)
+            if child.parent_id.as_ref() != Some(&share.user_file_id) {
+                return Err(AppError::Forbidden(
+                    "File does not belong to this share".to_string(),
+                ));
+            }
+            fid.clone()
+        }
+    } else {
+        share.user_file_id.clone()
+    };
+
+    let user_file = UserFiles::find_by_id(&target_file_id)
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?

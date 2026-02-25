@@ -40,7 +40,28 @@
     }
 
     .rfm-share-checkbox-label {
-        @apply flex items-center gap-2 text-xs font-bold text-stone-600 dark:text-slate-400 cursor-pointer;
+        @apply flex items-center gap-3 text-xs font-bold text-stone-600 dark:text-slate-400 cursor-pointer py-1 mt-1;
+        transition: color 0.2s;
+    }
+
+    .rfm-share-checkbox-label:hover {
+        @apply text-stone-900 dark:text-white;
+    }
+
+    .rfm-share-checkbox-wrapper {
+        @apply relative w-4 h-4;
+    }
+
+    .rfm-share-checkbox-wrapper input {
+        @apply absolute inset-0 opacity-0 cursor-pointer z-10;
+    }
+
+    .rfm-share-checkbox-custom {
+        @apply absolute inset-0 bg-stone-100 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 rounded transition-all flex items-center justify-center text-transparent;
+    }
+
+    .rfm-share-checkbox-wrapper input:checked+.rfm-share-checkbox-custom {
+        @apply bg-teal-500 border-teal-500 text-white shadow-sm shadow-teal-500/20;
     }
 
     .rfm-share-input {

@@ -10,6 +10,7 @@ import type {
   SortDirection,
   IconSize,
   UserFacts,
+  ShareLink,
 } from "../types";
 
 interface ProviderInterface {
@@ -126,6 +127,11 @@ interface ProviderInterface {
   setAccessLogVisible: Dispatch<SetStateAction<boolean>>;
   accessLogFile: FileType | null;
   setAccessLogFile: Dispatch<SetStateAction<FileType | null>>;
+  shares: ShareLink[];
+  setShares: Dispatch<SetStateAction<ShareLink[]>>;
+  refreshShares: () => Promise<void>;
+  sharesMinimized: boolean;
+  setSharesMinimized: Dispatch<SetStateAction<boolean>>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

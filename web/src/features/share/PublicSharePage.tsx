@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fileService } from "../../services/fileService";
 import { formatSize } from "../../../lib/utils/fileUtils";
-import { Download, Lock, File, AlertTriangle, Loader2, Folder, ChevronRight, Eye } from "lucide-react";
+import { Download, Lock, File, AlertTriangle, Loader2, Folder, ChevronRight, Eye, ArrowLeft } from "lucide-react";
 import "./PublicSharePage.css";
 
 interface PublicFileEntry {
@@ -13,26 +13,53 @@ interface PublicFileEntry {
     created_at: string;
 }
 
-const MediaViewer: React.FC<{ info: any, token: string, password?: string }> = ({ info, token, password }) => {
-    const downloadUrl = fileService.getShareDownloadUrl(token) + (password ? `?password=${encodeURIComponent(password)}` : "");
+const MediaViewer: React.FC<{ info: any, token: string, fileId?: string }> = ({ info, token, fileId }) => {
+    let downloadUrl = fileService.getShareDownloadUrl(token);
+    if (fileId) {
+        downloadUrl += `?file_id=${encodeURIComponent(fileId)}`;
+    }
     const mime = info.mime_type;
 
     if (!mime) return null;
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        return false;
+    };
+
     return (
-        <div className="rfm-share-media-container">
+        <div className="rfm-share-media-container" onContextMenu={handleContextMenu}>
             {mime.startsWith("image/") && (
-                <img src={downloadUrl} alt={info.filename} className="rfm-share-media-preview" />
+                <img
+                    src={downloadUrl}
+                    alt={info.filename}
+                    className="rfm-share-media-preview"
+                    onContextMenu={handleContextMenu}
+                    draggable={false}
+                />
             )}
             {mime.startsWith("video/") && (
-                <video controls className="rfm-share-media-preview" autoPlay muted playsInline>
+                <video
+                    controls
+                    className="rfm-share-media-preview"
+                    autoPlay
+                    muted
+                    playsInline
+                    onContextMenu={handleContextMenu}
+                    controlsList="nodownload"
+                >
                     <source src={downloadUrl} type={mime} />
                     Your browser does not support the video tag.
                 </video>
             )}
             {mime.startsWith("audio/") && (
                 <div className="p-8">
-                    <audio controls className="w-full">
+                    <audio
+                        controls
+                        className="w-full"
+                        onContextMenu={handleContextMenu}
+                        controlsList="nodownload"
+                    >
                         <source src={downloadUrl} type={mime} />
                         Your browser does not support the audio element.
                     </audio>
@@ -43,6 +70,7 @@ const MediaViewer: React.FC<{ info: any, token: string, password?: string }> = (
                     src={`${downloadUrl}#toolbar=0`}
                     className="rfm-share-pdf-viewer"
                     title="PDF Preview"
+                    onContextMenu={handleContextMenu}
                 />
             )}
         </div>
@@ -57,7 +85,8 @@ export const PublicSharePage: React.FC = () => {
     const [verifying, setVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isAuthorized, setIsAuthorized] = useState(false);
-    const [password, setPassword] = useState(""); // Still need state for verification but we will use a ref for typing
+    const [password, setPassword] = useState("");
+    const [viewingItem, setViewingItem] = useState<any | null>(null);
 
     const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,8 +166,11 @@ export const PublicSharePage: React.FC = () => {
     };
 
     const handleDownload = (fileId?: string, filename?: string) => {
-        const downloadUrl = fileService.getShareDownloadUrl(token);
-        window.location.href = downloadUrl + (password ? `?password=${encodeURIComponent(password)}` : "");
+        let downloadUrl = fileService.getShareDownloadUrl(token);
+        if (fileId) {
+            downloadUrl += `?file_id=${encodeURIComponent(fileId)}`;
+        }
+        window.location.href = downloadUrl;
     };
 
     if (loading) {
@@ -239,7 +271,47 @@ export const PublicSharePage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
-                            {shareInfo?.is_folder ? (
+                            {viewingItem ? (
+                                <div className="animate-share-in">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <button
+                                            onClick={() => setViewingItem(null)}
+                                            className="p-2 rounded-xl bg-stone-100 dark:bg-slate-800 text-stone-500 hover:text-teal-600 transition-all active:scale-90"
+                                            title="Back to folder"
+                                        >
+                                            <ArrowLeft size={18} />
+                                        </button>
+                                        <div className="flex flex-col min-w-0">
+                                            <h2 className="text-sm font-black text-stone-700 dark:text-slate-200 truncate leading-none mb-1">
+                                                {viewingItem.filename}
+                                            </h2>
+                                            <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-none">
+                                                Previewing File
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <MediaViewer info={viewingItem} token={token} fileId={viewingItem.id} />
+
+                                    <div className="flex flex-col items-center gap-4 mt-6">
+                                        <p className="text-sm text-stone-500 dark:text-slate-400 text-center leading-relaxed">
+                                            {shareInfo.permission === "download"
+                                                ? "You can view this file above or download it directly."
+                                                : "This file is available for viewing."}
+                                        </p>
+
+                                        {shareInfo.permission === "download" && (
+                                            <button
+                                                className="rfm-share-button rfm-share-button-download"
+                                                onClick={() => handleDownload(viewingItem.id, viewingItem.filename)}
+                                            >
+                                                <Download className="w-4 h-4" />
+                                                Download Previewed File
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : shareInfo?.is_folder ? (
                                 <div className="rfm-share-folder-list">
                                     {folderContents.length === 0 ? (
                                         <div className="text-center py-8 text-stone-400 text-xs font-bold uppercase tracking-widest">
@@ -247,7 +319,11 @@ export const PublicSharePage: React.FC = () => {
                                         </div>
                                     ) : (
                                         folderContents.map(item => (
-                                            <div key={item.id} className="rfm-share-file-item">
+                                            <div
+                                                key={item.id}
+                                                className={`rfm-share-file-item ${!item.is_folder && isMediaSupported(item.mime_type) ? 'is-previewable' : ''}`}
+                                                onClick={() => !item.is_folder && isMediaSupported(item.mime_type) && setViewingItem(item)}
+                                            >
                                                 <div className="rfm-share-file-info">
                                                     <div className="rfm-share-file-icon">
                                                         {item.is_folder ? (
@@ -266,7 +342,10 @@ export const PublicSharePage: React.FC = () => {
                                                 {!item.is_folder && shareInfo.permission === "download" && (
                                                     <button
                                                         className="rfm-share-download-btn"
-                                                        onClick={() => handleDownload(item.id, item.filename)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDownload(item.id, item.filename);
+                                                        }}
                                                     >
                                                         <Download size={16} />
                                                     </button>
@@ -281,7 +360,7 @@ export const PublicSharePage: React.FC = () => {
                             ) : (
                                 <>
                                     {isMediaSupported(shareInfo?.mime_type) ? (
-                                        <MediaViewer info={shareInfo} token={token} password={password} />
+                                        <MediaViewer info={shareInfo} token={token} />
                                     ) : (
                                         <div className="p-8 bg-stone-50 dark:bg-slate-800/20 rounded-[2rem] border border-stone-100 dark:border-slate-800/50 flex flex-col items-center gap-4">
                                             <File className="w-12 h-12 text-stone-300" />

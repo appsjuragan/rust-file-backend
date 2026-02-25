@@ -125,6 +125,10 @@
   @apply py-3 text-base;
 }
 
+.rfm-file-table.size-extra-large td {
+  @apply py-4 text-lg;
+}
+
 .rfm-file-table.size-large .rfm-list-icon {
   width: 48px !important;
   height: 48px !important;
@@ -160,8 +164,8 @@
 }
 
 .rfm-icons-grid.size-small .rfm-file-icon-extension {
-  top: 18px;
-  font-size: 8px;
+  top: 58%;
+  font-size: 9px;
 }
 
 .rfm-icons-grid.size-medium {
@@ -176,8 +180,8 @@
 }
 
 .rfm-icons-grid.size-medium .rfm-file-icon-extension {
-  top: 34px;
-  font-size: 10px;
+  top: 58%;
+  font-size: 12px;
 }
 
 .rfm-icons-grid.size-large {
@@ -192,9 +196,26 @@
 }
 
 .rfm-icons-grid.size-large .rfm-file-icon-extension {
-  top: 48px;
-  font-size: 14px;
+  top: 58%;
+  font-size: 18px;
   letter-spacing: 1px;
+}
+
+.rfm-icons-grid.size-extra-large {
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  @apply gap-6 p-6;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-svg,
+.rfm-icons-grid.size-extra-large .rfm-file-icon-wrapper {
+  width: 255px;
+  height: 255px;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-extension {
+  top: 58%;
+  font-size: 56px;
+  letter-spacing: 2px;
 }
 
 .rfm-icons-grid .rfm-file-item {
@@ -271,7 +292,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  @apply text-stone-500 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
+  @apply text-stone-400 hover:text-teal-700 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-all duration-200 cursor-pointer shrink-0;
 }
 
 .rfm-mobile-actions {

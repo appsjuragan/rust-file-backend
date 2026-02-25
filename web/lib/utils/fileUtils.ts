@@ -46,6 +46,17 @@ export const isDescendantOrSelf = (
   return false;
 };
 
+export const formatShareExpiry = (dateStr: string): string => {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = d.getTime() - now.getTime();
+  if (diffMs <= 0) return "Expired";
+  const diffH = Math.floor(diffMs / 3600000);
+  if (diffH < 24) return `${diffH}h left`;
+  const diffD = Math.floor(diffH / 24);
+  return `${diffD}d left`;
+};
+
 export const formatSize = (bytes: number): string => {
   if (bytes === 0) return "0 B";
   const k = 1024;

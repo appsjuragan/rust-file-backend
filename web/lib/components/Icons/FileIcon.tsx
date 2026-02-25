@@ -229,6 +229,8 @@ const FileIcon = (props: IFileIcon) => {
             alt={props.name}
             className={`rfm-thumbnail-img ${thumbLoaded ? "rfm-thumb-loaded" : "rfm-thumb-loading"}`}
             onLoad={handleImageLoad}
+            style={{ pointerEvents: "none" }}
+            draggable={false}
           />
         ) : (
           <>

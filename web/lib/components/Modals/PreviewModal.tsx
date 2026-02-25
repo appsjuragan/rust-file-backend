@@ -12,12 +12,12 @@ interface IPreviewModalProps {
   mimeType?: string;
   size?: number;
   scanStatus?:
-    | "pending"
-    | "scanning"
-    | "clean"
-    | "infected"
-    | "unchecked"
-    | "not_supported";
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "infected"
+  | "unchecked"
+  | "not_supported";
   clickPosition?: { x: number; y: number } | null;
 }
 
@@ -172,21 +172,38 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       );
     }
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
     if (
       ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension) &&
       secureUrl
     ) {
       return (
-        <div className="rfm-preview-content">
-          <img src={secureUrl} alt={fileName} className="rfm-preview-image" />
+        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
+          <img
+            src={secureUrl}
+            alt={fileName}
+            className="rfm-preview-image"
+            onContextMenu={handleContextMenu}
+            draggable={false}
+          />
         </div>
       );
     }
 
     if (["mp4", "webm", "ogg", "ts"].includes(extension) && secureUrl) {
       return (
-        <div className="rfm-preview-content">
-          <video controls className="rfm-preview-video" crossOrigin="anonymous">
+        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
+          <video
+            controls
+            className="rfm-preview-video"
+            crossOrigin="anonymous"
+            onContextMenu={handleContextMenu}
+            controlsList="nodownload"
+          >
             <source src={secureUrl} type={mimeType || "video/mp4"} />
             Your browser does not support the video tag.
           </video>
@@ -202,8 +219,13 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
     if (["mp3", "wav", "ogg"].includes(extension) && secureUrl) {
       return (
-        <div className="rfm-preview-content">
-          <audio controls className="rfm-preview-audio">
+        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
+          <audio
+            controls
+            className="rfm-preview-audio"
+            onContextMenu={handleContextMenu}
+            controlsList="nodownload"
+          >
             <source src={secureUrl} />
             Your browser does not support the audio element.
           </audio>
@@ -213,11 +235,13 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
     if (extension === "pdf" && secureUrl) {
       return (
-        <div className="rfm-preview-content rfm-preview-full">
+        <div className="rfm-preview-content rfm-preview-full" onContextMenu={handleContextMenu}>
           <embed
             src={secureUrl}
             type="application/pdf"
             className="rfm-preview-pdf"
+            // @ts-ignore
+            onContextMenu={handleContextMenu}
           />
         </div>
       );
@@ -278,9 +302,8 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           style={{
             opacity: showDownloadButton ? 1 : 0,
             pointerEvents: showDownloadButton ? "auto" : "none",
-            transform: `translateX(-50%) ${
-              showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
-            }`,
+            transform: `translateX(-50%) ${showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
+              }`,
           }}
         >
           {size && (

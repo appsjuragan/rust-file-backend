@@ -7,9 +7,10 @@ import React, {
 } from "react";
 import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
-import type { FileType, FolderNode } from "../../types";
-import { isDescendantOrSelf, formatSize } from "../../utils/fileUtils";
+import type { FileType, FolderNode, ShareLink } from "../../types";
+import { isDescendantOrSelf, formatSize, formatShareExpiry } from "../../utils/fileUtils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { fileService } from "../../../src/services/fileService";
 
 // Build a map of parentId -> children for O(1) child lookups
 const buildChildrenMap = (tree: FolderNode[]): Map<string, FolderNode[]> => {
@@ -136,6 +137,125 @@ const FavoriteItem = ({
   );
 };
 
+const ShareItem = ({
+  share,
+  onRemove,
+  onCopyLink,
+}: {
+  share: ShareLink;
+  onRemove: () => void;
+  onCopyLink: () => void;
+}) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!e.touches[0]) return;
+    setTouchStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping || !e.touches[0]) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX;
+    if (diff < 0) {
+      setSwipeX(Math.max(diff, -70));
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeX < -40) {
+      setSwipeX(-70);
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  return (
+    <div className="rfm-swipe-item-container">
+      <div
+        className="rfm-swipe-action-bg"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        style={{ backgroundColor: "#ef4444" }}
+      >
+        <SvgIcon svgType="trash" size={20} className="text-white" />
+      </div>
+      <div
+        className="rfm-fact-sub-item rfm-swipable-item cursor-pointer hover:bg-stone-200 dark:hover:bg-slate-800 group"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: isSwiping
+            ? "none"
+            : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          padding: "0.5rem 0.75rem",
+          gap: "0.25rem",
+        }}
+        onClick={() => {
+          if (swipeX === 0) onCopyLink();
+          else setSwipeX(0);
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div style={{ display: "flex", width: "100%", alignItems: "center" }}>
+          <SvgIcon
+            svgType={share.is_folder ? "folder" : "file"}
+            size={16}
+            className="mr-2 opacity-70"
+          />
+          <span className="flex-1 truncate text-xs font-semibold">
+            {share.filename || "Unknown"}
+          </span>
+          <button
+            type="button"
+            className="rfm-favorite-remove-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            title="Revoke Share"
+          >
+            <SvgIcon svgType="trash" size={14} />
+          </button>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            alignItems: "center",
+            gap: "0.375rem",
+            paddingLeft: "1.5rem",
+            opacity: 0.8,
+          }}
+        >
+          <span className="flex items-center justify-center bg-stone-200 dark:bg-slate-700 p-1 rounded text-stone-600 dark:text-slate-300" title={share.permission === "download" ? "Download" : "View Only"}>
+            <SvgIcon svgType={share.permission === "download" ? "download" : "eye"} size={10} />
+          </span>
+          <span
+            className="text-[10px] text-stone-500 truncate min-w-0"
+            style={{ maxWidth: "80px" }}
+          >
+            {formatShareExpiry(share.expires_at)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 const FolderTreeItem = ({
   node,
   childrenMap,
@@ -249,9 +369,8 @@ const FolderTreeItem = ({
   return (
     <div className="rfm-folder-branch">
       <div
-        className={`rfm-sidebar-item ${
-          currentFolder === node.id ? "active" : ""
-        } ${isDragOver ? "rfm-drag-over" : ""}`}
+        className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""
+          } ${isDragOver ? "rfm-drag-over" : ""}`}
         style={{ paddingLeft: `${Math.max(0.75, level * 0.75)}rem` }}
         onClick={handleFolderClick}
         onContextMenu={(e) => {
@@ -329,6 +448,10 @@ const Sidebar = () => {
     storageUsageMinimized: factsMinimized, // Aliasing for clarity in this file if desired, or just replace usage
     setStorageUsageMinimized: setFactsMinimized,
     toggleFavorite,
+    shares,
+    sharesMinimized,
+    setSharesMinimized,
+    refreshShares,
   } = useFileManager();
   const [isDragOverRoot, setIsDragOverRoot] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
@@ -458,6 +581,12 @@ const Sidebar = () => {
       .sort((a, b) => b.count - a.count);
   }, [userFacts]);
 
+  const activeShares = useMemo(() => {
+    return shares
+      .filter((s) => new Date(s.expires_at) > new Date())
+      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+  }, [shares]);
+
   return (
     <aside className={`rfm-sidebar ${!sidebarVisible ? "is-hidden" : ""}`}>
       <div className="rfm-sidebar-header">
@@ -472,9 +601,8 @@ const Sidebar = () => {
       </div>
       <div className="rfm-sidebar-list">
         <div
-          className={`rfm-sidebar-item ${
-            currentFolder === "0" ? "active" : ""
-          } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
+          className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""
+            } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
           onClick={handleRootClick}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -509,9 +637,8 @@ const Sidebar = () => {
       {/* Favorites Accordion */}
       {favorites.length > 0 && (
         <div
-          className={`rfm-sidebar-facts ${
-            favoritesMinimized ? "minimized" : ""
-          }`}
+          className={`rfm-sidebar-facts ${favoritesMinimized ? "minimized" : ""
+            }`}
         >
           <div
             className="rfm-facts-header"
@@ -578,6 +705,64 @@ const Sidebar = () => {
         </div>
       )}
 
+      {/* Shares Accordion */}
+      {activeShares.length > 0 && (
+        <div
+          className={`rfm-sidebar-facts ${sharesMinimized ? "minimized" : ""
+            }`}
+        >
+          <div
+            className="rfm-facts-header"
+            onClick={() => setSharesMinimized(!sharesMinimized)}
+          >
+            <div className="rfm-facts-title font-bold text-[10px] opacity-80 uppercase tracking-wider">
+              <SvgIcon svgType="share" size={14} className="mr-1.5 opacity-70" />
+              Shared Links
+            </div>
+            <button
+              type="button"
+              className="rfm-facts-toggle-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSharesMinimized(!sharesMinimized);
+              }}
+            >
+              <SvgIcon
+                svgType={sharesMinimized ? "plus" : "minus"}
+                size={12}
+              />
+            </button>
+          </div>
+
+          {!sharesMinimized && (
+            <div className="rfm-facts-container">
+              <div className="rfm-facts-content">
+                <div className="rfm-sidebar-favorites-scroll" style={{ maxHeight: '200px' }}>
+                  <div className="rfm-fact-category-list">
+                    {activeShares.map((share) => (
+                      <ShareItem
+                        key={share.id}
+                        share={share}
+                        onRemove={async () => {
+                          try {
+                            await fileService.revokeShare(share.id);
+                            refreshShares();
+                          } catch { /* ignore */ }
+                        }}
+                        onCopyLink={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/s/${share.share_token}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Storage Statistics */}
       {userFacts && (
         <div
@@ -629,9 +814,8 @@ const Sidebar = () => {
                           fill="transparent"
                           stroke="#0d9488"
                           strokeWidth="4"
-                          strokeDasharray={`${
-                            (storagePercentage / 100) * 75.4
-                          } 75.4`}
+                          strokeDasharray={`${(storagePercentage / 100) * 75.4
+                            } 75.4`}
                           strokeLinecap="round"
                         />
                         <text

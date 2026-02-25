@@ -178,6 +178,17 @@ export const ReactFileManager = ({
   const [favoritesMinimized, setFavoritesMinimized] = useState<boolean>(false);
   const [storageUsageMinimized, setStorageUsageMinimized] =
     useState<boolean>(false);
+  const [shares, setShares] = useState<ShareLink[]>([]);
+  const [sharesMinimized, setSharesMinimized] = useState<boolean>(false);
+
+  const refreshShares = useCallback(async () => {
+    try {
+      const allShares = await fileService.listShares();
+      setShares(allShares || []);
+    } catch {
+      /* quiet */
+    }
+  }, []);
 
   // Load sort preferences and icon size when userId changes
   useEffect(() => {
@@ -224,7 +235,17 @@ export const ReactFileManager = ({
     );
     if (savedStorageUsageMinimized)
       setStorageUsageMinimized(savedStorageUsageMinimized === "true");
+
+    const savedSharesMinimized = localStorage.getItem(
+      `rfm_sharesMinimized_${userId}`
+    );
+    if (savedSharesMinimized)
+      setSharesMinimized(savedSharesMinimized === "true");
   }, [userId, internalCurrentFolder]);
+
+  useEffect(() => {
+    refreshShares();
+  }, [refreshShares]);
 
   // Save preferences when they change
   useEffect(() => {
@@ -238,6 +259,10 @@ export const ReactFileManager = ({
       String(internalSidebarVisible)
     );
     localStorage.setItem(`rfm_currentFolder_${userId}`, currentFolder);
+    localStorage.setItem(
+      `rfm_sharesMinimized_${userId}`,
+      String(sharesMinimized)
+    );
   }, [
     sortField,
     sortDirection,
@@ -246,6 +271,7 @@ export const ReactFileManager = ({
     internalSidebarVisible,
     currentFolder,
     userId,
+    sharesMinimized,
   ]);
 
   // Persist favorites
@@ -420,6 +446,57 @@ export const ReactFileManager = ({
     };
   }, [showAlert]);
 
+  // Wrap handlers to refresh shares
+  const wrappedOnDelete = useCallback(
+    async (id: string) => {
+      if (onDelete) {
+        await onDelete(id);
+        refreshShares();
+      }
+    },
+    [onDelete, refreshShares]
+  );
+
+  const wrappedOnBulkDelete = useCallback(
+    async (ids: string[]) => {
+      if (onBulkDelete) {
+        await onBulkDelete(ids);
+        refreshShares();
+      }
+    },
+    [onBulkDelete, refreshShares]
+  );
+
+  const wrappedOnRename = useCallback(
+    async (id: string, newName: string) => {
+      if (onRename) {
+        await onRename(id, newName);
+        refreshShares();
+      }
+    },
+    [onRename, refreshShares]
+  );
+
+  const wrappedOnMove = useCallback(
+    async (id: string, newParentId: string) => {
+      if (onMove) {
+        await onMove(id, newParentId);
+        refreshShares();
+      }
+    },
+    [onMove, refreshShares]
+  );
+
+  const wrappedOnBulkMove = useCallback(
+    async (ids: string[], newParentId: string) => {
+      if (onBulkMove) {
+        await onBulkMove(ids, newParentId);
+        refreshShares();
+      }
+    },
+    [onBulkMove, refreshShares]
+  );
+
   // ─── Sub-memos: each slice only re-computes when its own state changes ───
 
   // 1. File system + navigation (changes when files load or folder changes)
@@ -435,11 +512,11 @@ export const ReactFileManager = ({
       onUpload,
       onCancelUpload,
       onCreateFolder,
-      onDelete,
-      onMove,
-      onRename,
-      onBulkDelete,
-      onBulkMove,
+      onDelete: wrappedOnDelete,
+      onMove: wrappedOnMove,
+      onRename: wrappedOnRename,
+      onBulkDelete: wrappedOnBulkDelete,
+      onBulkMove: wrappedOnBulkMove,
       onBulkCopy,
       onLoadMore,
       hasMore,
@@ -595,6 +672,11 @@ export const ReactFileManager = ({
       setFavoritesMinimized,
       storageUsageMinimized,
       setStorageUsageMinimized,
+      shares,
+      setShares,
+      refreshShares,
+      sharesMinimized,
+      setSharesMinimized,
     }),
     [
       userFacts,
@@ -602,6 +684,8 @@ export const ReactFileManager = ({
       toggleFavorite,
       favoritesMinimized,
       storageUsageMinimized,
+      shares,
+      sharesMinimized,
     ]
   );
 
@@ -712,9 +796,16 @@ export const ReactFileManager = ({
           isVisible={shareModalVisible}
           file={shareFile}
           onClose={() => setShareModalVisible(false)}
-          onCreateShare={fileService.createShare}
+          onCreateShare={async (params) => {
+            const result = await fileService.createShare(params);
+            refreshShares();
+            return result;
+          }}
           onListShares={fileService.listShares}
-          onRevokeShare={fileService.revokeShare}
+          onRevokeShare={async (shareId) => {
+            await fileService.revokeShare(shareId);
+            refreshShares();
+          }}
         />
         <ShareAccessLogModal
           isVisible={accessLogVisible}

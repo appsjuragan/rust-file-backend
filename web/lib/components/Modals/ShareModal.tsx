@@ -179,11 +179,16 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
                     <div className="rfm-share-field">
                         <label className="rfm-share-checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={usePassword}
-                                onChange={(e) => setUsePassword(e.target.checked)}
-                            />
+                            <div className="rfm-share-checkbox-wrapper">
+                                <input
+                                    type="checkbox"
+                                    checked={usePassword}
+                                    onChange={(e) => setUsePassword(e.target.checked)}
+                                />
+                                <div className="rfm-share-checkbox-custom">
+                                    <SvgIcon svgType="check" size={10} />
+                                </div>
+                            </div>
                             <span>Password protect</span>
                         </label>
                         {usePassword && (
@@ -239,8 +244,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                                 <div key={share.id} className="rfm-share-item">
                                     <div className="rfm-share-item-info">
                                         <div className="rfm-share-item-meta">
-                                            <span className="rfm-share-badge rfm-share-badge-permission">
-                                                {share.permission}
+                                            <span className="rfm-share-badge rfm-share-badge-permission" title={share.permission === "download" ? "Download" : "View Only"}>
+                                                <SvgIcon svgType={share.permission === "download" ? "download" : "eye"} size={10} />
                                             </span>
                                             {share.has_password && (
                                                 <span className="rfm-share-badge rfm-share-badge-lock">
