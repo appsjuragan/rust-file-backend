@@ -107,6 +107,7 @@ export interface ShareLink {
   created_at: string;
   filename?: string;
   is_folder?: boolean;
+  parent_id?: string;
 }
 
 export interface ShareAccessLog {

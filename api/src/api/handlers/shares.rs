@@ -40,6 +40,7 @@ pub struct ShareResponse {
     pub created_at: chrono::DateTime<Utc>,
     pub filename: Option<String>,
     pub is_folder: Option<bool>,
+    pub parent_id: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -166,6 +167,7 @@ pub async fn create_share(
             created_at: share.created_at.unwrap_or_else(Utc::now),
             filename: user_file.as_ref().map(|f| f.filename.clone()),
             is_folder: user_file.as_ref().map(|f| f.is_folder),
+            parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
         }),
     ))
 }
@@ -222,6 +224,7 @@ pub async fn list_shares(
                 created_at: share.created_at.unwrap_or_else(Utc::now),
                 filename: uf.map(|f| f.filename.clone()),
                 is_folder: uf.map(|f| f.is_folder),
+                parent_id: uf.and_then(|f| f.parent_id.clone()),
             }
         })
         .collect();

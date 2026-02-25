@@ -270,8 +270,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {/* Open (Preview) - Bold */}
                     <div
                       className={`rfm-context-menu-item font-bold ${isScanBusy
-                          ? "disabled opacity-50 cursor-not-allowed"
-                          : ""
+                        ? "disabled opacity-50 cursor-not-allowed"
+                        : ""
                         }`}
                       onClick={isScanBusy ? undefined : handleOpen}
                     >
@@ -302,8 +302,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {targetFile && (
                       <div
                         className={`rfm-context-menu-item ${isScanBusy
-                            ? "disabled opacity-50 cursor-not-allowed"
-                            : ""
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
                           }`}
                         onClick={isScanBusy ? undefined : handleRename}
                       >
@@ -352,6 +352,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                         ? `(${selectedIds.length} items)`
                         : ""}
                     </div>
+                    <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
                     {/* Favorites Toggle - For single or multiple selection */}
                     {targetFiles.length > 0 && (
@@ -373,8 +374,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                               <SvgIcon
                                 svgType="star"
                                 className={`rfm-context-menu-icon ${isAllFav
-                                    ? "fill-yellow-400 text-yellow-500"
-                                    : ""
+                                  ? "fill-yellow-400 text-yellow-500"
+                                  : ""
                                   }`}
                               />
                               {isAllFav
@@ -422,15 +423,14 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                         </div>
                       )}
 
-                    <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
                     {/* Download - Allowed for files and folders */}
                     {targetFile && (
                       <>
                         <div
                           className={`rfm-context-menu-item ${isScanBusy
-                              ? "disabled opacity-50 cursor-not-allowed"
-                              : ""
+                            ? "disabled opacity-50 cursor-not-allowed"
+                            : ""
                             }`}
                           onClick={isScanBusy ? undefined : handleDownload}
                         >

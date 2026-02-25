@@ -142,8 +142,8 @@
 }
 
 .rfm-file-table.size-large .rfm-list-icon .rfm-file-icon-extension {
-  top: 22px !important;
-  font-size: 9px !important;
+  top: 58% !important;
+  font-size: 8px !important;
 }
 
 /* Grid View */
@@ -165,7 +165,6 @@
 
 .rfm-icons-grid.size-small .rfm-file-icon-extension {
   top: 58%;
-  font-size: 9px;
 }
 
 .rfm-icons-grid.size-medium {
@@ -181,7 +180,6 @@
 
 .rfm-icons-grid.size-medium .rfm-file-icon-extension {
   top: 58%;
-  font-size: 12px;
 }
 
 .rfm-icons-grid.size-large {
@@ -197,8 +195,11 @@
 
 .rfm-icons-grid.size-large .rfm-file-icon-extension {
   top: 58%;
-  font-size: 18px;
-  letter-spacing: 1px;
+  font-size: 14px;
+}
+
+.rfm-icons-grid.size-large .rfm-file-icon-name {
+  font-size: 13px;
 }
 
 .rfm-icons-grid.size-extra-large {
@@ -214,8 +215,11 @@
 
 .rfm-icons-grid.size-extra-large .rfm-file-icon-extension {
   top: 58%;
-  font-size: 56px;
-  letter-spacing: 2px;
+  font-size: 40px;
+}
+
+.rfm-icons-grid.size-extra-large .rfm-file-icon-name {
+  font-size: 16px;
 }
 
 .rfm-icons-grid .rfm-file-item {

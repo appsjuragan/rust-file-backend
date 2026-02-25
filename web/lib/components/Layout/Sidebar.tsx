@@ -141,10 +141,12 @@ const ShareItem = ({
   share,
   onRemove,
   onCopyLink,
+  onSelect,
 }: {
   share: ShareLink;
   onRemove: () => void;
   onCopyLink: () => void;
+  onSelect: () => void;
 }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [touchStartX, setTouchStartX] = useState(0);
@@ -202,7 +204,7 @@ const ShareItem = ({
           gap: "0.25rem",
         }}
         onClick={() => {
-          if (swipeX === 0) onCopyLink();
+          if (swipeX === 0) onSelect();
           else setSwipeX(0);
         }}
         onTouchStart={handleTouchStart}
@@ -218,6 +220,17 @@ const ShareItem = ({
           <span className="flex-1 truncate text-xs font-semibold">
             {share.filename || "Unknown"}
           </span>
+          <button
+            type="button"
+            className="rfm-favorite-remove-btn mr-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopyLink();
+            }}
+            title="Copy Share Link"
+          >
+            <SvgIcon svgType="copy" size={14} />
+          </button>
           <button
             type="button"
             className="rfm-favorite-remove-btn"
@@ -752,6 +765,31 @@ const Sidebar = () => {
                         }}
                         onCopyLink={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/s/${share.share_token}`);
+                        }}
+                        onSelect={() => {
+                          if (share.is_folder) {
+                            setCurrentFolder(share.user_file_id);
+                            if (onRefresh) {
+                              onRefresh(share.user_file_id).catch(() => { });
+                            }
+                            if (isMobile && setSidebarVisible) {
+                              setSidebarVisible(false);
+                            }
+                          } else {
+                            const pid = share.parent_id || "0";
+                            setCurrentFolder(pid);
+                            if (onRefresh) {
+                              onRefresh(pid).catch(() => { });
+                            }
+                            setTimeout(() => {
+                              if (setHighlightedId) {
+                                setHighlightedId(share.user_file_id);
+                              }
+                            }, 100);
+                            if (isMobile && setSidebarVisible) {
+                              setSidebarVisible(false);
+                            }
+                          }
                         }}
                       />
                     ))}
