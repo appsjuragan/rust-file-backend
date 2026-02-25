@@ -67,6 +67,7 @@ pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Res
         ("video/x-matroska", "Video"),
         ("video/quicktime", "Video"),
         ("video/x-flv", "Video"),
+        ("video/ts", "Video"),
         ("application/zip", "Archives"),
         ("application/x-zip-compressed", "Archives"),
         ("application/x-rar-compressed", "Archives"),
