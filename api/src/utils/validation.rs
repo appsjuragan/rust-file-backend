@@ -5,7 +5,7 @@ use std::path::Path;
 use utoipa::ToSchema;
 
 /// Maximum file size: 256 MB
-pub const MAX_FILE_SIZE: usize = 256 * 1024 * 1024; // 256 MB
+pub const MAX_FILE_SIZE: usize = 512 * 1024 * 1024; // 256 MB
 
 #[derive(Debug, Clone, Default, Serialize, ToSchema)]
 pub struct ValidationRules {
@@ -74,12 +74,22 @@ pub fn validate_file_size(size: usize, max_size: usize) -> Result<()> {
 
 /// Validates MIME type against allowlist
 pub fn validate_mime_type(content_type: &str, rules: &ValidationRules) -> Result<()> {
-    let normalized = content_type
+    let mut normalized = content_type
         .split(';')
         .next()
         .unwrap_or("")
         .trim()
         .to_lowercase();
+
+    // Normalizing frequent variations provided by OS/Browsers to standard allowed DB counterparts
+    normalized = match normalized.as_str() {
+        "video/mov" => "video/quicktime".to_string(),
+        "video/m4v" | "video/x-m4v" => "video/mp4".to_string(),
+        "video/3gp" | "video/3gpp" | "video/3gpp2" => "video/mp4".to_string(),
+        "video/ogv" | "video/x-ogv" => "video/ogg".to_string(),
+        "video/x-ms-wmv" | "video/x-ms-asf" | "video/x-ms-vob" => "video/x-msvideo".to_string(),
+        _ => normalized,
+    };
 
     if rules
         .allowed_mimes

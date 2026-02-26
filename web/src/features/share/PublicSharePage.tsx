@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fileService } from "../../services/fileService";
 import { formatSize } from "../../../lib/utils/fileUtils";
 import { Download, Lock, File, AlertTriangle, Loader2, Folder, ChevronRight, Eye, ArrowLeft } from "lucide-react";
+import ReactPlayer from "react-player";
 import "./PublicSharePage.css";
 
 interface PublicFileEntry {
@@ -79,18 +80,22 @@ const MediaViewer: React.FC<{ info: any, token: string, fileId?: string }> = ({ 
                 />
             )}
             {mime.startsWith("video/") && (
-                <video
-                    controls
-                    className="rfm-share-media-preview"
-                    autoPlay
-                    muted
-                    playsInline
-                    onContextMenu={handleContextMenu}
-                    controlsList="nodownload"
-                >
-                    <source src={downloadUrl} type={mime} />
-                    Your browser does not support the video tag.
-                </video>
+                <div className="rfm-share-media-preview bg-black flex items-center justify-center w-full relative aspect-video rounded-xl overflow-hidden" onContextMenu={handleContextMenu}>
+                    <ReactPlayer
+                        src={downloadUrl}
+                        controls
+                        playing
+                        muted
+                        playsInline
+                        width="100%"
+                        height="100%"
+                        className="rfm-share-media-video"
+                        style={{ position: 'absolute', top: 0, left: 0 }}
+                        onContextMenu={handleContextMenu}
+                        /* @ts-ignore */
+                        controlsList="nodownload"
+                    />
+                </div>
             )}
             {mime.startsWith("audio/") && (
                 <div className="p-8">

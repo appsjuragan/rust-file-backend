@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import CommonModal from "./CommonModal";
 import { fileService } from "../../../src/services/fileService";
 import SvgIcon from "../Icons/SvgIcon";
+import ReactPlayer from "react-player";
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -196,19 +197,21 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       );
     }
 
-    if (["mp4", "webm", "ogg", "ts"].includes(extension) && secureUrl) {
+    const videoExtensions = ["mp4", "webm", "ogg", "ts", "mkv", "avi", "mov", "flv", "wmv", "m4v"];
+    if (videoExtensions.includes(extension) && secureUrl) {
       return (
-        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
-          <video
+        <div className="rfm-preview-content bg-black w-full h-full flex items-center justify-center relative" onContextMenu={handleContextMenu}>
+          <ReactPlayer
+            src={secureUrl}
             controls
+            width="100%"
+            height="100%"
+            style={{ position: 'absolute', top: 0, left: 0 }}
             className="rfm-preview-video"
-            crossOrigin="anonymous"
             onContextMenu={handleContextMenu}
+            /* @ts-ignore */
             controlsList="nodownload"
-          >
-            <source src={secureUrl} type={mimeType || "video/mp4"} />
-            Your browser does not support the video tag.
-          </video>
+          />
         </div>
       );
     }

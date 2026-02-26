@@ -11,7 +11,7 @@ import { request } from "../../../src/services/httpClient";
 const THUMBNAIL_EXTENSIONS = new Set([
   "jpg", "jpeg", "png", "gif", "webp", "bmp", "ico", "svg",
   "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mpg", "mpeg", "ts",
-  "pdf",
+  "pdf", "m4v", "3gp", "3g2", "ogv", "asf", "vob"
 ]);
 
 interface IFileIcon {
@@ -87,6 +87,12 @@ const FileIcon = (props: IFileIcon) => {
         "mpg",
         "mpeg",
         "ts",
+        "m4v",
+        "3gp",
+        "3g2",
+        "ogv",
+        "asf",
+        "vob",
       ].includes(ext)
     )
       return "video";
