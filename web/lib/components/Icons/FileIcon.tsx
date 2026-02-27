@@ -12,6 +12,8 @@ import SvgIcon from "./SvgIcon";
 import "./FileIcon.css";
 // HTTP Client
 import { request } from "../../../src/services/httpClient";
+// Utils
+import { getCachedThumbnail, cacheThumbnail } from "../../utils/thumbnailCache";
 
 // File types that support thumbnail generation
 const THUMBNAIL_EXTENSIONS = new Set([
@@ -187,18 +189,30 @@ const FileIcon = (props: IFileIcon) => {
   const fetchThumbnail = useCallback(
     async (signal?: AbortSignal): Promise<boolean> => {
       try {
+        // 1. Try to get from cache first
+        const cachedBlob = await getCachedThumbnail(props.id);
+        if (cachedBlob && !signal?.aborted) {
+          setThumbnailUrl(URL.createObjectURL(cachedBlob));
+          return true;
+        }
+
+        // 2. Fetch from network
         const res = await request(`/files/${props.id}/thumbnail`, {
           method: "GET",
           signal,
         });
-        if (res && typeof res.blob === "function") {
+
+        if (res && res instanceof Response) {
+          // Store in cache for future use
+          await cacheThumbnail(props.id, res.clone());
+
           const blob = await res.blob();
           if (!signal?.aborted) {
             setThumbnailUrl(URL.createObjectURL(blob));
             return true;
           }
         }
-      } catch {
+      } catch (error) {
         // Thumbnail not ready yet or request failed
       }
       return false;

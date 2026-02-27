@@ -213,7 +213,7 @@ pub async fn get_thumbnail(
         .status(StatusCode::OK)
         .header("X-Accel-Redirect", internal_redirect_uri)
         .header(axum::http::header::CONTENT_TYPE, "image/webp")
-        .header(axum::http::header::CACHE_CONTROL, "public, max-age=86400")
+        .header(axum::http::header::CACHE_CONTROL, "public, max-age=3600")
         .body(Body::empty())
         .unwrap())
 }
