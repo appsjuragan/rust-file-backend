@@ -26,6 +26,8 @@ dump.rdb
 /web/.env.local
 /web/android/
 
+/web/android/
+
 # --- OS Specific ---
 .DS_Store
 Thumbs.db

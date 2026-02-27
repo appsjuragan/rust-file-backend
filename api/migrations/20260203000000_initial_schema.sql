@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS storage_files (
     scanned_at TIMESTAMPTZ,
     mime_type TEXT,
     content_type TEXT,
-    has_thumbnail BOOLEAN NOT NULL DEFAULT FALSE
+    has_thumbnail BOOLEAN NOT NULL DEFAULT FALSE,
+    is_encrypted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- User Files (File System Layer)
@@ -123,6 +124,36 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Share Links
+CREATE TABLE IF NOT EXISTS share_links (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_file_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    share_token TEXT UNIQUE NOT NULL,
+    share_type TEXT NOT NULL DEFAULT 'public',
+    shared_with_user_id TEXT,
+    password_hash TEXT,
+    permission TEXT NOT NULL DEFAULT 'view',
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_file_id) REFERENCES user_files(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Share Access Logs
+CREATE TABLE IF NOT EXISTS share_access_logs (
+    id TEXT PRIMARY KEY NOT NULL,
+    share_link_id TEXT NOT NULL,
+    accessed_by_user_id TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    action TEXT NOT NULL,
+    accessed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (share_link_id) REFERENCES share_links(id) ON DELETE CASCADE,
+    FOREIGN KEY (accessed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- User File Facts (Statistics)
 CREATE TABLE IF NOT EXISTS user_file_facts (
     user_id TEXT PRIMARY KEY NOT NULL,
@@ -172,6 +203,12 @@ CREATE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub);
 CREATE INDEX IF NOT EXISTS idx_user_files_is_favorite ON user_files(is_favorite);
 CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_id ON upload_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_upload_sessions_status ON upload_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_share_links_share_token ON share_links(share_token);
+CREATE INDEX IF NOT EXISTS idx_share_links_user_file_id ON share_links(user_file_id);
+CREATE INDEX IF NOT EXISTS idx_share_links_created_by ON share_links(created_by);
+CREATE INDEX IF NOT EXISTS idx_share_links_expires_at ON share_links(expires_at);
+CREATE INDEX IF NOT EXISTS idx_share_access_logs_share_link_id ON share_access_logs(share_link_id);
+CREATE INDEX IF NOT EXISTS idx_share_access_logs_accessed_at ON share_access_logs(accessed_at);
 -- GIN index (PostgreSQL only - commented for SQLite compatibility)
 -- CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops);
 
@@ -226,7 +263,11 @@ INSERT INTO allowed_mimes (mime_type, category) VALUES
 ('application/x-gtar', 'Archives'),
 ('application/x-tgz', 'Archives'),
 ('application/x-gzip', 'Archives'),
-('video/mp2t', 'Video')
+('video/mp2t', 'Video'),
+('video/avi', 'Video'),
+('video/x-matroska', 'Video'),
+('video/x-flv', 'Video'),
+('video/ts', 'Video')
 ON CONFLICT (mime_type) DO NOTHING;
 
 INSERT INTO magic_signatures (signature, mime_type) VALUES
@@ -256,7 +297,7 @@ ON CONFLICT (signature, mime_type) DO NOTHING;
 
 INSERT INTO blocked_extensions (extension) VALUES
 ('exe'), ('dll'), ('so'), ('dylib'), ('bin'), ('com'), ('bat'), ('cmd'), ('ps1'), ('sh'), ('bash'),
-('js'), ('ts'), ('jsx'), ('tsx'), ('py'), ('pyw'), ('rb'), ('php'), ('pl'), ('cgi'), ('asp'), ('aspx'), ('jsp'), ('jspx'),
+('js'), ('jsx'), ('tsx'), ('py'), ('pyw'), ('rb'), ('php'), ('pl'), ('cgi'), ('asp'), ('aspx'), ('jsp'), ('jspx'),
 ('cfm'), ('go'), ('rs'), ('java'), ('class'), ('jar'), ('war'), ('c'), ('cpp'), ('h'), ('hpp'), ('cs'), ('vb'), ('vbs'),
 ('lua'), ('r'), ('swift'), ('kt'), ('scala'), ('groovy'), ('html'), ('htm'), ('xhtml'), ('shtml'), ('svg'), ('xml'), ('xsl'), ('xslt'),
 ('htaccess'), ('htpasswd'), ('json'), ('yaml'), ('yml'), ('toml'), ('ini'), ('conf'), ('config'),

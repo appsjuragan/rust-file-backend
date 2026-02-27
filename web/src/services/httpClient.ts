@@ -33,9 +33,12 @@ export async function request(endpoint: string, options: RequestOptions = {}) {
     headers,
   });
 
-  // Handle 401 Unauthorized globally if needed (e.g. redirect to login)
   if (res.status === 401) {
-    // Optional: clearAuthToken(); window.location.reload();
+    clearAuthToken();
+    localStorage.removeItem("currentFolder");
+    localStorage.removeItem("username");
+    localStorage.removeItem("theme");
+    window.location.reload();
   }
 
   const contentType = res.headers.get("content-type");
@@ -59,7 +62,7 @@ export async function request(endpoint: string, options: RequestOptions = {}) {
       const text = await res.clone().text();
       if (text.trim().toLowerCase().startsWith("<!doctype html")) {
         throw new Error(
-          "Received HTML instead of JSON. The API endpoint might be misconfigured."
+          "Received HTML instead of JSON. The API endpoint might be misconfigured.",
         );
       }
     }

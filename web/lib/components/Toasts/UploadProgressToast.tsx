@@ -12,7 +12,7 @@ const UploadProgressToast = () => {
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const completed = activeUploads.filter(
-    (u) => u.status === "completed"
+    (u) => u.status === "completed",
   ).length;
   const total = activeUploads.length;
   const uploading = activeUploads.filter(
@@ -20,7 +20,7 @@ const UploadProgressToast = () => {
       u.status === "uploading" ||
       u.status === "hashing" ||
       u.status === "processing" ||
-      u.status === "queued"
+      u.status === "queued",
   ).length;
   const errors = activeUploads.filter((u) => u.status === "error").length;
 
@@ -37,11 +37,14 @@ const UploadProgressToast = () => {
       // Calculate remaining time based on current countdown
       const remainingMs = (countdown || 0) * 1000;
 
-      autoCloseTimerRef.current = setTimeout(() => {
-        setActiveUploads([]);
-        setShowCountdown(false);
-        setCountdown(null);
-      }, Math.max(remainingMs, 5000)); // Reset to at least 5 seconds
+      autoCloseTimerRef.current = setTimeout(
+        () => {
+          setActiveUploads([]);
+          setShowCountdown(false);
+          setCountdown(null);
+        },
+        Math.max(remainingMs, 5000),
+      ); // Reset to at least 5 seconds
     }
   }, [resetSignal, isFinished, showCountdown, countdown, setActiveUploads]);
 
@@ -127,7 +130,7 @@ const UploadProgressToast = () => {
   const averageProgress =
     total > 0
       ? Math.round(
-          activeUploads.reduce((acc, u) => acc + (u.progress || 0), 0) / total
+          activeUploads.reduce((acc, u) => acc + (u.progress || 0), 0) / total,
         )
       : 0;
 
@@ -275,19 +278,19 @@ const UploadProgressToast = () => {
                       u.status === "completed"
                         ? "check"
                         : u.status === "error"
-                        ? "close"
-                        : u.status === "hashing"
-                        ? "loading"
-                        : "file"
+                          ? "close"
+                          : u.status === "hashing"
+                            ? "loading"
+                            : "file"
                     }
                     className={`w-5 h-5 ${
                       u.status === "completed"
                         ? "text-emerald-500"
                         : u.status === "error"
-                        ? "text-amber-500"
-                        : u.status === "hashing"
-                        ? "text-indigo-400 animate-spin"
-                        : "text-slate-400"
+                          ? "text-amber-500"
+                          : u.status === "hashing"
+                            ? "text-indigo-400 animate-spin"
+                            : "text-slate-400"
                     }`}
                   />
                 </div>

@@ -8,7 +8,7 @@ type LongPressEvent = React.MouseEvent | React.TouchEvent | React.PointerEvent;
 export const useLongPress = (
   onLongPress: (e: LongPressEvent) => void,
   onClick?: (e: LongPressEvent) => void,
-  { delay = 500, shouldPreventDefault = true } = {}
+  { delay = 500, shouldPreventDefault = true } = {},
 ) => {
   const [longPressTriggered, setLongPressTriggered] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>();
@@ -55,7 +55,7 @@ export const useLongPress = (
         setLongPressTriggered(true);
       }, delay);
     },
-    [onLongPress, delay, shouldPreventDefault]
+    [onLongPress, delay, shouldPreventDefault],
   );
 
   const move = useCallback((event: LongPressEvent) => {
@@ -106,7 +106,7 @@ export const useLongPress = (
         target.current = null;
       }
     },
-    [shouldPreventDefault, onClick, longPressTriggered]
+    [shouldPreventDefault, onClick, longPressTriggered],
   );
 
   return {

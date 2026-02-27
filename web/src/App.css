@@ -28,7 +28,9 @@ body {
   font-family: "Amarna", Arial, sans-serif;
   background-color: var(--bg);
   color: var(--text);
-  transition: background-color 0.3s, color 0.3s;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
 }
 
 /* Common utilities */

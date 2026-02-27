@@ -15,7 +15,7 @@ interface FileTableProps {
   handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
   handleContextMenu: (
     e: React.MouseEvent | { clientX: number; clientY: number },
-    file: FileType | null
+    file: FileType | null,
   ) => void;
   handleItemClick: (file: FileType, e: React.MouseEvent) => void;
   handleDoubleClick: (file: FileType) => void;
@@ -37,7 +37,7 @@ interface FileTableItemProps {
   handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
   handleContextMenu: (
     e: React.MouseEvent | { clientX: number; clientY: number },
-    file: FileType | null
+    file: FileType | null,
   ) => void;
 }
 
@@ -76,7 +76,7 @@ const FileTableItem = React.memo(
         if (navigator.vibrate) navigator.vibrate(50);
       },
       (e) => handleTap(row.original, e as React.MouseEvent),
-      { delay: 400 }
+      { delay: 400 },
     );
 
     return (
@@ -114,7 +114,7 @@ const FileTableItem = React.memo(
         ))}
       </tr>
     );
-  }
+  },
 );
 
 FileTableItem.displayName = "FileTableItem";
@@ -151,7 +151,7 @@ export const FileTable: React.FC<FileTableProps> = ({
         handleItemClick(f, e);
       }
     },
-    [isMobile, selectedIds, handleItemClick, handleDoubleClick]
+    [isMobile, selectedIds, handleItemClick, handleDoubleClick],
   );
 
   return (
@@ -170,7 +170,7 @@ export const FileTable: React.FC<FileTableProps> = ({
                 <div className="rfm-workspace-list-th-content">
                   {flexRender(
                     header.column.columnDef.header,
-                    header.getContext()
+                    header.getContext(),
                   )}
                   {header.column.getIsSorted() ? (
                     header.column.getIsSorted() === "desc" ? (

@@ -1,5 +1,4 @@
 @layer utilities {
-
   /* CommonModal */
   .rfm-modal-centered-wrapper {
     @apply absolute inset-0 flex items-center justify-center pointer-events-none z-[9000];
@@ -222,10 +221,6 @@
 
   .rfm-float-size-info {
     @apply px-4 py-3 bg-white/10 text-[11px] uppercase tracking-wider opacity-90 border-r border-white/10 whitespace-nowrap;
-  }
-
-  .rfm-float-download-divider {
-    @apply w-[1px] h-4 bg-white/20;
   }
 
   .rfm-float-download-btn-content {

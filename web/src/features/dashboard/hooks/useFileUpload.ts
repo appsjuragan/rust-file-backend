@@ -12,7 +12,7 @@ import {
 export const useFileUpload = (
   refreshFiles: (folderId: string, silent?: boolean) => Promise<void>,
   currentFilesRef: React.MutableRefObject<FileSystemType>,
-  chunkSize: number = 7 * 1024 * 1024 // Default fallback
+  chunkSize: number = 7 * 1024 * 1024, // Default fallback
 ) => {
   const [activeUploads, setActiveUploads] = useState<UploadStatus[]>([]);
   const [overwriteConfirm, setOverwriteConfirm] = useState<{
@@ -28,7 +28,7 @@ export const useFileUpload = (
         u.status === "uploading" ||
         u.status === "hashing" ||
         u.status === "processing" ||
-        u.status === "queued"
+        u.status === "queued",
     );
 
     if (!hasActiveUploads) return;
@@ -60,13 +60,12 @@ export const useFileUpload = (
         const localMetaMap = new Map(localMeta.map((m) => [m.id, m.meta]));
 
         const resumable = sessions.filter((s: any) =>
-          localMetaMap.has(s.upload_id)
+          localMetaMap.has(s.upload_id),
         );
 
         if (resumable.length === 0) {
           return;
         }
-
 
         // Create status entries for each resumable session
         const statusItems: UploadStatus[] = resumable.map((s: any) => ({
@@ -88,12 +87,12 @@ export const useFileUpload = (
           const updateStatus = (
             progress: number,
             status: any,
-            error?: string
+            error?: string,
           ) => {
             setActiveUploads((prev) =>
               prev.map((u) =>
-                u.id === uploadId ? { ...u, progress, status, error } : u
-              )
+                u.id === uploadId ? { ...u, progress, status, error } : u,
+              ),
             );
           };
 
@@ -105,7 +104,7 @@ export const useFileUpload = (
               session.total_chunks,
               session.uploaded_parts || [],
               meta.parentId,
-              (p) => updateStatus(p, p === 100 ? "processing" : "uploading")
+              (p) => updateStatus(p, p === 100 ? "processing" : "uploading"),
             );
 
             updateStatus(100, "completed");
@@ -116,7 +115,7 @@ export const useFileUpload = (
               "[Resume] Failed to resume",
               session.file_name,
               ":",
-              e
+              e,
             );
             updateStatus(0, "error", e.message || "service error");
           }
@@ -125,7 +124,9 @@ export const useFileUpload = (
         // Cleanup completed after delay
         setTimeout(() => {
           setActiveUploads((prev) =>
-            prev.filter((u) => u.status === "uploading" || u.status === "error")
+            prev.filter(
+              (u) => u.status === "uploading" || u.status === "error",
+            ),
           );
         }, 5000);
       } catch (err) {
@@ -163,34 +164,34 @@ export const useFileUpload = (
         return "";
       }
     },
-    []
+    [],
   );
 
   const performUpload = async (
     file: File,
     folderId: string,
     onProgress?: (p: number) => void,
-    existingHash?: string
+    existingHash?: string,
   ) => {
     let hash = existingHash || "";
     if (!hash) {
       try {
         hash = await calculateHash(file);
-      } catch (e) { }
+      } catch (e) {}
     }
 
     let preCheck = { exists: false, file_id: null };
     if (hash) {
       try {
         preCheck = (await fileService.preCheck(hash, file.size)) as any;
-      } catch (e) { }
+      } catch (e) {}
     }
 
     if (preCheck.exists && preCheck.file_id) {
       await fileService.linkFile(
         preCheck.file_id as string,
         file.name,
-        folderId
+        folderId,
       );
       if (onProgress) onProgress(100);
     } else {
@@ -216,8 +217,8 @@ export const useFileUpload = (
           prev.map((u) =>
             u.name === file.name && u.status === "hashing"
               ? { ...u, uploadId: upload_id }
-              : u
-          )
+              : u,
+          ),
         );
 
         const effectiveChunkSize = serverChunkSize || chunkSize;
@@ -238,7 +239,7 @@ export const useFileUpload = (
         } catch (e) {
           console.warn(
             "[Upload] Failed to store in IndexedDB, upload will not be resumable:",
-            e
+            e,
           );
         }
 
@@ -251,7 +252,7 @@ export const useFileUpload = (
           [], // no parts uploaded yet
           folderId,
           onProgress,
-          hash
+          hash,
         );
 
         // Cleanup IndexedDB on success
@@ -267,7 +268,7 @@ export const useFileUpload = (
     async (
       path: string,
       rootId: string,
-      cache: Map<string, string>
+      cache: Map<string, string>,
     ): Promise<string> => {
       if (!path || path === "" || path === ".") return rootId;
       const cacheKey = `${rootId}:${path}`;
@@ -287,15 +288,15 @@ export const useFileUpload = (
         try {
           const res = (await fileService.createFolder(
             part,
-            currentParentId === "0" ? undefined : currentParentId
+            currentParentId === "0" ? undefined : currentParentId,
           )) as any;
           if (res && res.id) currentParentId = res.id;
         } catch (err: any) {
           const files = await fileService.listFiles(
-            currentParentId === "0" ? undefined : currentParentId
+            currentParentId === "0" ? undefined : currentParentId,
           );
           const existing = (files as any[]).find(
-            (f: any) => f.filename === part && f.is_folder
+            (f: any) => f.filename === part && f.is_folder,
           );
           if (existing) currentParentId = existing.id;
           else throw err;
@@ -304,7 +305,7 @@ export const useFileUpload = (
       }
       return currentParentId;
     },
-    []
+    [],
   );
 
   const onUpload = useCallback(
@@ -327,10 +328,12 @@ export const useFileUpload = (
         id: string,
         progress: number,
         status: any,
-        error?: string
+        error?: string,
       ) => {
         setActiveUploads((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, progress, status, error } : u))
+          prev.map((u) =>
+            u.id === id ? { ...u, progress, status, error } : u,
+          ),
         );
       };
 
@@ -357,7 +360,7 @@ export const useFileUpload = (
             const targetFolderId = await ensureFolderExists(
               relativeFolderPath,
               folderId,
-              folderCache
+              folderCache,
             );
             updateStatus(id, 0, "hashing");
 
@@ -367,7 +370,7 @@ export const useFileUpload = (
             let hash = "";
             try {
               hash = await calculateHash(file);
-            } catch (e) { }
+            } catch (e) {}
 
             const existing = currentFilesRef.current.find((f) => {
               const normFParent =
@@ -376,8 +379,8 @@ export const useFileUpload = (
                   : f.parentId;
               const normTargetParent =
                 !targetFolderId ||
-                  targetFolderId === "0" ||
-                  targetFolderId === "root"
+                targetFolderId === "0" ||
+                targetFolderId === "root"
                   ? "0"
                   : targetFolderId;
               return (
@@ -398,12 +401,12 @@ export const useFileUpload = (
                   id,
                   0,
                   "processing",
-                  "Waiting for confirmation..."
+                  "Waiting for confirmation...",
                 );
                 const shouldOverwrite = await new Promise<boolean>(
                   (resolve) => {
                     setOverwriteConfirm({ fileName, resolve });
-                  }
+                  },
                 );
 
                 setOverwriteConfirm(null);
@@ -424,7 +427,7 @@ export const useFileUpload = (
               targetFolderId,
               (p) =>
                 updateStatus(id, p, p === 100 ? "processing" : "uploading"),
-              hash
+              hash,
             );
             updateStatus(id, 100, "completed");
             if (targetFolderId === folderId) refreshFiles(folderId, true);
@@ -443,11 +446,11 @@ export const useFileUpload = (
 
       setTimeout(() => {
         setActiveUploads((prev) =>
-          prev.filter((u) => u.status === "uploading" || u.status === "error")
+          prev.filter((u) => u.status === "uploading" || u.status === "error"),
         );
       }, 5000);
     },
-    [ensureFolderExists, refreshFiles, calculateHash, currentFilesRef]
+    [ensureFolderExists, refreshFiles, calculateHash, currentFilesRef],
   );
 
   const cancelUpload = useCallback(
@@ -466,7 +469,7 @@ export const useFileUpload = (
 
       setActiveUploads((prev) => prev.filter((u) => u.id !== id));
     },
-    [activeUploads, setActiveUploads]
+    [activeUploads, setActiveUploads],
   );
 
   return {

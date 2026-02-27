@@ -7,7 +7,7 @@ export const fileService = {
     parentId?: string,
     limit?: number,
     offset?: number,
-    isFavorite?: boolean
+    isFavorite?: boolean,
   ) => {
     const queryParams = new URLSearchParams();
     if (parentId) queryParams.set("parent_id", parentId);

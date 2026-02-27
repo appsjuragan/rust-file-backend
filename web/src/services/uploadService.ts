@@ -11,7 +11,7 @@ export const uploadService = {
   uploadFile: async (
     file: File,
     parentId?: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
   ) => {
     // CHUNK_SIZE used here for threshold calculation logic if needed, but mainly for chunked upload
     const THRESHOLD = 90 * 1024 * 1024; // 90MB
@@ -71,7 +71,7 @@ export const uploadService = {
     file: File,
     parentId?: string,
     onProgress?: (percent: number) => void,
-    hash?: string
+    hash?: string,
   ) => {
     // Use module-level CHUNK_SIZE
     const file_name = file.name;
@@ -113,7 +113,7 @@ export const uploadService = {
           const xhr = new XMLHttpRequest();
           xhr.open(
             "PUT",
-            `${BASE_URL}/files/upload/${upload_id}/chunk/${partNumber}`
+            `${BASE_URL}/files/upload/${upload_id}/chunk/${partNumber}`,
           );
 
           const token = getAuthToken();
@@ -125,11 +125,11 @@ export const uploadService = {
               chunkProgress.set(chunkIndex, e.loaded);
               const totalLoaded = Array.from(chunkProgress.values()).reduce(
                 (a, b) => a + b,
-                0
+                0,
               );
               const percent = Math.min(
                 Math.round((totalLoaded / total_size) * 100),
-                99
+                99,
               );
               onProgress(percent);
             }
@@ -142,8 +142,8 @@ export const uploadService = {
             } else {
               reject(
                 new Error(
-                  `Chunk upload failed with status ${xhr.status}: ${xhr.responseText}`
-                )
+                  `Chunk upload failed with status ${xhr.status}: ${xhr.responseText}`,
+                ),
               );
             }
           };
@@ -156,11 +156,11 @@ export const uploadService = {
       } catch (error) {
         if (retryCount < MAX_RETRIES) {
           console.warn(
-            `Retrying chunk ${partNumber} (attempt ${retryCount + 1})...`
+            `Retrying chunk ${partNumber} (attempt ${retryCount + 1})...`,
           );
           // Exponential backoff: 1s, 2s, 4s
           await new Promise((r) =>
-            setTimeout(r, Math.pow(2, retryCount) * 1000)
+            setTimeout(r, Math.pow(2, retryCount) * 1000),
           );
           return uploadChunk(chunkIndex, retryCount + 1);
         }
@@ -211,7 +211,7 @@ export const uploadService = {
     uploadedParts: number[],
     parentId?: string,
     onProgress?: (percent: number) => void,
-    hash?: string
+    hash?: string,
   ) => {
     const uploadedSet = new Set(uploadedParts);
     const remainingChunks: number[] = [];
@@ -239,7 +239,7 @@ export const uploadService = {
       const data = await getChunkData(uploadId, partNumber);
       if (!data) {
         throw new Error(
-          `Missing chunk data for part ${partNumber} in IndexedDB`
+          `Missing chunk data for part ${partNumber} in IndexedDB`,
         );
       }
 
@@ -248,7 +248,7 @@ export const uploadService = {
           const xhr = new XMLHttpRequest();
           xhr.open(
             "PUT",
-            `${BASE_URL}/files/upload/${uploadId}/chunk/${partNumber}`
+            `${BASE_URL}/files/upload/${uploadId}/chunk/${partNumber}`,
           );
 
           const token = getAuthToken();
@@ -259,11 +259,11 @@ export const uploadService = {
               chunkProgress.set(partNumber - 1, e.loaded);
               const totalLoaded = Array.from(chunkProgress.values()).reduce(
                 (a, b) => a + b,
-                0
+                0,
               );
               const percent = Math.min(
                 Math.round((totalLoaded / totalSize) * 100),
-                99
+                99,
               );
               onProgress(percent);
             }
@@ -289,10 +289,10 @@ export const uploadService = {
           console.warn(
             `[Resume] Retrying chunk ${partNumber} (attempt ${
               retryCount + 1
-            })...`
+            })...`,
           );
           await new Promise((r) =>
-            setTimeout(r, Math.pow(2, retryCount) * 1000)
+            setTimeout(r, Math.pow(2, retryCount) * 1000),
           );
           return uploadChunk(partNumber, retryCount + 1);
         }

@@ -23,7 +23,7 @@ interface ProviderInterface {
   onRefresh?: (id: string) => Promise<void>;
   onUpload?: (
     files: { file: File; path: string }[],
-    folderId: string
+    folderId: string,
   ) => Promise<void>;
   onCancelUpload?: (id: string) => Promise<void>;
   onCreateFolder?: (folderName: string) => Promise<void>;
@@ -42,7 +42,7 @@ interface ProviderInterface {
   setIconSize: Dispatch<IconSize>;
   activeUploads: UploadStatus[];
   setActiveUploads: (
-    val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])
+    val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[]),
   ) => void;
   selectedIds: string[];
   setSelectedIds: Dispatch<SetStateAction<string[]>>;

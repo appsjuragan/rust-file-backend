@@ -122,7 +122,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
 
   const itemCount = useMemo(() => {
     return fs.filter(
-      (f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/"
+      (f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/",
     ).length;
   }, [fs, currentFolder]);
 
@@ -141,8 +141,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
       </div>
       <div className="rfm-breadcrumbs">
         <div
-          className={`rfm-breadcrumb-item ${currentFolder === "0" ? "active" : ""
-            }`}
+          className={`rfm-breadcrumb-item ${
+            currentFolder === "0" ? "active" : ""
+          }`}
           onClick={() => handleCrumbClick("0")}
         >
           <span>Home</span>
@@ -157,8 +158,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
               <React.Fragment key={crumb.id}>
                 <span className="rfm-breadcrumb-separator">/</span>
                 <span
-                  className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""
-                    }`}
+                  className={`rfm-breadcrumb-item ${
+                    currentFolder === crumb.id ? "active" : ""
+                  }`}
                   onClick={() => handleCrumbClick(crumb.id)}
                 >
                   {crumb.name}
@@ -171,8 +173,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
             <React.Fragment key={crumb.id}>
               <span className="rfm-breadcrumb-separator">/</span>
               <span
-                className={`rfm-breadcrumb-item ${currentFolder === crumb.id ? "active" : ""
-                  }`}
+                className={`rfm-breadcrumb-item ${
+                  currentFolder === crumb.id ? "active" : ""
+                }`}
                 onClick={() => handleCrumbClick(crumb.id)}
               >
                 {crumb.name}
@@ -193,8 +196,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
       <div className="rfm-toolbar">
         <div className="rfm-toolbar-group">
           <div
-            className={`rfm-folder-path-svg ${!sidebarVisible && !menuClicked ? "rfm-header-icon--pulse" : ""
-              }`}
+            className={`rfm-folder-path-svg ${
+              !sidebarVisible && !menuClicked ? "rfm-header-icon--pulse" : ""
+            }`}
             onClick={handleMenuClick}
             title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
           >
@@ -204,8 +208,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
 
         {/* Desktop Breadcrumbs (Hidden on Mobile via CSS) */}
         <div
-          className={`rfm-toolbar-breadcrumbs ${!visible ? "is-breadcrumb-hidden" : ""
-            }`}
+          className={`rfm-toolbar-breadcrumbs ${
+            !visible ? "is-breadcrumb-hidden" : ""
+          }`}
         >
           {breadcrumbContent}
         </div>
@@ -215,7 +220,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
             className="rfm-header-icon"
             onClick={() =>
               setViewStyle(
-                viewStyle === ViewStyle.Icons ? ViewStyle.List : ViewStyle.Icons
+                viewStyle === ViewStyle.Icons
+                  ? ViewStyle.List
+                  : ViewStyle.Icons,
               )
             }
             title={
@@ -269,8 +276,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
                 {sortOptions.map((option) => (
                   <div
                     key={option.value}
-                    className={`rfm-sort-option ${sortField === option.value ? "selected" : ""
-                      }`}
+                    className={`rfm-sort-option ${
+                      sortField === option.value ? "selected" : ""
+                    }`}
                     onClick={() => {
                       setSortField(option.value);
                       setSortMenuVisible(false);
@@ -291,7 +299,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
                 setSortDirection(
                   sortDirection === SortDirection.Asc
                     ? SortDirection.Desc
-                    : SortDirection.Asc
+                    : SortDirection.Asc,
                 )
               }
               title={
@@ -310,8 +318,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
 
       {/* Mobile Breadcrumbs Row (Hidden on Desktop via CSS) */}
       <div
-        className={`rfm-breadcrumb-bar ${!visible ? "is-breadcrumb-hidden" : ""
-          }`}
+        className={`rfm-breadcrumb-bar ${
+          !visible ? "is-breadcrumb-hidden" : ""
+        }`}
       >
         {breadcrumbContent}
       </div>

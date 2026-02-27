@@ -107,7 +107,14 @@ impl StorageLifecycleService {
         // Set deleted_at timestamp
         let mut active: user_files::ActiveModel = user_file.clone().into();
         active.deleted_at = Set(Some(chrono::Utc::now()));
+        active.is_favorite = Set(false); // remove favorite status on delete
         active.update(db).await?;
+
+        // Delete associated share links
+        crate::entities::share_links::Entity::delete_many()
+            .filter(crate::entities::share_links::Column::UserFileId.eq(&user_file.id))
+            .exec(db)
+            .await?;
 
         // Decrement ref_count if this file has storage
         if let Some(ref storage_file_id) = user_file.storage_file_id {

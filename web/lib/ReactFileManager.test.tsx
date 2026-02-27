@@ -25,7 +25,7 @@ describe("it", () => {
   it("renders without crashing", async () => {
     const result = render(<ReactFileManager fs={dummyFileSystem} />);
     const workspace = result.container.querySelector(
-      "#react-file-manager-workspace"
+      "#react-file-manager-workspace",
     );
     expect(workspace).not.toBeNull();
   });

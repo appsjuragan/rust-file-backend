@@ -209,7 +209,7 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
                 <div className="rfm-workspace-list-th-content">
                   {flexRender(
                     header.column.columnDef.header,
-                    header.getContext()
+                    header.getContext(),
                   )}
                   {header.column.getIsSorted() ? (
                     header.column.getIsSorted() === "desc" ? (
@@ -349,7 +349,7 @@ const RowComponent = memo(
               preventDefault: () => {},
               stopPropagation: () => {},
             } as any,
-            file
+            file,
           );
         } else {
           // Desktop long press behavior: Multi-select
@@ -446,5 +446,5 @@ const RowComponent = memo(
         ))}
       </div>
     );
-  }
+  },
 );

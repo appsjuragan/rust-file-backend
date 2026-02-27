@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import CommonModal from "./CommonModal";
 import { fileService } from "../../../src/services/fileService";
 import SvgIcon from "../Icons/SvgIcon";
+import ReactPlayer from "react-player";
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -12,12 +13,12 @@ interface IPreviewModalProps {
   mimeType?: string;
   size?: number;
   scanStatus?:
-  | "pending"
-  | "scanning"
-  | "clean"
-  | "infected"
-  | "unchecked"
-  | "not_supported";
+    | "pending"
+    | "scanning"
+    | "clean"
+    | "infected"
+    | "unchecked"
+    | "not_supported";
   clickPosition?: { x: number; y: number } | null;
 }
 
@@ -40,11 +41,23 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
   const isTextFile =
-    (mimeType === "text/plain" ||
-      ["txt", "md", "json", "js", "ts", "css", "html", "rs", "py"].includes(
-        extension
-      )) &&
-    (size || 0) < 100 * 1024;
+    (mimeType?.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType === "application/javascript" ||
+      [
+        "txt",
+        "md",
+        "json",
+        "js",
+        "css",
+        "html",
+        "rs",
+        "py",
+        "log",
+        "env",
+        "conf",
+      ].includes(extension)) &&
+    (size || 0) < 10 * 1024 * 1024; // Increased to 10MB for text files
   const isArchiveFile =
     (mimeType === "application/zip" ||
       ["zip", "7z", "tar", "gz", "rar"].includes(extension)) &&
@@ -194,25 +207,35 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       );
     }
 
-    if (["mp4", "webm", "ogg", "ts"].includes(extension) && secureUrl) {
+    const videoExtensions = [
+      "mp4",
+      "webm",
+      "ogg",
+      "ts",
+      "mkv",
+      "avi",
+      "mov",
+      "flv",
+      "wmv",
+      "m4v",
+    ];
+    if (videoExtensions.includes(extension) && secureUrl) {
       return (
-        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
-          <video
+        <div
+          className="rfm-preview-content bg-black w-full h-full flex items-center justify-center relative"
+          onContextMenu={handleContextMenu}
+        >
+          <ReactPlayer
+            src={secureUrl}
             controls
+            width="100%"
+            height="100%"
+            style={{ position: "absolute", top: 0, left: 0 }}
             className="rfm-preview-video"
-            crossOrigin="anonymous"
             onContextMenu={handleContextMenu}
+            /* @ts-ignore */
             controlsList="nodownload"
-          >
-            <source src={secureUrl} type={mimeType || "video/mp4"} />
-            Your browser does not support the video tag.
-          </video>
-          {(mimeType === "video/mp2t" || extension === "ts") && (
-            <div className="mt-2 text-xs text-amber-600 font-medium bg-amber-50 p-2 rounded border border-amber-100">
-              ⚠️ This file is in MPEG-TS format, which may not play in all
-              browsers. If it doesn't play, please download it to view.
-            </div>
-          )}
+          />
         </div>
       );
     }
@@ -235,7 +258,10 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
     if (extension === "pdf" && secureUrl) {
       return (
-        <div className="rfm-preview-content rfm-preview-full" onContextMenu={handleContextMenu}>
+        <div
+          className="rfm-preview-content rfm-preview-full"
+          onContextMenu={handleContextMenu}
+        >
           <embed
             src={secureUrl}
             type="application/pdf"
@@ -302,14 +328,14 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           style={{
             opacity: showDownloadButton ? 1 : 0,
             pointerEvents: showDownloadButton ? "auto" : "none",
-            transform: `translateX(-50%) ${showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
-              }`,
+            transform: `translateX(-50%) ${
+              showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
+            }`,
           }}
         >
           {size && (
             <span className="rfm-float-size-info">{formatSize(size)}</span>
           )}
-          <div className="rfm-float-download-divider"></div>
           <div className="rfm-float-download-btn-content">
             <SvgIcon svgType="download" />
             <span>Download</span>

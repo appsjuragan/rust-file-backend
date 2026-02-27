@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 // Context
 import { useFileManager } from "../../context";
 // Components
@@ -9,9 +15,31 @@ import { request } from "../../../src/services/httpClient";
 
 // File types that support thumbnail generation
 const THUMBNAIL_EXTENSIONS = new Set([
-  "jpg", "jpeg", "png", "gif", "webp", "bmp", "ico", "svg",
-  "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mpg", "mpeg",
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "bmp",
+  "ico",
+  "svg",
+  "mp4",
+  "mkv",
+  "avi",
+  "mov",
+  "wmv",
+  "flv",
+  "webm",
+  "mpg",
+  "mpeg",
+  "ts",
   "pdf",
+  "m4v",
+  "3gp",
+  "3g2",
+  "ogv",
+  "asf",
+  "vob",
 ]);
 
 interface IFileIcon {
@@ -26,11 +54,18 @@ interface IFileIcon {
   hasThumbnail?: boolean;
   scanStatus?: string;
   isEncrypted?: boolean;
+  isShared?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
-  const { setCurrentFolder, onRefresh, clipboardIds, isCut, favorites } =
-    useFileManager();
+  const {
+    setCurrentFolder,
+    onRefresh,
+    clipboardIds,
+    isCut,
+    favorites,
+    shares,
+  } = useFileManager();
   const isBeingCut = !!(
     isCut &&
     Array.isArray(clipboardIds) &&
@@ -42,6 +77,13 @@ const FileIcon = (props: IFileIcon) => {
     props.isFavorite !== undefined
       ? props.isFavorite
       : favorites?.some((f) => f.id === props.id) || false;
+
+  const isShared =
+    props.isShared !== undefined
+      ? props.isShared
+      : shares?.some((s) => s.user_file_id === props.id) ||
+        props.isShared ||
+        false;
 
   const fileExtension = useMemo((): string => {
     if (props.isDir || !props.name.includes(".")) {
@@ -80,6 +122,13 @@ const FileIcon = (props: IFileIcon) => {
         "webm",
         "mpg",
         "mpeg",
+        "ts",
+        "m4v",
+        "3gp",
+        "3g2",
+        "ogv",
+        "asf",
+        "vob",
       ].includes(ext)
     )
       return "video";
@@ -98,7 +147,6 @@ const FileIcon = (props: IFileIcon) => {
     if (
       [
         "js",
-        "ts",
         "tsx",
         "jsx",
         "py",
@@ -128,30 +176,44 @@ const FileIcon = (props: IFileIcon) => {
   // Check if this file type supports thumbnails
   const supportsThumbnail = useMemo(() => {
     if (props.isDir || props.isEncrypted) return false;
+    // Don't support thumbnails for files that are still being scanned
+    if (props.scanStatus === "pending" || props.scanStatus === "scanning")
+      return false;
     return THUMBNAIL_EXTENSIONS.has(fileExtension.toLowerCase());
-  }, [props.isDir, props.isEncrypted, fileExtension]);
+  }, [props.isDir, props.isEncrypted, fileExtension, props.scanStatus]);
 
   // Fetch thumbnail blob
-  const fetchThumbnail = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
-    try {
-      const res = await request(`/files/${props.id}/thumbnail`, { method: "GET", signal });
-      if (res && typeof res.blob === "function") {
-        const blob = await res.blob();
-        if (!signal?.aborted) {
-          setThumbnailUrl(URL.createObjectURL(blob));
-          return true;
+  const fetchThumbnail = useCallback(
+    async (signal?: AbortSignal): Promise<boolean> => {
+      try {
+        const res = await request(`/files/${props.id}/thumbnail`, {
+          method: "GET",
+          signal,
+        });
+        if (res && typeof res.blob === "function") {
+          const blob = await res.blob();
+          if (!signal?.aborted) {
+            setThumbnailUrl(URL.createObjectURL(blob));
+            return true;
+          }
         }
+      } catch {
+        // Thumbnail not ready yet or request failed
       }
-    } catch {
-      // Thumbnail not ready yet or request failed
-    }
-    return false;
-  }, [props.id]);
+      return false;
+    },
+    [props.id],
+  );
 
   // Primary effect: load thumbnail immediately if available
   useEffect(() => {
     if (thumbnailUrl) return; // Already loaded
     if (props.isDir || props.isEncrypted) return;
+    // Skip if scanning
+    if (props.scanStatus === "pending" || props.scanStatus === "scanning") {
+      if (isPolling) setIsPolling(false);
+      return;
+    }
 
     const controller = new AbortController();
 
@@ -167,7 +229,15 @@ const FileIcon = (props: IFileIcon) => {
     return () => {
       controller.abort();
     };
-  }, [props.hasThumbnail, props.isDir, props.id, supportsThumbnail]);
+  }, [
+    props.hasThumbnail,
+    props.isDir,
+    props.isEncrypted,
+    props.id,
+    supportsThumbnail,
+    props.scanStatus,
+    isPolling,
+  ]);
 
   // Polling effect: check for thumbnail every few seconds
   useEffect(() => {
@@ -218,8 +288,9 @@ const FileIcon = (props: IFileIcon) => {
 
   return (
     <div
-      className={`rfm-file-icon-container ${props.className || ""} ${isBeingCut ? "opacity-40" : ""
-        }`}
+      className={`rfm-file-icon-container ${props.className || ""} ${
+        isBeingCut ? "opacity-40" : ""
+      }`}
       data-color={colorCategory}
     >
       <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0 overflow-hidden rounded">
@@ -251,6 +322,14 @@ const FileIcon = (props: IFileIcon) => {
             <SvgIcon
               svgType="star"
               className="w-full h-full text-yellow-500 fill-current shadow-sm"
+            />
+          </div>
+        )}
+        {isShared && (
+          <div className="rfm-file-icon-shared-badge z-10">
+            <SvgIcon
+              svgType="share"
+              className="w-full h-full text-blue-500 fill-current shadow-sm"
             />
           </div>
         )}

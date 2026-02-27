@@ -1,5 +1,6 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
+use crate::services::audit::{AuditEventType, AuditService};
 use crate::services::share_service::ShareService;
 use crate::utils::auth::Claims;
 use axum::{
@@ -150,6 +151,26 @@ pub async fn create_share(
     )
     .await?;
 
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareCreate,
+            Some(share.created_by.clone()),
+            Some(share.user_file_id.clone()),
+            "create_share",
+            "success",
+            Some(serde_json::json!({
+                "share_id": share.id,
+                "share_type": share.share_type,
+                "permission": share.permission,
+                "has_password": share.password_hash.is_some(),
+                "expires_at": share.expires_at.to_rfc3339()
+            })),
+            None,
+        )
+        .await;
+
     // Get the file info for the response
     let user_file = UserFiles::find_by_id(&share.user_file_id)
         .one(&state.db)
@@ -252,6 +273,21 @@ pub async fn revoke_share(
     Path(share_id): Path<String>,
 ) -> Result<StatusCode, AppError> {
     ShareService::revoke_share(&state.db, &share_id, &claims.sub).await?;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareRevoke,
+            Some(claims.sub),
+            Some(share_id),
+            "revoke_share",
+            "success",
+            None,
+            None,
+        )
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -346,7 +382,25 @@ pub async fn get_public_share(
     // Log the view access
     let ip = extract_ip(&headers);
     let ua = extract_user_agent(&headers);
-    ShareService::log_access(&state.db, &share.id, None, ip, ua, "view").await;
+    ShareService::log_access(&state.db, &share.id, None, ip.clone(), ua, "view").await;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareAccess,
+            None,
+            Some(share.user_file_id.clone()),
+            "share_view",
+            "success",
+            Some(serde_json::json!({
+                "share_id": share.id,
+                "filename": user_file.filename,
+                "action": "view"
+            })),
+            ip,
+        )
+        .await;
 
     Ok(Json(PublicShareInfoResponse {
         filename: user_file.filename,
@@ -389,7 +443,7 @@ pub async fn verify_share_password(
                 &state.db,
                 &share.id,
                 None,
-                ip,
+                ip.clone(),
                 ua,
                 if result {
                     "password_verified"
@@ -402,6 +456,27 @@ pub async fn verify_share_password(
         }
         None => true, // No password required
     };
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareAccess,
+            None,
+            Some(share.user_file_id),
+            if verified {
+                "share_password_verified"
+            } else {
+                "share_password_failed"
+            },
+            if verified { "success" } else { "failure" },
+            Some(serde_json::json!({
+                "share_id": share.id,
+                "action": "password_verify"
+            })),
+            ip,
+        )
+        .await;
 
     Ok(Json(VerifySharePasswordResponse { verified }))
 }
@@ -494,7 +569,25 @@ pub async fn download_shared_file(
     // Log download
     let ip = extract_ip(&headers);
     let ua = extract_user_agent(&headers);
-    ShareService::log_access(&state.db, &share.id, None, ip, ua, "download").await;
+    ShareService::log_access(&state.db, &share.id, None, ip.clone(), ua, "download").await;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareAccess,
+            None,
+            Some(target_file_id.clone()),
+            "share_download",
+            "success",
+            Some(serde_json::json!({
+                "share_id": share.id,
+                "filename": user_file.filename,
+                "action": "download"
+            })),
+            ip,
+        )
+        .await;
 
     // Generate presigned URL (same approach as files.rs download_file)
     let content_type = storage_file
@@ -614,7 +707,25 @@ pub async fn list_shared_folder(
     // Log access
     let ip = extract_ip(&headers);
     let ua = extract_user_agent(&headers);
-    ShareService::log_access(&state.db, &share.id, None, ip, ua, "list").await;
+    ShareService::log_access(&state.db, &share.id, None, ip.clone(), ua, "list").await;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::ShareAccess,
+            None,
+            Some(share.user_file_id),
+            "share_list_folder",
+            "success",
+            Some(serde_json::json!({
+                "share_id": share.id,
+                "folder_name": user_file.filename,
+                "action": "list"
+            })),
+            ip,
+        )
+        .await;
 
     Ok(Json(result))
 }

@@ -45,7 +45,7 @@ export const useFileActions = () => {
       setIsCut,
       setClipboardSourceFolder,
       setSelectedIds,
-    ]
+    ],
   );
 
   const handleCut = useCallback(
@@ -67,7 +67,7 @@ export const useFileActions = () => {
       setIsCut,
       setClipboardSourceFolder,
       setSelectedIds,
-    ]
+    ],
   );
 
   const handlePaste = useCallback(async () => {
@@ -146,13 +146,16 @@ export const useFileActions = () => {
       onDelete,
       setSelectedIds,
       onRefresh,
-    ]
+    ],
   );
 
-  const handleShare = useCallback((file: FileType) => {
-    setShareFile(file);
-    setShareModalVisible(true);
-  }, [setShareFile, setShareModalVisible]);
+  const handleShare = useCallback(
+    (file: FileType) => {
+      setShareFile(file);
+      setShareModalVisible(true);
+    },
+    [setShareFile, setShareModalVisible],
+  );
 
   return {
     handleCopy,
