@@ -51,8 +51,9 @@ export const getColumns = () => [
 
       return (
         <div
-          className={`rfm-workspace-list-icon-td ${isPending ? "rfm-pending" : ""
-            }`}
+          className={`rfm-workspace-list-icon-td ${
+            isPending ? "rfm-pending" : ""
+          }`}
         >
           <FileIcon
             id={info.row.original.id}

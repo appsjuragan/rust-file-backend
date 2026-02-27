@@ -159,7 +159,9 @@
   background: var(--bg);
   color: var(--text);
   font-size: 0.95rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .rfm-input:focus {
@@ -201,7 +203,9 @@
   color: white;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition:
+    background 0.2s,
+    transform 0.1s;
 }
 
 .rfm-btn-primary:hover {

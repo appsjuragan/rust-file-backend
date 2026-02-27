@@ -42,7 +42,7 @@ export interface UploadMeta {
 export async function storeFileForUpload(
   uploadId: string,
   file: File,
-  meta: UploadMeta
+  meta: UploadMeta,
 ): Promise<void> {
   const db = await openDb();
 
@@ -78,7 +78,7 @@ export async function storeFileForUpload(
  */
 export async function getChunkData(
   uploadId: string,
-  partNumber: number
+  partNumber: number,
 ): Promise<ArrayBuffer | null> {
   const db = await openDb();
   const tx = db.transaction(STORE_NAME, "readonly");
@@ -93,7 +93,7 @@ export async function getChunkData(
  * Get metadata for a specific upload session
  */
 export async function getUploadMeta(
-  uploadId: string
+  uploadId: string,
 ): Promise<UploadMeta | null> {
   const db = await openDb();
   const tx = db.transaction(META_STORE, "readonly");
@@ -135,7 +135,7 @@ export async function getAllUploadMeta(): Promise<
  */
 export async function cleanupUpload(
   uploadId: string,
-  totalChunks: number
+  totalChunks: number,
 ): Promise<void> {
   const db = await openDb();
 

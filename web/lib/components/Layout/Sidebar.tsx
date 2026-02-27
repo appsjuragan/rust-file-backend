@@ -1,9 +1,4 @@
-import React, {
-  useMemo,
-  useState,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { useFileManager } from "../../context";
 import SvgIcon from "../Icons/SvgIcon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -44,7 +39,7 @@ const Sidebar = () => {
   } = useFileManager();
   const [isDragOverRoot, setIsDragOverRoot] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set<string>()
+    () => new Set<string>(),
   );
   const isMobile = !useMediaQuery("(min-width: 769px)");
 
@@ -150,7 +145,10 @@ const Sidebar = () => {
   const activeShares = useMemo(() => {
     return shares
       .filter((s) => new Date(s.expires_at) > new Date())
-      .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
+      );
   }, [shares]);
 
   return (
@@ -167,8 +165,9 @@ const Sidebar = () => {
       </div>
       <div className="rfm-sidebar-list">
         <div
-          className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""
-            } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
+          className={`rfm-sidebar-item ${
+            currentFolder === "0" ? "active" : ""
+          } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
           onClick={handleRootClick}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -237,16 +236,20 @@ const Sidebar = () => {
           try {
             await fileService.revokeShare(share.id);
             refreshShares();
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }}
         onCopyShareLink={(share) => {
-          navigator.clipboard.writeText(`${window.location.origin}/s/${share.share_token}`);
+          navigator.clipboard.writeText(
+            `${window.location.origin}/s/${share.share_token}`,
+          );
         }}
         onSelectShare={(share) => {
           if (share.is_folder) {
             setCurrentFolder(share.user_file_id);
             if (onRefresh) {
-              onRefresh(share.user_file_id).catch(() => { });
+              onRefresh(share.user_file_id).catch(() => {});
             }
             if (isMobile && setSidebarVisible) {
               setSidebarVisible(false);
@@ -255,7 +258,7 @@ const Sidebar = () => {
             const pid = share.parent_id || "0";
             setCurrentFolder(pid);
             if (onRefresh) {
-              onRefresh(pid).catch(() => { });
+              onRefresh(pid).catch(() => {});
             }
             setTimeout(() => {
               if (setHighlightedId) {

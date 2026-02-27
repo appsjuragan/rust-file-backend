@@ -6,7 +6,7 @@ export interface ValidationRules {
 
 export const isRestrictedFile = (
   file: File,
-  rules?: ValidationRules | null
+  rules?: ValidationRules | null,
 ): { restricted: boolean; reason?: string } => {
   const filename = file.name;
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -17,7 +17,7 @@ export const isRestrictedFile = (
     return {
       restricted: true,
       reason: `File size (${(file.size / 1024 / 1024).toFixed(
-        2
+        2,
       )} MB) exceeds maximum allowed limit (${(
         rules.max_file_size /
         1024 /

@@ -25,7 +25,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
   useEffect(() => {
     const idx = Math.floor(Math.random() * 8);
     fetch(
-      `https://bing.biturl.top/?resolution=1920&format=json&index=${idx}&mkt=en-US`
+      `https://bing.biturl.top/?resolution=1920&format=json&index=${idx}&mkt=en-US`,
     )
       .then((res) => res.json())
       .then((data) => {

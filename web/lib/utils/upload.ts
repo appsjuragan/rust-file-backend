@@ -1,5 +1,5 @@
 export async function scanEntries(
-  items: DataTransferItemList | null
+  items: DataTransferItemList | null,
 ): Promise<{ file: File; path: string }[]> {
   if (!items) return [];
 
@@ -55,7 +55,7 @@ export async function scanEntries(
 
         if (allEntries.length > 0) {
           const promises = allEntries.map((subEntry) =>
-            traverseEntry(subEntry, currentPath)
+            traverseEntry(subEntry, currentPath),
           );
           await Promise.all(promises);
         }
@@ -74,8 +74,8 @@ export async function scanEntries(
         typeof item.webkitGetAsEntry === "function"
           ? item.webkitGetAsEntry()
           : typeof (item as any).getAsEntry === "function"
-          ? (item as any).getAsEntry()
-          : null;
+            ? (item as any).getAsEntry()
+            : null;
 
       if (entry) {
         entries.push(entry);
@@ -90,7 +90,7 @@ export async function scanEntries(
 }
 
 export async function scanFiles(
-  files: FileList | null
+  files: FileList | null,
 ): Promise<{ file: File; path: string }[]> {
   if (!files) return [];
   return Array.from(files).map((file) => ({

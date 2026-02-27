@@ -3,9 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { useFileManager } from "../../context";
 import type { FileType } from "../../types";
 import { ViewStyle } from "../../types";
-import {
-  isDescendantOrSelf,
-} from "../../utils/fileUtils";
+import { isDescendantOrSelf } from "../../utils/fileUtils";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 
@@ -105,7 +103,7 @@ const Workspace = () => {
   // Marquee selection hook
   const { marquee, handleMouseDown, didDragSelectionRef } = useMarqueeSelection(
     selectedIds,
-    setSelectedIds
+    setSelectedIds,
   );
 
   useEffect(() => {
@@ -165,7 +163,7 @@ const Workspace = () => {
       if (folder.isDir) {
         const fsMap = new Map(fs.map((f) => [f.id, f]));
         const invalidMoves = sourceIds.filter((id) =>
-          isDescendantOrSelf(fsMap, id, folder.id)
+          isDescendantOrSelf(fsMap, id, folder.id),
         );
         if (invalidMoves.length > 0) {
           console.warn("Circular move or move to self prevented");
@@ -189,7 +187,7 @@ const Workspace = () => {
   const handleContextMenu = useCallback(
     (
       e: React.MouseEvent | { clientX: number; clientY: number },
-      file: FileType | null
+      file: FileType | null,
     ) => {
       if ("preventDefault" in e) e.preventDefault();
       if (viewOnly) return;
@@ -223,7 +221,7 @@ const Workspace = () => {
         file,
       });
     },
-    [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds]
+    [viewOnly, selectedIds, isMobile, setContextMenu, setSelectedIds],
   );
 
   const handleDrop = useCallback(
@@ -251,7 +249,7 @@ const Workspace = () => {
         console.error("Upload failed:", err);
       }
     },
-    [viewOnly, currentFolder, onUpload, onRefresh]
+    [viewOnly, currentFolder, onUpload, onRefresh],
   );
 
   const { getRootProps, getInputProps, isDragAccept, open } = useDropzone({
@@ -300,7 +298,7 @@ const Workspace = () => {
       if (startIdx !== -1 && endIdx !== -1) {
         const rangeIds = allIdsInOrder.slice(
           Math.min(startIdx, endIdx),
-          Math.max(startIdx, endIdx) + 1
+          Math.max(startIdx, endIdx) + 1,
         );
         setSelectedIds(Array.from(new Set([...selectedIds, ...rangeIds])));
       }
@@ -355,8 +353,9 @@ const Workspace = () => {
   return (
     <section
       id="react-file-manager-workspace"
-      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
-        } ${marquee ? "rfm-selecting" : ""}`}
+      className={`rfm-workspace ${
+        isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
+      } ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
       onClick={(e) => {
@@ -393,7 +392,7 @@ const Workspace = () => {
           if (
             window.innerWidth <= 768 &&
             Math.abs(currentScrollTop - lastScrollTopRef.current) >
-            scrollThreshold
+              scrollThreshold
           ) {
             if (currentScrollTop > lastScrollTopRef.current) {
               if (showHeader) setShowHeader(false);
@@ -464,7 +463,9 @@ const Workspace = () => {
         <FloatingActionButton
           fabMenuOpen={fabMenuOpen}
           setFabMenuOpen={setFabMenuOpen}
-          onNewFolder={() => setNewFolderModalVisible && setNewFolderModalVisible(true)}
+          onNewFolder={() =>
+            setNewFolderModalVisible && setNewFolderModalVisible(true)
+          }
           onNewTextFile={() => setNewTextFileModalVisible(true)}
           onTakePhoto={() => photoInputRef.current?.click()}
           onUploadFiles={() => triggerOpenUpload?.()}

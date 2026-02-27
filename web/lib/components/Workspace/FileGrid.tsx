@@ -17,7 +17,7 @@ interface FileGridProps {
   handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
   handleContextMenu: (
     e: React.MouseEvent | { clientX: number; clientY: number },
-    file: FileType | null
+    file: FileType | null,
   ) => void;
   iconSize?: IconSize;
 }
@@ -36,7 +36,7 @@ interface FileGridItemProps {
   handleDropOnFolder: (e: React.DragEvent, folder: FileType) => void;
   handleContextMenu: (
     e: React.MouseEvent | { clientX: number; clientY: number },
-    file: FileType | null
+    file: FileType | null,
   ) => void;
 }
 
@@ -75,7 +75,7 @@ const FileGridItem = React.memo(
         if (navigator.vibrate) navigator.vibrate(50);
       },
       (e) => handleTap(f, e as React.MouseEvent),
-      { delay: 400 }
+      { delay: 400 },
     );
 
     let timeLeft = "soon";
@@ -107,9 +107,11 @@ const FileGridItem = React.memo(
           e.stopPropagation();
           handleContextMenu(e, f);
         }}
-        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
-          } ${isSelected ? "rfm-selected" : ""} ${isDragOver ? "rfm-drag-over" : ""
-          } ${isHighlighted ? "rfm-highlighted" : ""}`}
+        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${
+          isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
+        } ${isSelected ? "rfm-selected" : ""} ${
+          isDragOver ? "rfm-drag-over" : ""
+        } ${isHighlighted ? "rfm-highlighted" : ""}`}
         disabled={isPending}
       >
         <FileIcon
@@ -143,7 +145,7 @@ const FileGridItem = React.memo(
         )}
       </button>
     );
-  }
+  },
 );
 
 FileGridItem.displayName = "FileGridItem";
@@ -178,7 +180,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
         handleItemClick(f, e);
       }
     },
-    [isMobile, selectedIds, handleItemClick, handleDoubleClick]
+    [isMobile, selectedIds, handleItemClick, handleDoubleClick],
   );
 
   return (

@@ -14,7 +14,7 @@ export const isDescendantOrSelf = (
     | Map<string, FileType>
     | ((id: string) => string | undefined | null),
   sourceId: string,
-  targetId: string
+  targetId: string,
 ): boolean => {
   if (sourceId === targetId) return true;
 

@@ -44,7 +44,7 @@ export interface IFileManagerProps {
   onRefresh?: (id: string) => Promise<void>;
   onUpload?: (
     files: { file: File; path: string }[],
-    folderId: string
+    folderId: string,
   ) => Promise<void>;
   onCreateFolder?: (folderName: string) => Promise<void>;
   onDelete?: (fileId: string) => Promise<void>;
@@ -58,7 +58,7 @@ export interface IFileManagerProps {
   setCurrentFolder?: (id: string) => void;
   activeUploads?: UploadStatus[];
   setActiveUploads?: (
-    val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[])
+    val: UploadStatus[] | ((prev: UploadStatus[]) => UploadStatus[]),
   ) => void;
   userFacts?: any;
   highlightedId?: string | null;
@@ -167,7 +167,7 @@ export const ReactFileManager = ({
 
   const [sortField, setSortField] = useState<SortField>(SortField.Name);
   const [sortDirection, setSortDirection] = useState<SortDirection>(
-    SortDirection.Asc
+    SortDirection.Asc,
   );
   const [iconSize, setIconSize] = useState<IconSize>(IconSize.Medium);
 
@@ -198,10 +198,10 @@ export const ReactFileManager = ({
     const savedIconSize = localStorage.getItem(`rfm_iconSize_${userId}`);
     const savedViewStyle = localStorage.getItem(`rfm_viewStyle_${userId}`);
     const savedSidebarVisible = localStorage.getItem(
-      `rfm_sidebarVisible_${userId}`
+      `rfm_sidebarVisible_${userId}`,
     );
     const savedCurrentFolder = localStorage.getItem(
-      `rfm_currentFolder_${userId}`
+      `rfm_currentFolder_${userId}`,
     );
 
     if (savedField) setSortField(savedField as SortField);
@@ -225,19 +225,19 @@ export const ReactFileManager = ({
     }
 
     const savedFavoritesMinimized = localStorage.getItem(
-      `rfm_favoritesMinimized_${userId}`
+      `rfm_favoritesMinimized_${userId}`,
     );
     if (savedFavoritesMinimized)
       setFavoritesMinimized(savedFavoritesMinimized === "true");
 
     const savedStorageUsageMinimized = localStorage.getItem(
-      `rfm_storageUsageMinimized_${userId}`
+      `rfm_storageUsageMinimized_${userId}`,
     );
     if (savedStorageUsageMinimized)
       setStorageUsageMinimized(savedStorageUsageMinimized === "true");
 
     const savedSharesMinimized = localStorage.getItem(
-      `rfm_sharesMinimized_${userId}`
+      `rfm_sharesMinimized_${userId}`,
     );
     if (savedSharesMinimized)
       setSharesMinimized(savedSharesMinimized === "true");
@@ -256,12 +256,12 @@ export const ReactFileManager = ({
     localStorage.setItem(`rfm_viewStyle_${userId}`, viewStyle);
     localStorage.setItem(
       `rfm_sidebarVisible_${userId}`,
-      String(internalSidebarVisible)
+      String(internalSidebarVisible),
     );
     localStorage.setItem(`rfm_currentFolder_${userId}`, currentFolder);
     localStorage.setItem(
       `rfm_sharesMinimized_${userId}`,
-      String(sharesMinimized)
+      String(sharesMinimized),
     );
   }, [
     sortField,
@@ -285,11 +285,11 @@ export const ReactFileManager = ({
     if (!userId) return;
     localStorage.setItem(
       `rfm_favoritesMinimized_${userId}`,
-      String(favoritesMinimized)
+      String(favoritesMinimized),
     );
     localStorage.setItem(
       `rfm_storageUsageMinimized_${userId}`,
-      String(storageUsageMinimized)
+      String(storageUsageMinimized),
     );
   }, [favoritesMinimized, storageUsageMinimized, userId]);
 
@@ -302,7 +302,7 @@ export const ReactFileManager = ({
     setFavorites((prev) => {
       let next = [...prev];
       const allSelectedAreFavorites = filesArray.every((item) =>
-        next.some((f) => f.id === item.id)
+        next.some((f) => f.id === item.id),
       );
 
       if (allSelectedAreFavorites) {
@@ -425,7 +425,7 @@ export const ReactFileManager = ({
   const showConfirm = (
     message: string,
     onConfirm: () => void,
-    title: string = "Confirm"
+    title: string = "Confirm",
   ) => {
     setDialogState({
       isVisible: true,
@@ -458,7 +458,11 @@ export const ReactFileManager = ({
           while (changed) {
             changed = false;
             for (const f of prev) {
-              if (!toRemove.has(f.id) && f.parentId && toRemove.has(f.parentId)) {
+              if (
+                !toRemove.has(f.id) &&
+                f.parentId &&
+                toRemove.has(f.parentId)
+              ) {
                 toRemove.add(f.id);
                 changed = true;
               }
@@ -468,7 +472,7 @@ export const ReactFileManager = ({
         });
       }
     },
-    [onDelete, refreshShares]
+    [onDelete, refreshShares],
   );
 
   const wrappedOnBulkDelete = useCallback(
@@ -482,7 +486,11 @@ export const ReactFileManager = ({
           while (changed) {
             changed = false;
             for (const f of prev) {
-              if (!toRemove.has(f.id) && f.parentId && toRemove.has(f.parentId)) {
+              if (
+                !toRemove.has(f.id) &&
+                f.parentId &&
+                toRemove.has(f.parentId)
+              ) {
                 toRemove.add(f.id);
                 changed = true;
               }
@@ -492,7 +500,7 @@ export const ReactFileManager = ({
         });
       }
     },
-    [onBulkDelete, refreshShares]
+    [onBulkDelete, refreshShares],
   );
 
   const wrappedOnRename = useCallback(
@@ -502,7 +510,7 @@ export const ReactFileManager = ({
         refreshShares();
       }
     },
-    [onRename, refreshShares]
+    [onRename, refreshShares],
   );
 
   const wrappedOnMove = useCallback(
@@ -512,7 +520,7 @@ export const ReactFileManager = ({
         refreshShares();
       }
     },
-    [onMove, refreshShares]
+    [onMove, refreshShares],
   );
 
   const wrappedOnBulkMove = useCallback(
@@ -522,7 +530,7 @@ export const ReactFileManager = ({
         refreshShares();
       }
     },
-    [onBulkMove, refreshShares]
+    [onBulkMove, refreshShares],
   );
 
   // ─── Sub-memos: each slice only re-computes when its own state changes ───
@@ -576,7 +584,7 @@ export const ReactFileManager = ({
       highlightedId,
       folderTree,
       refreshFolderTree,
-    ]
+    ],
   );
 
   // 2. UI preferences (changes when user changes view/sort/size)
@@ -602,7 +610,7 @@ export const ReactFileManager = ({
       iconSize,
       sidebarVisible,
       uploadedFileData,
-    ]
+    ],
   );
 
   // 3. Selection + clipboard (changes on every user selection action)
@@ -617,7 +625,7 @@ export const ReactFileManager = ({
       clipboardSourceFolder,
       setClipboardSourceFolder,
     }),
-    [selectedIds, clipboardIds, isCut, clipboardSourceFolder]
+    [selectedIds, clipboardIds, isCut, clipboardSourceFolder],
   );
 
   // 4. Modals (changes when any modal opens/closes)
@@ -676,7 +684,7 @@ export const ReactFileManager = ({
       shareFile,
       accessLogVisible,
       accessLogFile,
-    ]
+    ],
   );
 
   // 5. Uploads (changes when upload progress updates)
@@ -687,7 +695,7 @@ export const ReactFileManager = ({
       resetUploadToastCountdown,
       resetSignal,
     }),
-    [activeUploads, resetUploadToastCountdown, resetSignal]
+    [activeUploads, resetUploadToastCountdown, resetSignal],
   );
 
   // 6. Sidebar extras: favorites, storage stats (changes infrequently)
@@ -714,7 +722,7 @@ export const ReactFileManager = ({
       storageUsageMinimized,
       shares,
       sharesMinimized,
-    ]
+    ],
   );
 
   // Final context value: spread all sub-memos.
@@ -735,7 +743,7 @@ export const ReactFileManager = ({
       modalValue,
       uploadValue,
       sidebarExtrasValue,
-    ]
+    ],
   );
 
   return (

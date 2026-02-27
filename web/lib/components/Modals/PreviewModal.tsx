@@ -13,12 +13,12 @@ interface IPreviewModalProps {
   mimeType?: string;
   size?: number;
   scanStatus?:
-  | "pending"
-  | "scanning"
-  | "clean"
-  | "infected"
-  | "unchecked"
-  | "not_supported";
+    | "pending"
+    | "scanning"
+    | "clean"
+    | "infected"
+    | "unchecked"
+    | "not_supported";
   clickPosition?: { x: number; y: number } | null;
 }
 
@@ -44,9 +44,19 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     (mimeType?.startsWith("text/") ||
       mimeType === "application/json" ||
       mimeType === "application/javascript" ||
-      ["txt", "md", "json", "js", "css", "html", "rs", "py", "log", "env", "conf"].includes(
-        extension
-      )) &&
+      [
+        "txt",
+        "md",
+        "json",
+        "js",
+        "css",
+        "html",
+        "rs",
+        "py",
+        "log",
+        "env",
+        "conf",
+      ].includes(extension)) &&
     (size || 0) < 10 * 1024 * 1024; // Increased to 10MB for text files
   const isArchiveFile =
     (mimeType === "application/zip" ||
@@ -197,16 +207,30 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       );
     }
 
-    const videoExtensions = ["mp4", "webm", "ogg", "ts", "mkv", "avi", "mov", "flv", "wmv", "m4v"];
+    const videoExtensions = [
+      "mp4",
+      "webm",
+      "ogg",
+      "ts",
+      "mkv",
+      "avi",
+      "mov",
+      "flv",
+      "wmv",
+      "m4v",
+    ];
     if (videoExtensions.includes(extension) && secureUrl) {
       return (
-        <div className="rfm-preview-content bg-black w-full h-full flex items-center justify-center relative" onContextMenu={handleContextMenu}>
+        <div
+          className="rfm-preview-content bg-black w-full h-full flex items-center justify-center relative"
+          onContextMenu={handleContextMenu}
+        >
           <ReactPlayer
             src={secureUrl}
             controls
             width="100%"
             height="100%"
-            style={{ position: 'absolute', top: 0, left: 0 }}
+            style={{ position: "absolute", top: 0, left: 0 }}
             className="rfm-preview-video"
             onContextMenu={handleContextMenu}
             /* @ts-ignore */
@@ -234,7 +258,10 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
 
     if (extension === "pdf" && secureUrl) {
       return (
-        <div className="rfm-preview-content rfm-preview-full" onContextMenu={handleContextMenu}>
+        <div
+          className="rfm-preview-content rfm-preview-full"
+          onContextMenu={handleContextMenu}
+        >
           <embed
             src={secureUrl}
             type="application/pdf"
@@ -301,8 +328,9 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           style={{
             opacity: showDownloadButton ? 1 : 0,
             pointerEvents: showDownloadButton ? "auto" : "none",
-            transform: `translateX(-50%) ${showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
-              }`,
+            transform: `translateX(-50%) ${
+              showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
+            }`,
           }}
         >
           {size && (

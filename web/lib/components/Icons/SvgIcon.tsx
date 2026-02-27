@@ -1,45 +1,47 @@
 import React from "react";
 
-interface ISvgIconProps
-  extends Omit<React.AllHTMLAttributes<HTMLDivElement>, "size"> {
+interface ISvgIconProps extends Omit<
+  React.AllHTMLAttributes<HTMLDivElement>,
+  "size"
+> {
   svgType:
-  | "file"
-  | "folder"
-  | "arrow-up"
-  | "arrow-down"
-  | "arrow-right"
-  | "close"
-  | "list"
-  | "icons"
-  | "download"
-  | "info"
-  | "eye"
-  | "scissors"
-  | "trash"
-  | "clipboard"
-  | "edit"
-  | "plus"
-  | "upload"
-  | "check"
-  | "home"
-  | "loading"
-  | "cog"
-  | "alert-triangle"
-  | "minus"
-  | "square"
-  | "copy"
-  | "menu"
-  | "camera"
-  | "dots"
-  | "shield"
-  | "rocket"
-  | "size-small"
-  | "size-medium"
-  | "size-large"
-  | "size-xlarge"
-  | "star"
-  | "share"
-  | "log";
+    | "file"
+    | "folder"
+    | "arrow-up"
+    | "arrow-down"
+    | "arrow-right"
+    | "close"
+    | "list"
+    | "icons"
+    | "download"
+    | "info"
+    | "eye"
+    | "scissors"
+    | "trash"
+    | "clipboard"
+    | "edit"
+    | "plus"
+    | "upload"
+    | "check"
+    | "home"
+    | "loading"
+    | "cog"
+    | "alert-triangle"
+    | "minus"
+    | "square"
+    | "copy"
+    | "menu"
+    | "camera"
+    | "dots"
+    | "shield"
+    | "rocket"
+    | "size-small"
+    | "size-medium"
+    | "size-large"
+    | "size-xlarge"
+    | "star"
+    | "share"
+    | "log";
   size?: number | string;
 }
 
@@ -634,8 +636,9 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
       {...props}
       data-type={svgType}
       style={{ ...sizeStyle, ...props.style }}
-      className={`flex items-center justify-center flex-shrink-0 overflow-hidden ${!size && !hasSizingClass ? "w-[1em] h-[1em]" : ""
-        } ${props.className || ""}`}
+      className={`flex items-center justify-center flex-shrink-0 overflow-hidden ${
+        !size && !hasSizingClass ? "w-[1em] h-[1em]" : ""
+      } ${props.className || ""}`}
     >
       {svgContent()}
     </div>

@@ -62,7 +62,7 @@ export async function request(endpoint: string, options: RequestOptions = {}) {
       const text = await res.clone().text();
       if (text.trim().toLowerCase().startsWith("<!doctype html")) {
         throw new Error(
-          "Received HTML instead of JSON. The API endpoint might be misconfigured."
+          "Received HTML instead of JSON. The API endpoint might be misconfigured.",
         );
       }
     }

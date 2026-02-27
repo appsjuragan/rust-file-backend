@@ -216,13 +216,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
           isMobile
             ? {}
             : {
-              top: y > window.innerHeight - 300 ? "auto" : y,
-              bottom:
-                y > window.innerHeight - 300
-                  ? window.innerHeight - y + 5
-                  : "auto",
-              left: x,
-            }
+                top: y > window.innerHeight - 300 ? "auto" : y,
+                bottom:
+                  y > window.innerHeight - 300
+                    ? window.innerHeight - y + 5
+                    : "auto",
+                left: x,
+              }
         }
       >
         {isMobile && (
@@ -246,8 +246,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               {(() => {
                 const targetFiles =
                   file &&
-                    selectedIds.includes(file.id) &&
-                    selectedIds.length > 1
+                  selectedIds.includes(file.id) &&
+                  selectedIds.length > 1
                     ? fs.filter((f) => selectedIds.includes(f.id))
                     : file
                       ? [file]
@@ -269,10 +269,11 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                   <>
                     {/* Open (Preview) - Bold */}
                     <div
-                      className={`rfm-context-menu-item font-bold ${isScanBusy
-                        ? "disabled opacity-50 cursor-not-allowed"
-                        : ""
-                        }`}
+                      className={`rfm-context-menu-item font-bold ${
+                        isScanBusy
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
                       onClick={isScanBusy ? undefined : handleOpen}
                     >
                       <SvgIcon
@@ -301,10 +302,11 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {/* Rename - Only for single file */}
                     {targetFile && (
                       <div
-                        className={`rfm-context-menu-item ${isScanBusy
-                          ? "disabled opacity-50 cursor-not-allowed"
-                          : ""
-                          }`}
+                        className={`rfm-context-menu-item ${
+                          isScanBusy
+                            ? "disabled opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
                         onClick={isScanBusy ? undefined : handleRename}
                       >
                         <SvgIcon
@@ -367,16 +369,17 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           const isAllFav =
                             targetFiles.length > 0 &&
                             targetFiles.every((item) =>
-                              favorites.some((f) => f.id === item.id)
+                              favorites.some((f) => f.id === item.id),
                             );
                           return (
                             <>
                               <SvgIcon
                                 svgType="star"
-                                className={`rfm-context-menu-icon ${isAllFav
-                                  ? "fill-yellow-400 text-yellow-500"
-                                  : ""
-                                  }`}
+                                className={`rfm-context-menu-icon ${
+                                  isAllFav
+                                    ? "fill-yellow-400 text-yellow-500"
+                                    : ""
+                                }`}
                               />
                               {isAllFav
                                 ? "Remove from Favorites"
@@ -391,9 +394,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {targetFile && onShare && (
                       <div
                         className="rfm-context-menu-item"
-                        onClick={() =>
-                          triggerAction(() => onShare(targetFile))
-                        }
+                        onClick={() => triggerAction(() => onShare(targetFile))}
                       >
                         <SvgIcon
                           svgType="share"
@@ -404,34 +405,30 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     )}
 
                     {/* Access Log */}
-                    {targetFile &&
-                      targetFile.isShared &&
-                      onViewAccessLog && (
-                        <div
-                          className="rfm-context-menu-item"
-                          onClick={() =>
-                            triggerAction(() =>
-                              onViewAccessLog(targetFile)
-                            )
-                          }
-                        >
-                          <SvgIcon
-                            svgType="log"
-                            className="rfm-context-menu-icon"
-                          />
-                          Access Log
-                        </div>
-                      )}
-
+                    {targetFile && targetFile.isShared && onViewAccessLog && (
+                      <div
+                        className="rfm-context-menu-item"
+                        onClick={() =>
+                          triggerAction(() => onViewAccessLog(targetFile))
+                        }
+                      >
+                        <SvgIcon
+                          svgType="log"
+                          className="rfm-context-menu-icon"
+                        />
+                        Access Log
+                      </div>
+                    )}
 
                     {/* Download - Allowed for files and folders */}
                     {targetFile && (
                       <>
                         <div
-                          className={`rfm-context-menu-item ${isScanBusy
-                            ? "disabled opacity-50 cursor-not-allowed"
-                            : ""
-                            }`}
+                          className={`rfm-context-menu-item ${
+                            isScanBusy
+                              ? "disabled opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
                           onClick={isScanBusy ? undefined : handleDownload}
                         >
                           <SvgIcon

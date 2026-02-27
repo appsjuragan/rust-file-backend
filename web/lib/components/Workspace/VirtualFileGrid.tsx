@@ -178,7 +178,7 @@ export const VirtualFileGrid: React.FC<VirtualFileGridProps> = ({
           // We need at least one column
           const columnCount = Math.max(
             1,
-            Math.floor((width + GAP) / (minColWidth + GAP))
+            Math.floor((width + GAP) / (minColWidth + GAP)),
           );
           const columnWidth = (width - GAP * (columnCount - 1)) / columnCount;
 
@@ -290,10 +290,10 @@ const Cell = memo(
             {
               clientX,
               clientY,
-              preventDefault: () => { },
-              stopPropagation: () => { },
+              preventDefault: () => {},
+              stopPropagation: () => {},
             } as any,
-            f
+            f,
           );
         } else {
           setIsLongPress(true);
@@ -369,10 +369,11 @@ const Cell = memo(
                     ${isPending ? "rfm-pending" : ""} 
                     ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} 
                     ${isSelected ? "rfm-selected" : ""} 
-                    ${isFocused
-              ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
-              : ""
-            }
+                    ${
+                      isFocused
+                        ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900"
+                        : ""
+                    }
                     ${dragOverId === f.id ? "rfm-drag-over" : ""} 
                     ${highlightedId === f.id ? "rfm-highlighted" : ""}`}
           disabled={isPending}
@@ -410,5 +411,5 @@ const Cell = memo(
         </button>
       </div>
     );
-  }
+  },
 );

@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 // Context
 import { useFileManager } from "../../context";
 // Components
@@ -9,9 +15,31 @@ import { request } from "../../../src/services/httpClient";
 
 // File types that support thumbnail generation
 const THUMBNAIL_EXTENSIONS = new Set([
-  "jpg", "jpeg", "png", "gif", "webp", "bmp", "ico", "svg",
-  "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "mpg", "mpeg", "ts",
-  "pdf", "m4v", "3gp", "3g2", "ogv", "asf", "vob"
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "bmp",
+  "ico",
+  "svg",
+  "mp4",
+  "mkv",
+  "avi",
+  "mov",
+  "wmv",
+  "flv",
+  "webm",
+  "mpg",
+  "mpeg",
+  "ts",
+  "pdf",
+  "m4v",
+  "3gp",
+  "3g2",
+  "ogv",
+  "asf",
+  "vob",
 ]);
 
 interface IFileIcon {
@@ -30,8 +58,14 @@ interface IFileIcon {
 }
 
 const FileIcon = (props: IFileIcon) => {
-  const { setCurrentFolder, onRefresh, clipboardIds, isCut, favorites, shares } =
-    useFileManager();
+  const {
+    setCurrentFolder,
+    onRefresh,
+    clipboardIds,
+    isCut,
+    favorites,
+    shares,
+  } = useFileManager();
   const isBeingCut = !!(
     isCut &&
     Array.isArray(clipboardIds) &&
@@ -47,7 +81,9 @@ const FileIcon = (props: IFileIcon) => {
   const isShared =
     props.isShared !== undefined
       ? props.isShared
-      : shares?.some((s) => s.user_file_id === props.id) || props.isShared || false;
+      : shares?.some((s) => s.user_file_id === props.id) ||
+        props.isShared ||
+        false;
 
   const fileExtension = useMemo((): string => {
     if (props.isDir || !props.name.includes(".")) {
@@ -147,21 +183,27 @@ const FileIcon = (props: IFileIcon) => {
   }, [props.isDir, props.isEncrypted, fileExtension, props.scanStatus]);
 
   // Fetch thumbnail blob
-  const fetchThumbnail = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
-    try {
-      const res = await request(`/files/${props.id}/thumbnail`, { method: "GET", signal });
-      if (res && typeof res.blob === "function") {
-        const blob = await res.blob();
-        if (!signal?.aborted) {
-          setThumbnailUrl(URL.createObjectURL(blob));
-          return true;
+  const fetchThumbnail = useCallback(
+    async (signal?: AbortSignal): Promise<boolean> => {
+      try {
+        const res = await request(`/files/${props.id}/thumbnail`, {
+          method: "GET",
+          signal,
+        });
+        if (res && typeof res.blob === "function") {
+          const blob = await res.blob();
+          if (!signal?.aborted) {
+            setThumbnailUrl(URL.createObjectURL(blob));
+            return true;
+          }
         }
+      } catch {
+        // Thumbnail not ready yet or request failed
       }
-    } catch {
-      // Thumbnail not ready yet or request failed
-    }
-    return false;
-  }, [props.id]);
+      return false;
+    },
+    [props.id],
+  );
 
   // Primary effect: load thumbnail immediately if available
   useEffect(() => {
@@ -246,8 +288,9 @@ const FileIcon = (props: IFileIcon) => {
 
   return (
     <div
-      className={`rfm-file-icon-container ${props.className || ""} ${isBeingCut ? "opacity-40" : ""
-        }`}
+      className={`rfm-file-icon-container ${props.className || ""} ${
+        isBeingCut ? "opacity-40" : ""
+      }`}
       data-color={colorCategory}
     >
       <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0 overflow-hidden rounded">

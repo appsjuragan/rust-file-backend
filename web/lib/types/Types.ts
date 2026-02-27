@@ -3,12 +3,12 @@ export type UploadStatus = {
   name: string;
   progress: number;
   status:
-  | "queued"
-  | "hashing"
-  | "uploading"
-  | "processing"
-  | "completed"
-  | "error";
+    | "queued"
+    | "hashing"
+    | "uploading"
+    | "processing"
+    | "completed"
+    | "error";
   error?: string;
   size?: number;
   uploadId?: string;
@@ -63,12 +63,12 @@ export type FileType = {
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
   scanStatus?:
-  | "pending"
-  | "scanning"
-  | "clean"
-  | "infected"
-  | "unchecked"
-  | "not_supported";
+    | "pending"
+    | "scanning"
+    | "clean"
+    | "infected"
+    | "unchecked"
+    | "not_supported";
   size?: number;
   mimeType?: string;
   hash?: string;

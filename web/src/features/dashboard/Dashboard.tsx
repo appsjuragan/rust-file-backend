@@ -51,7 +51,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const { theme, setTheme, toggleTheme } = useTheme();
 
   // Search
-  const { searchQuery, setSearchQuery, searchSuggestions, isSearching } = useSearch();
+  const { searchQuery, setSearchQuery, searchSuggestions, isSearching } =
+    useSearch();
 
   // UI State
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     currentFolder,
     setCurrentFolder,
     sidebarVisible,
-    setSidebarVisible
+    setSidebarVisible,
   );
 
   // File Upload
@@ -112,7 +113,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     fetchUserFacts();
     fetchValidationRules();
     fetchFavorites();
-  }, [fetchProfile, fetchUserFacts, fetchValidationRules, fetchFavorites, setTheme]);
+  }, [
+    fetchProfile,
+    fetchUserFacts,
+    fetchValidationRules,
+    fetchFavorites,
+    setTheme,
+  ]);
 
   // Data Fetching Effect
   useEffect(() => {
@@ -224,7 +231,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           onCreateFolder={async (n: string) => {
             await fileService.createFolder(
               n,
-              currentFolder === "0" ? undefined : currentFolder
+              currentFolder === "0" ? undefined : currentFolder,
             );
             refreshAll(currentFolder);
           }}
@@ -257,7 +264,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           userFacts={userFacts}
           onLoadMore={async () => {
             const count = fs.filter(
-              (f) => (f.parentId || "0") === currentFolder
+              (f) => (f.parentId || "0") === currentFolder,
             ).length;
             await fetchFiles(currentFolder, true, count);
           }}
@@ -274,17 +281,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           onToggleFavorite={async (file) => {
             const filesArray = Array.isArray(file) ? file : [file];
             const allSelectedAreFavorites = filesArray.every(
-              (f) => f.isFavorite
+              (f) => f.isFavorite,
             );
 
             if (allSelectedAreFavorites) {
               await Promise.all(
-                filesArray.map((f) => fileService.toggleFavorite(f.id))
+                filesArray.map((f) => fileService.toggleFavorite(f.id)),
               );
             } else {
               const toAdd = filesArray.filter((f) => !f.isFavorite);
               await Promise.all(
-                toAdd.map((f) => fileService.toggleFavorite(f.id))
+                toAdd.map((f) => fileService.toggleFavorite(f.id)),
               );
             }
 

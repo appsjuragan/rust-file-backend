@@ -63,7 +63,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({
 
   const handleDateChange = (
     field: "start_date" | "end_date",
-    value: string
+    value: string,
   ) => {
     onFiltersChange({
       ...filters,
