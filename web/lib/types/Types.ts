@@ -110,6 +110,18 @@ export interface ShareLink {
   parent_id?: string;
 }
 
+export interface SearchFilters {
+  regex?: boolean;
+  wildcard?: boolean;
+  similarity?: boolean;
+  start_date?: string;
+  end_date?: string;
+  min_size?: number;
+  max_size?: number;
+  tags?: string;
+  category?: "image" | "video" | "audio" | "document" | "other";
+}
+
 export interface ShareAccessLog {
   id: string;
   accessed_by_user_id?: string;

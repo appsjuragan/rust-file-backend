@@ -138,13 +138,15 @@ pub async fn create_share(
 
     let share = ShareService::create_share(
         &state.db,
-        req.user_file_id.clone(),
-        claims.sub,
-        req.share_type,
-        req.shared_with_user_id,
-        req.password,
-        req.permission,
-        expires_at,
+        crate::services::share_service::CreateShareParams {
+            user_file_id: req.user_file_id.clone(),
+            created_by: claims.sub,
+            share_type: req.share_type,
+            shared_with_user_id: req.shared_with_user_id,
+            password: req.password,
+            permission: req.permission,
+            expires_at,
+        },
     )
     .await?;
 

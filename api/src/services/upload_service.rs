@@ -174,7 +174,6 @@ impl UploadService {
             let session_id = session_id.clone();
             let user_id = user_id.clone();
             let etag = etag.clone();
-            let part_number = part_number;
             Box::pin(async move {
                 use sea_orm::QuerySelect;
                 let session = upload_sessions::Entity::find_by_id(session_id)

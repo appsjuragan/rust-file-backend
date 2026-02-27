@@ -14,6 +14,16 @@ use uuid::Uuid;
 
 pub struct ShareService;
 
+pub struct CreateShareParams {
+    pub user_file_id: String,
+    pub created_by: String,
+    pub share_type: String,
+    pub shared_with_user_id: Option<String>,
+    pub password: Option<String>,
+    pub permission: String,
+    pub expires_at: chrono::DateTime<Utc>,
+}
+
 impl ShareService {
     /// Generate a URL-safe random token for share links
     pub fn generate_token() -> String {
@@ -47,17 +57,11 @@ impl ShareService {
     /// Create a new share link
     pub async fn create_share(
         db: &sea_orm::DatabaseConnection,
-        user_file_id: String,
-        created_by: String,
-        share_type: String,
-        shared_with_user_id: Option<String>,
-        password: Option<String>,
-        permission: String,
-        expires_at: chrono::DateTime<Utc>,
+        params: CreateShareParams,
     ) -> Result<share_links::Model, AppError> {
         // Verify the user owns the file
-        let _user_file = UserFiles::find_by_id(&user_file_id)
-            .filter(user_files::Column::UserId.eq(&created_by))
+        let _user_file = UserFiles::find_by_id(&params.user_file_id)
+            .filter(user_files::Column::UserId.eq(&params.created_by))
             .filter(user_files::Column::DeletedAt.is_null())
             .one(db)
             .await?
@@ -65,7 +69,7 @@ impl ShareService {
                 "File not found or access denied".to_string(),
             ))?;
 
-        let password_hash = match password {
+        let password_hash = match params.password {
             Some(ref p) if !p.is_empty() => Some(Self::hash_password(p)?),
             _ => None,
         };
@@ -75,14 +79,14 @@ impl ShareService {
 
         let share = share_links::ActiveModel {
             id: Set(id),
-            user_file_id: Set(user_file_id),
-            created_by: Set(created_by),
+            user_file_id: Set(params.user_file_id),
+            created_by: Set(params.created_by),
             share_token: Set(token),
-            share_type: Set(share_type),
-            shared_with_user_id: Set(shared_with_user_id),
+            share_type: Set(params.share_type),
+            shared_with_user_id: Set(params.shared_with_user_id),
             password_hash: Set(password_hash),
-            permission: Set(permission),
-            expires_at: Set(expires_at),
+            permission: Set(params.permission),
+            expires_at: Set(params.expires_at),
             created_at: Set(Some(Utc::now())),
         };
 

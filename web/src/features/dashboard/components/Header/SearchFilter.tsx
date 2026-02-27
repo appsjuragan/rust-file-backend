@@ -91,9 +91,8 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({
   return (
     <div className="search-filter-container" ref={dropdownRef}>
       <button
-        className={`search-filter-btn ${
-          isOpen || activeFilterCount > 0 ? "active" : ""
-        }`}
+        className={`search-filter-btn ${isOpen || activeFilterCount > 0 ? "active" : ""
+          }`}
         onClick={() => setIsOpen(!isOpen)}
         title="Advanced Search Filters"
       >
@@ -122,9 +121,8 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({
                 Regex
               </label>
               <label
-                className={`filter-checkbox ${
-                  filters.wildcard ? "checked" : ""
-                }`}
+                className={`filter-checkbox ${filters.wildcard ? "checked" : ""
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -137,9 +135,8 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({
                 Wildcard (*)
               </label>
               <label
-                className={`filter-checkbox ${
-                  filters.similarity ? "checked" : ""
-                }`}
+                className={`filter-checkbox ${filters.similarity ? "checked" : ""
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -228,7 +225,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({
                 onChange={(e) =>
                   onFiltersChange({
                     ...filters,
-                    category: e.target.value || undefined,
+                    category: (e.target.value || undefined) as SearchFilters["category"],
                   })
                 }
               >
