@@ -132,6 +132,8 @@ interface ProviderInterface {
   refreshShares: () => Promise<void>;
   sharesMinimized: boolean;
   setSharesMinimized: Dispatch<SetStateAction<boolean>>;
+  showThumbnails: boolean;
+  setShowThumbnails: Dispatch<boolean>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

@@ -180,6 +180,7 @@ export const ReactFileManager = ({
     useState<boolean>(false);
   const [shares, setShares] = useState<ShareLink[]>([]);
   const [sharesMinimized, setSharesMinimized] = useState<boolean>(false);
+  const [showThumbnails, setShowThumbnails] = useState<boolean>(true);
 
   const refreshShares = useCallback(async () => {
     try {
@@ -241,6 +242,11 @@ export const ReactFileManager = ({
     );
     if (savedSharesMinimized)
       setSharesMinimized(savedSharesMinimized === "true");
+
+    const savedShowThumbnails = localStorage.getItem(
+      `rfm_showThumbnails_${userId}`,
+    );
+    if (savedShowThumbnails) setShowThumbnails(savedShowThumbnails === "true");
   }, [userId, internalCurrentFolder]);
 
   useEffect(() => {
@@ -263,6 +269,7 @@ export const ReactFileManager = ({
       `rfm_sharesMinimized_${userId}`,
       String(sharesMinimized),
     );
+    localStorage.setItem(`rfm_showThumbnails_${userId}`, String(showThumbnails));
   }, [
     sortField,
     sortDirection,
@@ -272,6 +279,7 @@ export const ReactFileManager = ({
     currentFolder,
     userId,
     sharesMinimized,
+    showThumbnails,
   ]);
 
   // Persist favorites
@@ -602,6 +610,8 @@ export const ReactFileManager = ({
       setSidebarVisible,
       uploadedFileData,
       setUploadedFileData,
+      showThumbnails,
+      setShowThumbnails,
     }),
     [
       viewStyle,
@@ -610,6 +620,7 @@ export const ReactFileManager = ({
       iconSize,
       sidebarVisible,
       uploadedFileData,
+      showThumbnails,
     ],
   );
 

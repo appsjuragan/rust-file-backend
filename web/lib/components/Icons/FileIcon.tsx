@@ -65,6 +65,7 @@ const FileIcon = (props: IFileIcon) => {
     isCut,
     favorites,
     shares,
+    showThumbnails,
   } = useFileManager();
   const isBeingCut = !!(
     isCut &&
@@ -82,8 +83,8 @@ const FileIcon = (props: IFileIcon) => {
     props.isShared !== undefined
       ? props.isShared
       : shares?.some((s) => s.user_file_id === props.id) ||
-        props.isShared ||
-        false;
+      props.isShared ||
+      false;
 
   const fileExtension = useMemo((): string => {
     if (props.isDir || !props.name.includes(".")) {
@@ -216,11 +217,12 @@ const FileIcon = (props: IFileIcon) => {
     }
 
     const controller = new AbortController();
+    const canFetch = showThumbnails && !isPolling;
 
-    if (props.hasThumbnail) {
+    if (props.hasThumbnail && showThumbnails) {
       // Thumbnail is known to exist, fetch it
       fetchThumbnail(controller.signal);
-    } else if (supportsThumbnail && !isPolling) {
+    } else if (supportsThumbnail && canFetch) {
       // Thumbnail not ready yet, start async polling
       setIsPolling(true);
       pollCountRef.current = 0;
@@ -237,6 +239,7 @@ const FileIcon = (props: IFileIcon) => {
     supportsThumbnail,
     props.scanStatus,
     isPolling,
+    showThumbnails,
   ]);
 
   // Polling effect: check for thumbnail every few seconds
@@ -288,13 +291,12 @@ const FileIcon = (props: IFileIcon) => {
 
   return (
     <div
-      className={`rfm-file-icon-container ${props.className || ""} ${
-        isBeingCut ? "opacity-40" : ""
-      }`}
+      className={`rfm-file-icon-container ${props.className || ""} ${isBeingCut ? "opacity-40" : ""
+        }`}
       data-color={colorCategory}
     >
       <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0 overflow-hidden rounded">
-        {thumbnailUrl ? (
+        {thumbnailUrl && showThumbnails ? (
           <img
             src={thumbnailUrl}
             alt={props.name}
