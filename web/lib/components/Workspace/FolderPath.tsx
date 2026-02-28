@@ -37,6 +37,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     folderTree,
     showThumbnails,
     setShowThumbnails,
+    isLoading,
   } = useFileManager();
 
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
@@ -183,7 +184,11 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
           ))
         )}
         <span className="rfm-breadcrumb-count">
-          {itemCount} {itemCount === 1 ? "item" : "items"}
+          {isLoading ? (
+            <div className="rfm-spinner-small" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }}></div>
+          ) : (
+            <>{itemCount} {itemCount === 1 ? "item" : "items"}</>
+          )}
         </span>
       </div>
     </>

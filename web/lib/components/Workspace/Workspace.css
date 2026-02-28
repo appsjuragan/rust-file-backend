@@ -421,6 +421,8 @@
 
 .rfm-spinner-small {
   @apply inline-block rounded-full animate-spin;
+  width: 1rem;
+  height: 1rem;
   border: 2px solid currentColor;
   border-top-color: transparent !important;
 }

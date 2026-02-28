@@ -66,6 +66,7 @@ export interface IFileManagerProps {
   onLoadMore?: () => Promise<void>;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  isLoading?: boolean;
   folderTree?: FolderNode[];
   refreshFolderTree?: () => Promise<void>;
   sidebarVisible?: boolean;
@@ -99,6 +100,7 @@ export const ReactFileManager = ({
   onLoadMore,
   hasMore,
   isLoadingMore,
+  isLoading,
   folderTree: propFolderTree,
   refreshFolderTree,
   sidebarVisible: propSidebarVisible,
@@ -565,6 +567,7 @@ export const ReactFileManager = ({
       onLoadMore,
       hasMore,
       isLoadingMore,
+      isLoading,
       highlightedId,
       setHighlightedId,
       folderTree,
@@ -589,6 +592,7 @@ export const ReactFileManager = ({
       onLoadMore,
       hasMore,
       isLoadingMore,
+      isLoading,
       highlightedId,
       folderTree,
       refreshFolderTree,

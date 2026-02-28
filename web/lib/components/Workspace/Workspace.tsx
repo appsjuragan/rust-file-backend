@@ -17,6 +17,8 @@ import { FileGrid } from "./FileGrid";
 import { getColumns } from "./TableColumns";
 import FloatingActionButton from "./FloatingActionButton";
 import SelectionBar from "./SelectionBar";
+import { SkeletonFileItem } from "./SkeletonFileItem";
+import { SkeletonTableRow } from "./SkeletonTableRow";
 
 // Hooks
 import { useWorkspaceKeyboard } from "../../hooks/useWorkspaceKeyboard";
@@ -62,6 +64,7 @@ const Workspace = () => {
     onLoadMore,
     hasMore,
     isLoadingMore,
+    isLoading,
     onDoubleClick: onPreviewRequest,
     setOpenUpload,
     setPreviewFile,
@@ -353,9 +356,8 @@ const Workspace = () => {
   return (
     <section
       id="react-file-manager-workspace"
-      className={`rfm-workspace ${
-        isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
-      } ${marquee ? "rfm-selecting" : ""}`}
+      className={`rfm-workspace ${isDragAccept && !viewOnly ? "rfm-workspace-dropzone" : ""
+        } ${marquee ? "rfm-selecting" : ""}`}
       {...getRootProps()}
       onContextMenu={(e) => handleContextMenu(e, null)}
       onClick={(e) => {
@@ -392,7 +394,7 @@ const Workspace = () => {
           if (
             window.innerWidth <= 768 &&
             Math.abs(currentScrollTop - lastScrollTopRef.current) >
-              scrollThreshold
+            scrollThreshold
           ) {
             if (currentScrollTop > lastScrollTopRef.current) {
               if (showHeader) setShowHeader(false);
@@ -448,6 +450,34 @@ const Workspace = () => {
             columnsCount={columns.length}
             iconSize={iconSize}
           />
+        )}
+
+        {isLoading && currentFolderFiles.length === 0 && (
+          <div className="flex-1 overflow-hidden">
+            {viewStyle === ViewStyle.Icons ? (
+              <div
+                className={`rfm-icons-grid ${iconSize ? `size-${iconSize}` : ""
+                  } overflow-hidden`}
+              >
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <SkeletonFileItem key={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <table
+                  className={`w-full rfm-file-table ${iconSize ? `size-${iconSize}` : ""
+                    }`}
+                >
+                  <tbody>
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <SkeletonTableRow key={i} columnsCount={columns.length} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
 
         {isLoadingMore && (

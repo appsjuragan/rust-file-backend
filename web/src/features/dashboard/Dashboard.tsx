@@ -26,6 +26,7 @@ interface DashboardProps {
 export default function Dashboard({ onLogout }: DashboardProps) {
   const {
     fs,
+    loading,
     currentFolder,
     setCurrentFolder,
     favorites,
@@ -270,6 +271,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           }}
           hasMore={hasMoreFiles}
           isLoadingMore={loadingMore}
+          isLoading={loading}
           highlightedId={highlightedId}
           setHighlightedId={setHighlightedId}
           folderTree={folderTree}

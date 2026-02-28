@@ -106,6 +106,7 @@ interface ProviderInterface {
   onLoadMore?: () => Promise<void>;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  isLoading?: boolean;
   resetUploadToastCountdown?: () => void;
   resetSignal?: number;
   folderTree: FolderNode[];
