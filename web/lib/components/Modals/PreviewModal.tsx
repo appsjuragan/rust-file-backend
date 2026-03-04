@@ -3,6 +3,7 @@ import CommonModal from "./CommonModal";
 import { fileService } from "../../../src/services/fileService";
 import SvgIcon from "../Icons/SvgIcon";
 import ReactPlayer from "react-player";
+import PdfViewer from "../PdfViewer/PdfViewer";
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -13,12 +14,12 @@ interface IPreviewModalProps {
   mimeType?: string;
   size?: number;
   scanStatus?:
-    | "pending"
-    | "scanning"
-    | "clean"
-    | "infected"
-    | "unchecked"
-    | "not_supported";
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "infected"
+  | "unchecked"
+  | "not_supported";
   clickPosition?: { x: number; y: number } | null;
 }
 
@@ -262,13 +263,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           className="rfm-preview-content rfm-preview-full"
           onContextMenu={handleContextMenu}
         >
-          <embed
-            src={secureUrl}
-            type="application/pdf"
-            className="rfm-preview-pdf"
-            // @ts-ignore
-            onContextMenu={handleContextMenu}
-          />
+          <PdfViewer url={secureUrl} disableContextMenu />
         </div>
       );
     }
@@ -328,9 +323,8 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           style={{
             opacity: showDownloadButton ? 1 : 0,
             pointerEvents: showDownloadButton ? "auto" : "none",
-            transform: `translateX(-50%) ${
-              showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
-            }`,
+            transform: `translateX(-50%) ${showDownloadButton ? "scale(1)" : "scale(0.9) translateY(20px)"
+              }`,
           }}
         >
           {size && (

@@ -13,6 +13,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import ReactPlayer from "react-player";
+import PdfViewer from "../../../lib/components/PdfViewer/PdfViewer";
 import "./PublicSharePage.css";
 
 interface PublicFileEntry {
@@ -40,6 +41,8 @@ const MediaViewer: React.FC<{ info: any; token: string; fileId?: string }> = ({
   const isTextLike = (m?: string, f?: string, s?: number) => {
     if (!m) return false;
     if ((s || 0) > 10 * 1024 * 1024) return false; // 10MB limit
+    // If MIME type indicates video/audio/image, it's not a text file
+    if (m.startsWith("video/") || m.startsWith("audio/") || m.startsWith("image/")) return false;
     if (
       m.startsWith("text/") ||
       m === "application/json" ||
@@ -151,12 +154,9 @@ const MediaViewer: React.FC<{ info: any; token: string; fileId?: string }> = ({
         </div>
       )}
       {mime === "application/pdf" && (
-        <iframe
-          src={`${downloadUrl}#toolbar=0`}
-          className="rfm-share-pdf-viewer"
-          title="PDF Preview"
-          onContextMenu={handleContextMenu}
-        />
+        <div className="rfm-share-pdf-viewer-react-pdf">
+          <PdfViewer url={downloadUrl} disableContextMenu />
+        </div>
       )}
       {isTextLike(mime, info.filename, info.size) && textContent !== null && (
         <div className="p-6 max-h-[500px] overflow-auto">
@@ -189,6 +189,15 @@ export const PublicSharePage: React.FC = () => {
   ) => {
     if (!mimeType) return false;
 
+    const isOtherMedia =
+      mimeType.startsWith("image/") ||
+      mimeType.startsWith("video/") ||
+      mimeType.startsWith("audio/") ||
+      mimeType === "application/pdf";
+
+    // If MIME type clearly indicates media, skip the text check
+    if (isOtherMedia) return true;
+
     const isText =
       mimeType.startsWith("text/") ||
       mimeType === "application/json" ||
@@ -211,13 +220,7 @@ export const PublicSharePage: React.FC = () => {
 
     if (isText && (size || 0) > 10 * 1024 * 1024) return false;
 
-    const isOtherMedia =
-      mimeType.startsWith("image/") ||
-      mimeType.startsWith("video/") ||
-      mimeType.startsWith("audio/") ||
-      mimeType === "application/pdf";
-
-    return isText || isOtherMedia;
+    return isText;
   };
 
   const fetchShareInfo = useCallback(async () => {
@@ -340,7 +343,7 @@ export const PublicSharePage: React.FC = () => {
                 shareInfo?.filename,
                 shareInfo?.size,
               )) &&
-            isAuthorized
+              isAuthorized
               ? "800px"
               : "400px",
         }}

@@ -1,16 +1,12 @@
 .rfm-public-share-container {
   @apply min-h-screen flex items-center justify-center p-6 bg-stone-50 dark:bg-[#0f172a] transition-colors duration-500;
   background-image:
-    radial-gradient(
-      circle at top right,
+    radial-gradient(circle at top right,
       rgba(20, 184, 166, 0.05),
-      transparent 400px
-    ),
-    radial-gradient(
-      circle at bottom left,
+      transparent 400px),
+    radial-gradient(circle at bottom left,
       rgba(14, 165, 233, 0.05),
-      transparent 400px
-    );
+      transparent 400px);
 }
 
 .rfm-share-card {
@@ -166,8 +162,4 @@
   @apply w-full h-auto max-h-[400px] object-contain block mx-auto select-none;
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
-}
-
-.rfm-share-pdf-viewer {
-  @apply w-full h-[500px] border-none rounded-2xl;
 }
