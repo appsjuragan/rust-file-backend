@@ -13,6 +13,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import ReactPlayer from "react-player";
+import MpegTsPlayer from "../../../lib/components/MpegTsPlayer/MpegTsPlayer";
 import PdfViewer from "../../../lib/components/PdfViewer/PdfViewer";
 import "./PublicSharePage.css";
 
@@ -119,7 +120,25 @@ const MediaViewer: React.FC<{ info: any; token: string; fileId?: string }> = ({
           draggable={false}
         />
       )}
-      {mime.startsWith("video/") && (
+      {mime === "video/mp2t" && (
+        <div
+          className="rfm-share-media-preview bg-black flex items-center justify-center w-full relative aspect-video rounded-xl overflow-hidden"
+          onContextMenu={handleContextMenu}
+        >
+          <MpegTsPlayer
+            url={downloadUrl}
+            controls
+            playing
+            muted
+            width="100%"
+            height="100%"
+            className="rfm-share-media-video"
+            style={{ position: "absolute", top: 0, left: 0 }}
+            onContextMenu={handleContextMenu}
+          />
+        </div>
+      )}
+      {mime.startsWith("video/") && mime !== "video/mp2t" && (
         <div
           className="rfm-share-media-preview bg-black flex items-center justify-center w-full relative aspect-video rounded-xl overflow-hidden"
           onContextMenu={handleContextMenu}

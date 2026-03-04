@@ -3,6 +3,7 @@ import CommonModal from "./CommonModal";
 import { fileService } from "../../../src/services/fileService";
 import SvgIcon from "../Icons/SvgIcon";
 import ReactPlayer from "react-player";
+import MpegTsPlayer from "../MpegTsPlayer/MpegTsPlayer";
 import PdfViewer from "../PdfViewer/PdfViewer";
 
 interface IPreviewModalProps {
@@ -208,11 +209,11 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       );
     }
 
+    const mpegTsExtensions = ["ts", "m2ts"];
     const videoExtensions = [
       "mp4",
       "webm",
       "ogg",
-      "ts",
       "mkv",
       "avi",
       "mov",
@@ -220,6 +221,24 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       "wmv",
       "m4v",
     ];
+    if (mpegTsExtensions.includes(extension) && secureUrl) {
+      return (
+        <div
+          className="rfm-preview-content bg-black w-full h-full flex items-center justify-center relative"
+          onContextMenu={handleContextMenu}
+        >
+          <MpegTsPlayer
+            url={secureUrl}
+            controls
+            width="100%"
+            height="100%"
+            style={{ position: "absolute", top: 0, left: 0 }}
+            className="rfm-preview-video"
+            onContextMenu={handleContextMenu}
+          />
+        </div>
+      );
+    }
     if (videoExtensions.includes(extension) && secureUrl) {
       return (
         <div
