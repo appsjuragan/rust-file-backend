@@ -23,22 +23,66 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
   const captchaHook = useCaptcha(true);
 
   useEffect(() => {
-    const idx = Math.floor(Math.random() * 8);
-    fetch(
-      `https://bing.biturl.top/?resolution=1920&format=json&index=${idx}&mkt=en-US`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
+    const loadBackground = async () => {
+      try {
+        const idx = Math.floor(Math.random() * 8);
+        const { getCachedWebPImage, cacheWebPImage } = await import(
+          "../../utils/imageCache"
+        );
+
+        // Fetch new image details first (JSON is lightweight)
+        const res = await fetch(
+          `https://bing.biturl.top/?resolution=1920&format=json&index=${idx}&mkt=en-US`
+        );
+        const data = await res.json();
+
         if (data.url) {
+          const cacheKey = `bing-${data.url}`;
+
+          // Try getting cached image using the specific URL
+          const cachedUrl = await getCachedWebPImage(cacheKey);
+          if (cachedUrl) {
+            setBgImage(cachedUrl);
+            setBgLoaded(true);
+            return;
+          }
+
           const img = new Image();
-          img.onload = () => {
+          img.crossOrigin = "anonymous";
+          img.onload = async () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                // Compress to WebP
+                const webpUrl = canvas.toDataURL("image/webp", 0.8);
+                await cacheWebPImage(cacheKey, webpUrl);
+                setBgImage(webpUrl);
+              } else {
+                setBgImage(data.url);
+              }
+            } catch (canvasErr) {
+              console.warn("Canvas tainting or other error, using raw URL:", canvasErr);
+              setBgImage(data.url);
+            }
+            setBgLoaded(true);
+          };
+          img.onerror = () => {
+            // Fallback to raw if crossOrigin fails
             setBgImage(data.url);
             setBgLoaded(true);
           };
           img.src = data.url;
         }
-      })
-      .catch((err) => console.error("Failed to load background:", err));
+      } catch (err) {
+        console.error("Failed to load background:", err);
+      }
+    };
+
+    loadBackground();
   }, []);
 
   const validateInputs = () => {
