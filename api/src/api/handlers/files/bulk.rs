@@ -5,6 +5,8 @@ use axum::{Extension, Json, extract::{State, Path}};
 
 use super::types::*;
 
+use validator::Validate;
+
 #[utoipa::path(
     post,
     path = "/files/bulk-delete",
@@ -23,9 +25,7 @@ pub async fn bulk_delete(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDeleteRequest>,
 ) -> Result<Json<BulkDeleteResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let item_ids_for_audit = req.item_ids.clone();
     let deleted_count = state
@@ -71,9 +71,7 @@ pub async fn bulk_move(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkMoveResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let moved_count = state
         .file_service
@@ -101,9 +99,7 @@ pub async fn bulk_copy(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkCopyResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let copied_count = state
         .file_service
@@ -131,9 +127,7 @@ pub async fn bulk_download(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDownloadRequest>,
 ) -> Result<Json<BulkDownloadResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let archive_id = state
         .file_service
@@ -163,6 +157,10 @@ pub async fn get_archive_status(
     Extension(claims): Extension<Claims>,
     Path(id): Path<String>,
 ) -> Result<Json<ArchiveStatusResponse>, AppError> {
+    // Basic format validation
+    if id.len() != 36 {
+        return Err(AppError::BadRequest("Invalid archive ID format".to_string()));
+    }
     let status = state.file_service.get_archive_status(&claims.sub, &id).await?;
     Ok(Json(status))
 }

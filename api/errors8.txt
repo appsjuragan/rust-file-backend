@@ -1,0 +1,221 @@
+﻿cargo :     Checking rust-file-backend v1.1.0 
+(F:\source_code\rust-file-backend\api)
+At line:1 char:32
++ $env:CARGO_TERM_COLOR="never"; cargo check 2> errors.txt
++                                ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Checking ru...le-backend\a 
+   pi):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate 
+`sea_query`
+  --> src\services\file_service\archive.rs:72:66
+   |
+72 |                     .col_expr(download_archives::Column::Status, 
+sea_query::Expr::value("failed"))
+   |                                                                  
+^^^^^^^^^ use of unresolved module or unlinked crate `sea_query`
+   |
+   = help: if you wanted to use a crate named `sea_query`, use `cargo add 
+sea_query` to add it to your `Cargo.toml`
+help: consider importing this struct
+   |
+ 1 + use sea_orm::prelude::Expr;
+   |
+help: if you import `Expr`, refer to it directly
+   |
+72 -                     .col_expr(download_archives::Column::Status, 
+sea_query::Expr::value("failed"))
+72 +                     .col_expr(download_archives::Column::Status, 
+Expr::value("failed"))
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate 
+`sea_query`
+  --> src\services\file_service\archive.rs:73:72
+   |
+73 |                     .col_expr(download_archives::Column::ErrorMessage, 
+sea_query::Expr::value(e.to_string()))
+   |                                                                        
+^^^^^^^^^ use of unresolved module or unlinked crate `sea_query`
+   |
+   = help: if you wanted to use a crate named `sea_query`, use `cargo add 
+sea_query` to add it to your `Cargo.toml`
+help: consider importing this struct
+   |
+ 1 + use sea_orm::prelude::Expr;
+   |
+help: if you import `Expr`, refer to it directly
+   |
+73 -                     .col_expr(download_archives::Column::ErrorMessage, 
+sea_query::Expr::value(e.to_string()))
+73 +                     .col_expr(download_archives::Column::ErrorMessage, 
+Expr::value(e.to_string()))
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate 
+`sea_query`
+   --> src\services\file_service\archive.rs:141:58
+    |
+141 |             .col_expr(download_archives::Column::Status, 
+sea_query::Expr::value("generating"))
+    |                                                          ^^^^^^^^^ 
+use of unresolved module or unlinked crate `sea_query`
+    |
+    = help: if you wanted to use a crate named `sea_query`, use `cargo add 
+sea_query` to add it to your `Cargo.toml`
+help: consider importing this struct
+    |
+  1 + use sea_orm::prelude::Expr;
+    |
+help: if you import `Expr`, refer to it directly
+    |
+141 -             .col_expr(download_archives::Column::Status, 
+sea_query::Expr::value("generating"))
+141 +             .col_expr(download_archives::Column::Status, 
+Expr::value("generating"))
+    |
+
+warning: unused import: `Condition`
+ --> src\services\file_service\archive.rs:6:67
+  |
+6 |     ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, 
+Condition,
+  |                                                                   
+^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by 
+default
+
+warning: unused import: `serde_json::json`
+  --> src\services\file_service\archive.rs:10:5
+   |
+10 | use serde_json::json;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::io::AsyncReadExt`
+   --> src\services\file_service\archive.rs:216:17
+    |
+216 |             use tokio::io::AsyncReadExt;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `download_file` found for struct `Arc<dyn 
+StorageService>` in the current scope
+   --> src\services\file_service\archive.rs:217:41
+    |
+217 |             let mut s3_stream = storage.download_file(&s3_key).await?;
+    |                                         ^^^^^^^^^^^^^
+    |
+help: there is a method `upload_file` with a similar name, but with 
+different arguments
+   --> src\services\storage.rs:24:5
+    |
+ 24 |     async fn upload_file(&self, key: &str, data: Vec<u8>) -> 
+Result<()>;
+    |     
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `map_err` found for struct `FramedRead<T, D>` 
+in the current scope
+   --> src\services\file_service\archive.rs:248:41
+    |
+248 |         let mapped_stream = byte_stream.map_err(|e| 
+crate::api::error::AppError::Internal(e.to_string()));
+    |                                         ^^^^^^^ method not found in 
+`FramedRead<tokio::fs::File, BytesCodec>`
+    |
+   ::: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b
+5b557f\futures-util-0.3.31\src\stream\try_stream\mod.rs:248:8
+    |
+248 |     fn map_err<E, F>(self, f: F) -> MapErr<Self, F>
+    |        ------- the method is available for 
+`FramedRead<tokio::fs::File, BytesCodec>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `TryStreamExt` which provides `map_err` is implemented but not 
+in scope; perhaps you want to import it
+    |
+  1 + use futures::TryStreamExt;
+    |
+
+error[E0282]: type annotations needed
+   --> src\services\file_service\archive.rs:248:50
+    |
+248 |         let mapped_stream = byte_stream.map_err(|e| 
+crate::api::error::AppError::Internal(e.to_string()));
+    |                                                  ^                    
+                    - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+248 |         let mapped_stream = byte_stream.map_err(|e: /* Type */| 
+crate::api::error::AppError::Internal(e.to_string()));
+    |                                                   ++++++++++++
+
+error[E0599]: no method named `upload_stream` found for struct `Arc<dyn 
+StorageService>` in the current scope
+   --> src\services\file_service\archive.rs:250:31
+    |
+250 |         let s3_path = storage.upload_stream(
+    |                       --------^^^^^^^^^^^^^
+    |
+help: there is a method `upload_stream_with_hash` with a similar name, but 
+with different arguments
+   --> src\services\storage.rs:25:5
+    |
+ 25 | /     async fn upload_stream_with_hash<'a>(
+ 26 | |         &self,
+ 27 | |         key: &str,
+ 28 | |         reader: Box<dyn AsyncRead + Unpin + Send + 'a>,
+ 29 | |     ) -> Result<UploadResult>;
+    | |______________________________^
+
+error[E0282]: type annotations needed
+   --> src\services\file_service\archive.rs:250:23
+    |
+250 |           let s3_path = storage.upload_stream(
+    |  _______________________^
+251 | |             s3_target_key.clone(),
+252 | |             Box::pin(mapped_stream),
+253 | |             "application/zip",
+254 | |             file_size as i64
+255 | |         ).await.map_err(|e| anyhow::anyhow!("Failed to upload zip: 
+{}", e))?;
+    | |_______________^ cannot infer type
+
+error[E0599]: no function or associated item named `new` found for struct 
+`entities::download_archives::ActiveModel` in the current scope
+   --> src\services\file_service\archive.rs:259:66
+    |
+259 |         let mut active_archive = 
+download_archives::ActiveModel::new();
+    |                                                                  ^^^ 
+function or associated item not found in 
+`entities::download_archives::ActiveModel`
+    |
+   ::: src\entities\download_archives.rs:5:39
+    |
+  5 | #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, 
+Deserialize)]
+    |                                       ----------------- function or 
+associated item `new` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: there is a method `ne` with a similar name, but with different 
+arguments
+   --> C:\Users\Administrator\.rustup\toolchains\stable-x86_64-pc-windows-ms
+vc\lib/rustlib/src/rust\library\core\src\cmp.rs:264:5
+    |
+264 |     fn ne(&self, other: &Rhs) -> bool {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: trait `ActiveModelBehavior` which provides `new` is implemented but 
+not in scope; perhaps you want to import it
+    |
+  1 + use sea_orm::ActiveModelBehavior;
+    |
+
+Some errors have detailed explanations: E0282, E0433, E0599.
+For more information about an error, try `rustc --explain E0282`.
+warning: `rust-file-backend` (lib) generated 3 warnings
+error: could not compile `rust-file-backend` (lib) due to 9 previous 
+errors; 3 warnings emitted

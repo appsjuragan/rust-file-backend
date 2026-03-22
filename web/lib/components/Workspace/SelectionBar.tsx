@@ -1,6 +1,7 @@
 import React from "react";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType } from "../../types";
+import { useFileActions } from "../../hooks/useFileActions";
 
 interface SelectionBarProps {
   selectedIds: string[];
@@ -29,6 +30,7 @@ const SelectionBar = ({
   setDialogState,
   handleShare,
 }: SelectionBarProps) => {
+  const { handleBulkDownload } = useFileActions();
   if (selectedIds.length === 0) return null;
 
   return (
@@ -51,17 +53,16 @@ const SelectionBar = ({
         title="Toggle Select All"
       >
         <div
-          className={`rfm-selection-checkbox ${
-            currentFolderFiles.length > 0 &&
+          className={`rfm-selection-checkbox ${currentFolderFiles.length > 0 &&
             currentFolderFiles.every((f) => selectedIds.includes(f.id))
-              ? "is-checked"
-              : ""
-          }`}
+            ? "is-checked"
+            : ""
+            }`}
         >
           <SvgIcon
             svgType={
               currentFolderFiles.length > 0 &&
-              currentFolderFiles.every((f) => selectedIds.includes(f.id))
+                currentFolderFiles.every((f) => selectedIds.includes(f.id))
                 ? "check"
                 : "square"
             }
@@ -119,6 +120,18 @@ const SelectionBar = ({
         </div>
       )}
 
+      {/* Bulk Download Button */}
+      <div
+        className="rfm-selection-action-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleBulkDownload();
+        }}
+        title="Download"
+      >
+        <SvgIcon svgType="download" />
+      </div>
+
       <div
         className="rfm-selection-action-btn ml-auto"
         onClick={(e) => {
@@ -127,8 +140,8 @@ const SelectionBar = ({
           const targetFile =
             selectedIds.length === 1
               ? currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
-                fs.find((f) => f.id === selectedIds[0]) ||
-                null
+              fs.find((f) => f.id === selectedIds[0]) ||
+              null
               : null;
 
           setContextMenu({

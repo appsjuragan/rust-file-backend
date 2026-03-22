@@ -60,6 +60,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     handleCut: hookHandleCut,
     handleDelete: hookHandleDelete,
     handlePaste: hookHandlePaste,
+    handleBulkDownload,
   } = useFileActions();
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -132,19 +133,25 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   };
 
   const handleDownload = async () => {
-    if (file && !file.isDir) {
-      try {
-        const res = await fileService.getDownloadTicket(file.id);
-        const url = res.url; // presigned URL from backend
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = file.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (err) {
-        console.error("Failed to initiate download:", err);
-        alert("Failed to prepare download. Please try again.");
+    if (selectedIds.length > 0) {
+      triggerAction(() => handleBulkDownload(selectedIds));
+    } else if (file) {
+      if (!file.isDir) {
+        try {
+          const res = await fileService.getDownloadTicket(file.id);
+          const url = res.url; // presigned URL from backend
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = file.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (err) {
+          console.error("Failed to initiate download:", err);
+          alert("Failed to prepare download. Please try again.");
+        }
+      } else {
+        triggerAction(() => handleBulkDownload([file.id]));
       }
     }
     onClose();
@@ -216,13 +223,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
           isMobile
             ? {}
             : {
-                top: y > window.innerHeight - 300 ? "auto" : y,
-                bottom:
-                  y > window.innerHeight - 300
-                    ? window.innerHeight - y + 5
-                    : "auto",
-                left: x,
-              }
+              top: y > window.innerHeight - 300 ? "auto" : y,
+              bottom:
+                y > window.innerHeight - 300
+                  ? window.innerHeight - y + 5
+                  : "auto",
+              left: x,
+            }
         }
       >
         {isMobile && (
@@ -246,8 +253,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               {(() => {
                 const targetFiles =
                   file &&
-                  selectedIds.includes(file.id) &&
-                  selectedIds.length > 1
+                    selectedIds.includes(file.id) &&
+                    selectedIds.length > 1
                     ? fs.filter((f) => selectedIds.includes(f.id))
                     : file
                       ? [file]
@@ -269,11 +276,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                   <>
                     {/* Open (Preview) - Bold */}
                     <div
-                      className={`rfm-context-menu-item font-bold ${
-                        isScanBusy
-                          ? "disabled opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
+                      className={`rfm-context-menu-item font-bold ${isScanBusy
+                        ? "disabled opacity-50 cursor-not-allowed"
+                        : ""
+                        }`}
                       onClick={isScanBusy ? undefined : handleOpen}
                     >
                       <SvgIcon
@@ -302,11 +308,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {/* Rename - Only for single file */}
                     {targetFile && (
                       <div
-                        className={`rfm-context-menu-item ${
-                          isScanBusy
-                            ? "disabled opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
+                        className={`rfm-context-menu-item ${isScanBusy
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
+                          }`}
                         onClick={isScanBusy ? undefined : handleRename}
                       >
                         <SvgIcon
@@ -375,11 +380,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                             <>
                               <SvgIcon
                                 svgType="star"
-                                className={`rfm-context-menu-icon ${
-                                  isAllFav
-                                    ? "fill-yellow-400 text-yellow-500"
-                                    : ""
-                                }`}
+                                className={`rfm-context-menu-icon ${isAllFav
+                                  ? "fill-yellow-400 text-yellow-500"
+                                  : ""
+                                  }`}
                               />
                               {isAllFav
                                 ? "Remove from Favorites"
@@ -421,14 +425,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     )}
 
                     {/* Download - Allowed for files and folders */}
-                    {targetFile && (
+                    {targetFiles.length > 0 && (
                       <>
                         <div
-                          className={`rfm-context-menu-item ${
-                            isScanBusy
-                              ? "disabled opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
+                          className={`rfm-context-menu-item ${isScanBusy
+                            ? "disabled opacity-50 cursor-not-allowed"
+                            : ""
+                            }`}
                           onClick={isScanBusy ? undefined : handleDownload}
                         >
                           <SvgIcon

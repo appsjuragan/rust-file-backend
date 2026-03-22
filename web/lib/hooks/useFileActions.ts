@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useFileManager } from "../context";
 import { FileType } from "../types";
+import { fileService } from "../../src/services/fileService";
 
 export const useFileActions = () => {
   const {
@@ -171,7 +172,6 @@ export const useFileActions = () => {
 
       setIsZipping(true);
       try {
-        const { fileService } = await import("../../src/services/fileService");
         const res = await fileService.bulkDownload(ids);
 
         const archiveId = res.archive_id;
@@ -182,12 +182,7 @@ export const useFileActions = () => {
           if (statusRes.status === "ready") {
             isReady = true;
             if (statusRes.url) {
-              const link = document.createElement("a");
-              link.href = statusRes.url;
-              link.download = statusRes.filename;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              window.location.assign(statusRes.url);
             }
           } else if (statusRes.status === "failed") {
             alert(`Preparation failed: ${statusRes.error_message || "Unknown error"}`);
