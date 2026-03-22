@@ -45,6 +45,8 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::bulk::bulk_delete,
         api::handlers::files::bulk::bulk_move,
         api::handlers::files::bulk::bulk_copy,
+        api::handlers::files::bulk::bulk_download,
+        api::handlers::files::bulk::get_archive_status,
         api::handlers::files::download::generate_download_ticket,
         api::handlers::files::download::download_file_with_ticket,
         api::handlers::files::list::folder_tree,
@@ -87,6 +89,9 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::BulkMoveRequest,
             api::handlers::files::BulkMoveResponse,
             api::handlers::files::BulkCopyResponse,
+            api::handlers::files::BulkDownloadRequest,
+            api::handlers::files::BulkDownloadResponse,
+            api::handlers::files::ArchiveStatusResponse,
             api::handlers::files::FolderTreeEntry,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
@@ -242,6 +247,8 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route("/files/bulk-move", post(api::handlers::files::bulk_move))
         .route("/files/bulk-copy", post(api::handlers::files::bulk_copy))
+        .route("/files/bulk-download", post(api::handlers::files::bulk_download))
+        .route("/files/archive/:id/status", get(api::handlers::files::get_archive_status))
         .route(
             "/settings",
             get(api::handlers::user_settings::get_settings)

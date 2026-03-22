@@ -8,6 +8,7 @@ pub mod delete;
 pub mod metadata;
 pub mod types;
 pub mod upload;
+pub mod archive;
 
 pub use types::StagedFile;
 

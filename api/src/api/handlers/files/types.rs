@@ -139,3 +139,25 @@ pub struct BulkDeleteResponse {
 pub struct BulkCopyResponse {
     pub copied_count: usize,
 }
+
+#[derive(Deserialize, ToSchema)]
+pub struct BulkDownloadRequest {
+    pub item_ids: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BulkDownloadResponse {
+    pub archive_id: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArchiveStatusResponse {
+    pub id: String,
+    pub status: String,
+    pub filename: String,
+    pub file_size: Option<i64>,
+    pub error_message: Option<String>,
+    pub ticket: Option<String>,
+    pub url: Option<String>,
+    pub expires_at: Option<chrono::DateTime<Utc>>,
+}

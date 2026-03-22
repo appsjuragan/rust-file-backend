@@ -82,6 +82,8 @@ interface ProviderInterface {
   setModalPosition: Dispatch<{ x: number; y: number } | null>;
   isMoving: boolean;
   setIsMoving: Dispatch<boolean>;
+  isZipping: boolean;
+  setIsZipping: Dispatch<boolean>;
   dialogState: {
     isVisible: boolean;
     title: string;

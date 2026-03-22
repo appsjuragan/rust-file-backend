@@ -21,6 +21,8 @@ export const useFileActions = () => {
     setDialogState,
     setShareFile,
     setShareModalVisible,
+    isZipping,
+    setIsZipping,
   } = useFileManager();
 
   const handleCopy = useCallback(
@@ -157,11 +159,61 @@ export const useFileActions = () => {
     [setShareFile, setShareModalVisible],
   );
 
+  const handleBulkDownload = useCallback(
+    async (targetIds?: string[], targetFile?: FileType) => {
+      const ids = targetIds && targetIds.length > 0 ? targetIds : selectedIds;
+      if (ids.length === 0) return;
+
+      if (isZipping) {
+        alert("A ZIP archive is already being prepared. Please wait.");
+        return;
+      }
+
+      setIsZipping(true);
+      try {
+        const { fileService } = await import("../../src/services/fileService");
+        const res = await fileService.bulkDownload(ids);
+
+        const archiveId = res.archive_id;
+        let isReady = false;
+
+        while (!isReady) {
+          const statusRes = await fileService.getArchiveStatus(archiveId);
+          if (statusRes.status === "ready") {
+            isReady = true;
+            if (statusRes.url) {
+              const link = document.createElement("a");
+              link.href = statusRes.url;
+              link.download = statusRes.filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+          } else if (statusRes.status === "failed") {
+            alert(`Preparation failed: ${statusRes.error_message || "Unknown error"}`);
+            break;
+          } else {
+            // wait 2 seconds before polling again
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+      } catch (err: any) {
+        console.error("Bulk download error:", err);
+        alert(err.message || "Failed to start bulk download");
+      } finally {
+        setIsZipping(false);
+        setSelectedIds([]);
+      }
+    },
+    [selectedIds, isZipping, setIsZipping, setSelectedIds],
+  );
+
   return {
     handleCopy,
     handleCut,
     handlePaste,
     handleDelete,
     handleShare,
+    handleBulkDownload,
   };
 };
