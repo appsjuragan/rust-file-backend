@@ -133,28 +133,38 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   };
 
   const handleDownload = async () => {
-    if (selectedIds.length > 0) {
-      triggerAction(() => handleBulkDownload(selectedIds));
-    } else if (file) {
-      if (!file.isDir) {
-        try {
-          const res = await fileService.getDownloadTicket(file.id);
-          const url = res.url; // presigned URL from backend
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = file.name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } catch (err) {
-          console.error("Failed to initiate download:", err);
-          alert("Failed to prepare download. Please try again.");
-        }
-      } else {
-        triggerAction(() => handleBulkDownload([file.id]));
-      }
-    }
     onClose();
+
+    // Determine if this is a single non-folder file
+    const singleFile = file && !file.isDir ? file
+      : (selectedIds.length === 1
+        ? fs.find((f) => f.id === selectedIds[0] && !f.isDir) || null
+        : null);
+
+    // Single non-folder file → direct download via ticket (no ZIP)
+    if (singleFile && selectedIds.length <= 1) {
+      try {
+        const res = await fileService.getDownloadTicket(singleFile.id);
+        const url = res.url;
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = singleFile.name;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error("Failed to initiate download:", err);
+        alert("Failed to prepare download. Please try again.");
+      }
+      return;
+    }
+
+    // Multi-select or folder(s) → bulk ZIP download
+    const ids = selectedIds.length > 0 ? selectedIds : (file ? [file.id] : []);
+    if (ids.length > 0) {
+      handleBulkDownload(ids);
+    }
   };
 
   const handleViewMetadata = () => {

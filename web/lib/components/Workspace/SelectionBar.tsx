@@ -2,6 +2,7 @@ import React from "react";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType } from "../../types";
 import { useFileActions } from "../../hooks/useFileActions";
+import { fileService } from "../../../src/services/fileService";
 
 interface SelectionBarProps {
   selectedIds: string[];
@@ -123,8 +124,28 @@ const SelectionBar = ({
       {/* Bulk Download Button */}
       <div
         className="rfm-selection-action-btn"
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation();
+          // Single non-folder file → direct download
+          if (selectedIds.length === 1) {
+            const singleFile = currentFolderFiles.find((f) => f.id === selectedIds[0])
+              || fs.find((f) => f.id === selectedIds[0]);
+            if (singleFile && !singleFile.isDir) {
+              try {
+                const res = await fileService.getDownloadTicket(singleFile.id);
+                const link = document.createElement("a");
+                link.href = res.url;
+                link.download = singleFile.name;
+                link.style.display = "none";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              } catch (err) {
+                console.error("Download failed:", err);
+              }
+              return;
+            }
+          }
           handleBulkDownload();
         }}
         title="Download"

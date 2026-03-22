@@ -151,6 +151,7 @@ export const ReactFileManager = ({
   const [shareFile, setShareFile] = useState<FileType | null>(null);
   const [accessLogVisible, setAccessLogVisible] = useState<boolean>(false);
   const [accessLogFile, setAccessLogFile] = useState<FileType | null>(null);
+  const [isZipping, setIsZipping] = useState<boolean>(false);
   // Responsive sidebar
   const isDesktop = useMediaQuery("(min-width: 769px)");
   const [internalSidebarVisible, setInternalSidebarVisible] =
@@ -680,6 +681,8 @@ export const ReactFileManager = ({
       setAccessLogVisible,
       accessLogFile,
       setAccessLogFile,
+      isZipping,
+      setIsZipping,
     }),
     [
       newFolderModalVisible,
@@ -699,6 +702,7 @@ export const ReactFileManager = ({
       shareFile,
       accessLogVisible,
       accessLogFile,
+      isZipping,
     ],
   );
 
