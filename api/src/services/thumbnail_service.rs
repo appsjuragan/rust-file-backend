@@ -230,22 +230,18 @@ impl ThumbnailService {
         let output_file = NamedTempFile::with_suffix(".png")?;
         let output_path = output_file.path().to_string_lossy().to_string();
 
-        // Use ffmpeg to extract the HEIF image as PNG
-        let output = Command::new("ffmpeg")
-            .arg("-y") // Overwrite output
-            .arg("-i")
+        // Use heif-thumbnailer to extract the HEIF image as PNG
+        let output = Command::new("heif-thumbnailer")
+            .arg("-s")
+            .arg(THUMB_SIZE.to_string())
             .arg(input_path.as_os_str())
-            .arg("-vframes")
-            .arg("1")
-            .arg("-vf")
-            .arg(format!("scale={}:-1", THUMB_SIZE)) // THUMB_SIZE width, auto height
             .arg(&output_path)
             .output()?;
 
         if !output.status.success() {
             let err_msg = String::from_utf8_lossy(&output.stderr);
-            error!("ffmpeg failed on HEIC/HEIF: {}", err_msg);
-            return Err(anyhow!("ffmpeg failed on HEIC: {}", err_msg));
+            error!("heif-thumbnailer failed on HEIC/HEIF: {}", err_msg);
+            return Err(anyhow!("heif-thumbnailer failed on HEIC: {}", err_msg));
         }
 
         let png_data = tokio::fs::read(&output_path).await?;

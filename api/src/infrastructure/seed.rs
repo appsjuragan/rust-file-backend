@@ -60,6 +60,8 @@ pub async fn seed_validation_data_sqlite(db: &DatabaseConnection) -> anyhow::Res
         ),
         ("image/jpeg", "Images"),
         ("image/png", "Images"),
+        ("image/heic", "Images"),
+        ("image/heif", "Images"),
         ("audio/mpeg", "Audio"),
         ("video/mp4", "Video"),
         ("video/mp2t", "Video"),

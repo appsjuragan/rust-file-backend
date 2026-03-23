@@ -34,7 +34,8 @@ RUN apk add --no-cache \
     tzdata \
     curl \
     poppler-utils \
-    ffmpeg
+    ffmpeg \
+    heif-thumbnailer
 
 WORKDIR /app
 

@@ -231,6 +231,8 @@ INSERT INTO allowed_mimes (mime_type, category) VALUES
 ('image/bmp', 'Images'),
 ('image/tiff', 'Images'),
 ('image/svg+xml', 'Images'),
+('image/heic', 'Images'),
+('image/heif', 'Images'),
 ('audio/mpeg', 'Audio'),
 ('audio/mp3', 'Audio'),
 ('audio/wav', 'Audio'),

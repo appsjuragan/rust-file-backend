@@ -5,6 +5,7 @@ import SvgIcon from "../Icons/SvgIcon";
 import ReactPlayer from "react-player";
 import MpegTsPlayer from "../MpegTsPlayer/MpegTsPlayer";
 import PdfViewer from "../PdfViewer/PdfViewer";
+import HeicViewer from "./HeicViewer";
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -199,11 +200,26 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       return (
         <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
           <img
-            src={secureUrl}
+            src={secureUrl as string}
             alt={fileName}
             className="rfm-preview-image"
             onContextMenu={handleContextMenu}
             draggable={false}
+          />
+        </div>
+      );
+    }
+
+    if (
+      ["heic", "heif"].includes(extension) &&
+      secureUrl
+    ) {
+      return (
+        <div className="rfm-preview-content" onContextMenu={handleContextMenu}>
+          <HeicViewer
+            url={secureUrl as string}
+            className="rfm-preview-image"
+            onContextMenu={handleContextMenu}
           />
         </div>
       );
