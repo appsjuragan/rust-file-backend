@@ -66,6 +66,8 @@ interface ProviderInterface {
   setMetadataVisible: Dispatch<boolean>;
   metadataFile: FileType | null;
   setMetadataFile: Dispatch<FileType | null>;
+  newTextFileModalVisible: boolean;
+  setNewTextFileModalVisible: Dispatch<boolean>;
   renameVisible: boolean;
   setRenameVisible: Dispatch<boolean>;
   renameFile: FileType | null;

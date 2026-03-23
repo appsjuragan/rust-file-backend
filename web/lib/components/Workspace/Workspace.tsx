@@ -25,7 +25,7 @@ import { useWorkspaceKeyboard } from "../../hooks/useWorkspaceKeyboard";
 import { useMarqueeSelection } from "../../hooks/useMarqueeSelection";
 
 // Modals
-import NewTextFileModal from "../Modals/NewTextFileModal";
+// import NewTextFileModal from "../Modals/NewTextFileModal";
 
 import {
   flexRender,
@@ -88,13 +88,13 @@ const Workspace = () => {
     iconSize,
     favorites,
     toggleFavorite,
+    setNewTextFileModalVisible, // Keep this as it's used in FAB
   } = useFileManager();
 
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
-  const [newTextFileModalVisible, setNewTextFileModalVisible] = useState(false);
 
   // Breadcrumb visibility state
   const [showHeader, setShowHeader] = useState(true);
@@ -521,18 +521,6 @@ const Workspace = () => {
         setContextMenu={setContextMenu}
         setDialogState={setDialogState}
         handleShare={handleShare}
-      />
-
-      {/* Modals */}
-      <NewTextFileModal
-        isVisible={newTextFileModalVisible}
-        onClose={() => setNewTextFileModalVisible(false)}
-        onCreate={async (fileName, content) => {
-          const file = new File([content], fileName, { type: "text/plain" });
-          if (onUpload) {
-            await onUpload([{ file, path: fileName }], currentFolder);
-          }
-        }}
       />
     </section>
   );

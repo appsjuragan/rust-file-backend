@@ -177,14 +177,14 @@ export const useFileUpload = (
     if (!hash) {
       try {
         hash = await calculateHash(file);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     let preCheck = { exists: false, file_id: null };
     if (hash) {
       try {
         preCheck = (await fileService.preCheck(hash, file.size)) as any;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (preCheck.exists && preCheck.file_id) {
@@ -370,7 +370,7 @@ export const useFileUpload = (
             let hash = "";
             try {
               hash = await calculateHash(file);
-            } catch (e) {}
+            } catch (e) { }
 
             const existing = currentFilesRef.current.find((f) => {
               const normFParent =
@@ -379,8 +379,8 @@ export const useFileUpload = (
                   : f.parentId;
               const normTargetParent =
                 !targetFolderId ||
-                targetFolderId === "0" ||
-                targetFolderId === "root"
+                  targetFolderId === "0" ||
+                  targetFolderId === "root"
                   ? "0"
                   : targetFolderId;
               return (
@@ -414,9 +414,14 @@ export const useFileUpload = (
                 if (!shouldOverwrite) {
                   // If cancelled, remove from active uploads or mark error
                   updateStatus(id, 0, "error", "Cancelled");
-                  // Determine if we want to remove it:
-                  // setActiveUploads(prev => prev.filter(u => u.id !== id));
                   continue;
+                } else {
+                  // User chose to overwrite, delete the old file first to prevent duplicate rows
+                  try {
+                    await fileService.deleteItem(existing.id);
+                  } catch (delError) {
+                    console.warn(`Failed to delete existing file ${existing.id} before overwrite:`, delError);
+                  }
                 }
               }
             }

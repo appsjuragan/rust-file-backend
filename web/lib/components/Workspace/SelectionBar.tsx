@@ -134,7 +134,7 @@ const SelectionBar = ({
               try {
                 const res = await fileService.getDownloadTicket(singleFile.id);
                 const link = document.createElement("a");
-                link.href = res.url;
+                link.href = res.url.includes("?") ? `${res.url}&download=1` : `${res.url}?download=1`;
                 link.download = singleFile.name;
                 link.style.display = "none";
                 document.body.appendChild(link);

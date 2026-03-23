@@ -5,6 +5,7 @@ import SvgIcon from "../Icons/SvgIcon";
 import { fileService } from "../../../src/services/fileService";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { isEditableTextFile } from "../Modals/TextEditorModal";
 
 interface IContextMenuProps {
   x: number;
@@ -14,7 +15,9 @@ interface IContextMenuProps {
   onPreview: (file: FileType) => void;
   onViewMetadata: (file: FileType) => void;
   onRename: (file: FileType) => void;
+  onEdit?: (file: FileType) => void;
   onNewFolder: () => void;
+  onNewTextFile: () => void;
   onUpload: () => void;
   onShare?: (file: FileType) => void;
   onViewAccessLog?: (file: FileType) => void;
@@ -28,7 +31,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   onPreview,
   onViewMetadata,
   onRename,
+  onEdit,
   onNewFolder,
+  onNewTextFile,
   onUpload,
   onShare,
   onViewAccessLog,
@@ -147,7 +152,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         const res = await fileService.getDownloadTicket(singleFile.id);
         const url = res.url;
         const link = document.createElement("a");
-        link.href = url;
+        link.href = url.includes("?") ? `${url}&download=1` : `${url}?download=1`;
         link.download = singleFile.name;
         link.style.display = "none";
         document.body.appendChild(link);
@@ -298,6 +303,23 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       />
                       Open (Preview)
                     </div>
+
+                    {/* Edit - Only for editable text files */}
+                    {targetFile && !targetFile.isDir && isEditableTextFile(targetFile.name, targetFile.mimeType, targetFile.size) && onEdit && (
+                      <div
+                        className={`rfm-context-menu-item ${isScanBusy
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
+                          }`}
+                        onClick={isScanBusy ? undefined : () => triggerAction(() => onEdit(targetFile))}
+                      >
+                        <SvgIcon
+                          svgType="edit"
+                          className="rfm-context-menu-icon"
+                        />
+                        Edit
+                      </div>
+                    )}
 
                     {/* View Meta Data - Only for single file */}
                     {targetFile && (
@@ -483,6 +505,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               >
                 <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
                 New Folder
+              </div>
+              <div
+                className="rfm-context-menu-item"
+                onClick={() => triggerAction(onNewTextFile)}
+              >
+                <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                New Text File
               </div>
               <div
                 className="rfm-context-menu-item"
