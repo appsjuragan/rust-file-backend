@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useRef } from "react";
-// @ts-ignore
-import libheif from "libheif-js";
 
 import SvgIcon from "../Icons/SvgIcon";
 
@@ -22,6 +20,10 @@ const HeicViewer: React.FC<HeicViewerProps> = ({ url, className, onContextMenu }
             try {
                 setLoading(true);
                 setError(null);
+
+                // Dynamically import libheif-js only when needed (2MB+ WASM)
+                // @ts-ignore
+                const libheif = (await import("libheif-js")).default;
 
                 // Fetch image data
                 const response = await fetch(url);

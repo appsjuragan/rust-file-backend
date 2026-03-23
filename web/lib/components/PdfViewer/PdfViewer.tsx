@@ -4,11 +4,6 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import "./PdfViewer.css";
 
-// Configure pdfjs worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-).toString();
 
 interface PdfViewerProps {
     /** URL to the PDF file (same-origin ticket URL to avoid CORS) */

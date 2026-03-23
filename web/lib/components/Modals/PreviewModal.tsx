@@ -4,8 +4,9 @@ import { fileService } from "../../../src/services/fileService";
 import SvgIcon from "../Icons/SvgIcon";
 import ReactPlayer from "react-player";
 import MpegTsPlayer from "../MpegTsPlayer/MpegTsPlayer";
-import PdfViewer from "../PdfViewer/PdfViewer";
-import HeicViewer from "./HeicViewer";
+
+const PdfViewer = React.lazy(() => import("../PdfViewer/PdfViewer"));
+const HeicViewer = React.lazy(() => import("./HeicViewer"));
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -348,7 +349,9 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
       className="rfm-preview-modal"
       clickPosition={clickPosition}
     >
-      {renderPreview()}
+      <React.Suspense fallback={<div className="rfm-preview-loading">Loading viewer...</div>}>
+        {renderPreview()}
+      </React.Suspense>
       {secureUrl && !loading && (
         <a
           href={secureUrl}
