@@ -57,8 +57,27 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
     const onDocumentLoadError = useCallback((err: Error) => {
         console.error("PDF load error:", err);
+        // Don't set error if it's a password related error which is handled by onPassword
+        if (err.message.includes("password")) return;
+
         setError("Failed to load PDF. The file may be corrupted or inaccessible.");
         setLoading(false);
+    }, []);
+
+    const onPassword = useCallback((callback: (password: string | null) => void, reason: number) => {
+        const msg = reason === 1
+            ? "This document is password protected. Please enter the password:"
+            : "Invalid password. Please try again.";
+
+        const pass = window.prompt(msg);
+        if (pass !== null) {
+            callback(pass);
+        } else {
+            // If user cancels, we stop loading
+            setLoading(false);
+            setError("Password required to view this PDF.");
+            callback(null); // Passing null stops the retry loop in react-pdf
+        }
     }, []);
 
     const handleContextMenu = useCallback(
@@ -256,6 +275,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
                     file={url}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={onDocumentLoadError}
+                    onPassword={onPassword}
                     loading={null}
                     className="rfm-pdf-document"
                 >

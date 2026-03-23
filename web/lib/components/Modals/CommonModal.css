@@ -277,6 +277,10 @@
       @apply block w-16 h-1.5 bg-stone-300 dark:bg-slate-700/80 rounded-full mx-auto mt-4 mb-2 shrink-0 cursor-pointer active:scale-95 transition-transform;
     }
 
+    .rfm-preview-modal .rfm-modal-handle {
+      @apply hidden;
+    }
+
     .rfm-modal-header {
       @apply bg-transparent border-0 shadow-none px-6 pt-5 pb-4 flex items-center justify-between;
       background: none;
@@ -349,7 +353,7 @@
     }
 
     .rfm-preview-modal .rfm-modal-body {
-      @apply w-screen h-screen p-0 bg-stone-50 dark:bg-slate-900 flex items-center justify-center pt-0 overflow-hidden;
+      @apply w-screen h-screen p-0 bg-stone-50 dark:bg-slate-900 flex flex-col items-stretch justify-start pt-0 overflow-hidden;
     }
 
     .rfm-preview-modal:has(.rfm-preview-image) .rfm-modal-body,
@@ -392,7 +396,8 @@
     .rfm-zip-preview,
     .rfm-preview-full,
     .rfm-preview-no-support {
-      padding-top: 64px !important;
+      padding-top: 56px !important;
+      /* Match header min-height */
     }
 
     .rfm-zip-list {
