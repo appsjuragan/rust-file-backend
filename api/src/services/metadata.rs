@@ -53,6 +53,8 @@ impl MetadataService {
                 "png" => "image/png",
                 "gif" => "image/gif",
                 "webp" => "image/webp",
+                "heic" => "image/heic",
+                "heif" => "image/heif",
                 "svg" => "image/svg+xml",
                 "pdf" => "application/pdf",
                 "txt" => "text/plain",

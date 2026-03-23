@@ -11,7 +11,7 @@ pub use types::*;
 
 // Re-export all handlers
 pub use archive::get_zip_contents;
-pub use bulk::{bulk_copy, bulk_delete, bulk_move};
+pub use bulk::{bulk_copy, bulk_delete, bulk_move, bulk_download, get_archive_status};
 pub use download::{
     download_file, download_file_with_ticket, generate_download_ticket, get_thumbnail,
 };

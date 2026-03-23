@@ -166,4 +166,15 @@ export const fileService = {
   getShareDownloadUrl: (token: string) => `${BASE_URL}/share/${token}/download`,
   listSharedFolder: (token: string) =>
     fetch(`${BASE_URL}/share/${token}/list`).then((r) => r.json()),
+
+  // ── Bulk Download ───────────────────────────────────────
+  bulkDownload: (itemIds: string[]) =>
+    request("/files/bulk-download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item_ids: itemIds }),
+    }),
+
+  getArchiveStatus: (archiveId: string) =>
+    request(`/files/archive/${archiveId}/status`),
 };

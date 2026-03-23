@@ -66,6 +66,8 @@ interface ProviderInterface {
   setMetadataVisible: Dispatch<boolean>;
   metadataFile: FileType | null;
   setMetadataFile: Dispatch<FileType | null>;
+  newTextFileModalVisible: boolean;
+  setNewTextFileModalVisible: Dispatch<boolean>;
   renameVisible: boolean;
   setRenameVisible: Dispatch<boolean>;
   renameFile: FileType | null;
@@ -82,6 +84,8 @@ interface ProviderInterface {
   setModalPosition: Dispatch<{ x: number; y: number } | null>;
   isMoving: boolean;
   setIsMoving: Dispatch<boolean>;
+  isZipping: boolean;
+  setIsZipping: Dispatch<boolean>;
   dialogState: {
     isVisible: boolean;
     title: string;

@@ -98,13 +98,15 @@ pub struct RenameRequest {
     pub parent_id: Option<String>,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct BulkDeleteRequest {
+    #[validate(length(min = 1, max = 1000, message = "Maximum 1000 items per request"))]
     pub item_ids: Vec<String>,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct BulkMoveRequest {
+    #[validate(length(min = 1, max = 1000, message = "Maximum 1000 items per request"))]
     pub item_ids: Vec<String>,
     pub parent_id: Option<String>,
 }
@@ -114,7 +116,7 @@ pub struct BulkMoveResponse {
     pub moved_count: usize,
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Validate)]
 pub struct LinkFileRequest {
     pub storage_file_id: String,
     pub filename: String,
@@ -138,4 +140,27 @@ pub struct BulkDeleteResponse {
 #[derive(Serialize, ToSchema)]
 pub struct BulkCopyResponse {
     pub copied_count: usize,
+}
+
+#[derive(Deserialize, ToSchema, Validate)]
+pub struct BulkDownloadRequest {
+    #[validate(length(min = 1, max = 1000, message = "Maximum 1000 items per request"))]
+    pub item_ids: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BulkDownloadResponse {
+    pub archive_id: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArchiveStatusResponse {
+    pub id: String,
+    pub status: String,
+    pub filename: String,
+    pub file_size: Option<i64>,
+    pub error_message: Option<String>,
+    pub ticket: Option<String>,
+    pub url: Option<String>,
+    pub expires_at: Option<chrono::DateTime<Utc>>,
 }

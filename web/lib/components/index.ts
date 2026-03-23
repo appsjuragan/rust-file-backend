@@ -19,3 +19,5 @@ export { default as AvatarCropModal } from "./Modals/AvatarCropModal";
 export { default as ContextMenu } from "./ContextMenu/ContextMenu";
 export { default as ShareModal } from "./Modals/ShareModal";
 export { default as ShareAccessLogModal } from "./Modals/ShareAccessLogModal";
+export { default as NewTextFileModal } from "./Modals/NewTextFileModal";
+export { default as TextEditorModal } from "./Modals/TextEditorModal";

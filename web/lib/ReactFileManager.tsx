@@ -20,6 +20,8 @@ import {
   MetadataModal,
   RenameModal,
   OperationToast,
+  NewTextFileModal,
+  TextEditorModal,
   DialogModal,
   ShareModal,
   ShareAccessLogModal,
@@ -136,6 +138,8 @@ export const ReactFileManager = ({
   const [isCut, setIsCut] = useState<boolean>(false);
   const [newFolderModalVisible, setNewFolderModalVisible] =
     useState<boolean>(false);
+  const [newTextFileModalVisible, setNewTextFileModalVisible] =
+    useState<boolean>(false);
   const [previewVisible, setPreviewVisible] = useState<boolean>(false);
   const [previewFile, setPreviewFile] = useState<FileType | null>(null);
   const [metadataVisible, setMetadataVisible] = useState<boolean>(false);
@@ -151,6 +155,9 @@ export const ReactFileManager = ({
   const [shareFile, setShareFile] = useState<FileType | null>(null);
   const [accessLogVisible, setAccessLogVisible] = useState<boolean>(false);
   const [accessLogFile, setAccessLogFile] = useState<FileType | null>(null);
+  const [isZipping, setIsZipping] = useState<boolean>(false);
+  const [editVisible, setEditVisible] = useState<boolean>(false);
+  const [editFile, setEditFile] = useState<FileType | null>(null);
   // Responsive sidebar
   const isDesktop = useMediaQuery("(min-width: 769px)");
   const [internalSidebarVisible, setInternalSidebarVisible] =
@@ -656,6 +663,8 @@ export const ReactFileManager = ({
       setMetadataVisible,
       metadataFile,
       setMetadataFile,
+      newTextFileModalVisible,
+      setNewTextFileModalVisible,
       renameVisible,
       setRenameVisible,
       renameFile,
@@ -680,13 +689,15 @@ export const ReactFileManager = ({
       setAccessLogVisible,
       accessLogFile,
       setAccessLogFile,
+      isZipping,
+      setIsZipping,
     }),
     [
       newFolderModalVisible,
       previewVisible,
       previewFile,
-      metadataVisible,
       metadataFile,
+      newTextFileModalVisible,
       renameVisible,
       renameFile,
       contextMenu,
@@ -699,6 +710,7 @@ export const ReactFileManager = ({
       shareFile,
       accessLogVisible,
       accessLogFile,
+      isZipping,
     ],
   );
 
@@ -807,6 +819,19 @@ export const ReactFileManager = ({
         <UploadProgressToast />
         <OperationToast />
         <DialogModal />
+        <NewTextFileModal
+          isVisible={newTextFileModalVisible}
+          onClose={() => setNewTextFileModalVisible(false)}
+          clickPosition={modalPosition}
+          onCreate={async (fileName: string, content: string) => {
+            const file = new File([content], fileName, {
+              type: "text/plain",
+            });
+            if (onUpload) {
+              await onUpload([{ file, path: fileName }], currentFolder);
+            }
+          }}
+        />
         {contextMenu && (
           <ContextMenu
             x={contextMenu.x}
@@ -828,9 +853,18 @@ export const ReactFileManager = ({
               setRenameFile(file);
               setRenameVisible(true);
             }}
+            onEdit={(file) => {
+              setModalPosition({ x: contextMenu.x, y: contextMenu.y });
+              setEditFile(file);
+              setEditVisible(true);
+            }}
             onNewFolder={() => {
               setModalPosition({ x: contextMenu.x, y: contextMenu.y });
               setNewFolderModalVisible(true);
+            }}
+            onNewTextFile={() => {
+              setModalPosition({ x: contextMenu.x, y: contextMenu.y });
+              setNewTextFileModalVisible(true);
             }}
             onUpload={triggerOpenUpload}
             onShare={(file) => {
@@ -840,6 +874,24 @@ export const ReactFileManager = ({
             onViewAccessLog={(file) => {
               setAccessLogFile(file);
               setAccessLogVisible(true);
+            }}
+          />
+        )}
+        {editFile && (
+          <TextEditorModal
+            isVisible={editVisible}
+            onClose={() => {
+              setEditVisible(false);
+              setEditFile(null);
+            }}
+            fileName={editFile.name}
+            fileId={editFile.id}
+            parentId={editFile.parentId}
+            mimeType={editFile.mimeType}
+            size={editFile.size}
+            clickPosition={modalPosition}
+            onFileUpdated={(folderId: string) => {
+              if (onRefresh) onRefresh(folderId);
             }}
           />
         )}

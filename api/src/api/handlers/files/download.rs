@@ -81,7 +81,7 @@ pub async fn download_file(
 
     // 5. Generate presigned URL and redirect (no data through backend memory)
     let (content_type, content_disposition) =
-        resolve_file_headers(&user_file.filename, &storage_file);
+        resolve_file_headers(&user_file.filename, &storage_file, false);
 
     let presigned_url = state
         .storage
@@ -276,7 +276,7 @@ pub async fn generate_download_ticket(
     }
 
     let (_content_type, _content_disposition) =
-        resolve_file_headers(&user_file.filename, &storage_file);
+        resolve_file_headers(&user_file.filename, &storage_file, false);
 
     // Generate a public URL pointing to the download endpoint with ticket
     let public_url = format!("/api/download/{}", ticket);
@@ -308,6 +308,7 @@ pub async fn generate_download_ticket(
 pub async fn download_file_with_ticket(
     State(state): State<crate::AppState>,
     Path(ticket): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Response, AppError> {
     let (file_id, _) = {
         if let Some(entry) = state.download_tickets.get(&ticket) {
@@ -359,8 +360,9 @@ pub async fn download_file_with_ticket(
     }
 
     // Generate presigned URL and redirect
+    let force_download = query.contains_key("download") || query.contains_key("dl");
     let (content_type, content_disposition) =
-        resolve_file_headers(&user_file.filename, &storage_file);
+        resolve_file_headers(&user_file.filename, &storage_file, force_download);
 
     let presigned_url = state
         .storage
@@ -405,6 +407,7 @@ pub async fn download_file_with_ticket(
 pub(crate) fn resolve_file_headers(
     filename: &str,
     storage_file: &crate::entities::storage_files::Model,
+    force_download: bool,
 ) -> (String, String) {
     let mut content_type = storage_file
         .mime_type
@@ -442,12 +445,13 @@ pub(crate) fn resolve_file_headers(
 
     let encoded_filename = utf8_percent_encode(filename, NON_ALPHANUMERIC).to_string();
 
-    let disposition_type = if content_type.starts_with("video/")
-        || content_type.starts_with("audio/")
-        || content_type.starts_with("image/")
-        || content_type == "application/pdf"
-        || content_type.starts_with("text/")
-    {
+    let disposition_type = if !force_download && (
+        content_type.starts_with("video/")
+            || content_type.starts_with("audio/")
+            || content_type.starts_with("image/")
+            || content_type == "application/pdf"
+            || content_type.starts_with("text/")
+    ) {
         "inline"
     } else {
         "attachment"

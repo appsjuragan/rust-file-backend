@@ -1,9 +1,11 @@
 use crate::api::error::AppError;
 use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::Claims;
-use axum::{Extension, Json, extract::State};
+use axum::{Extension, Json, extract::{State, Path}};
 
 use super::types::*;
+
+use validator::Validate;
 
 #[utoipa::path(
     post,
@@ -23,9 +25,7 @@ pub async fn bulk_delete(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDeleteRequest>,
 ) -> Result<Json<BulkDeleteResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let item_ids_for_audit = req.item_ids.clone();
     let deleted_count = state
@@ -71,9 +71,7 @@ pub async fn bulk_move(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkMoveResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let moved_count = state
         .file_service
@@ -101,9 +99,7 @@ pub async fn bulk_copy(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkCopyResponse>, AppError> {
-    if req.item_ids.is_empty() {
-        return Err(AppError::BadRequest("No items provided".to_string()));
-    }
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let copied_count = state
         .file_service
@@ -111,4 +107,60 @@ pub async fn bulk_copy(
         .await?;
 
     Ok(Json(BulkCopyResponse { copied_count }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/bulk-download",
+    request_body = BulkDownloadRequest,
+    responses(
+        (status = 200, description = "Archive creation queued", body = BulkDownloadResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 400, description = "Bad request")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn bulk_download(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(req): Json<BulkDownloadRequest>,
+) -> Result<Json<BulkDownloadResponse>, AppError> {
+    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let archive_id = state
+        .file_service
+        .create_archive(&claims.sub, req.item_ids)
+        .await?;
+
+    Ok(Json(BulkDownloadResponse { archive_id }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/archive/{id}/status",
+    params(
+        ("id" = String, Path, description = "Archive ID")
+    ),
+    responses(
+        (status = 200, description = "Archive status", body = ArchiveStatusResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_archive_status(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<Json<ArchiveStatusResponse>, AppError> {
+    // Basic format validation
+    if id.len() != 36 {
+        return Err(AppError::BadRequest("Invalid archive ID format".to_string()));
+    }
+    let status = state.file_service.get_archive_status(&claims.sub, &id).await?;
+    Ok(Json(status))
 }

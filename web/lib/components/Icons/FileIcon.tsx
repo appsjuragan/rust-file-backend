@@ -42,6 +42,8 @@ const THUMBNAIL_EXTENSIONS = new Set([
   "ogv",
   "asf",
   "vob",
+  "heic",
+  "heif",
 ]);
 
 interface IFileIcon {
@@ -111,7 +113,7 @@ const FileIcon = (props: IFileIcon) => {
     const ext = fileExtension.toLowerCase();
 
     if (
-      ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"].includes(ext)
+      ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico", "heic", "heif"].includes(ext)
     )
       return "image";
     if (

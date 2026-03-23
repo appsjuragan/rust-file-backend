@@ -35,6 +35,21 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<dyn StorageS
             .exec(&db)
             .await;
 
+        // Clean up expired download archives
+        let expired_archives = DownloadArchives::find()
+            .filter(download_archives::Column::ExpiresAt.lt(Utc::now()))
+            .all(&db)
+            .await;
+
+        if let Ok(archives) = expired_archives {
+            for archive in archives {
+                if let Some(s3_key) = archive.s3_key {
+                    let _ = storage.delete_file(&s3_key).await;
+                }
+                let _ = DownloadArchives::delete_by_id(&archive.id).exec(&db).await;
+            }
+        }
+
         sleep(Duration::from_secs(3600)).await; // Run every hour
     }
 }

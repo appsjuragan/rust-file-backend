@@ -1,6 +1,8 @@
 import React from "react";
 import SvgIcon from "../Icons/SvgIcon";
 import type { FileType } from "../../types";
+import { useFileActions } from "../../hooks/useFileActions";
+import { fileService } from "../../../src/services/fileService";
 
 interface SelectionBarProps {
   selectedIds: string[];
@@ -29,6 +31,7 @@ const SelectionBar = ({
   setDialogState,
   handleShare,
 }: SelectionBarProps) => {
+  const { handleBulkDownload } = useFileActions();
   if (selectedIds.length === 0) return null;
 
   return (
@@ -51,17 +54,16 @@ const SelectionBar = ({
         title="Toggle Select All"
       >
         <div
-          className={`rfm-selection-checkbox ${
-            currentFolderFiles.length > 0 &&
+          className={`rfm-selection-checkbox ${currentFolderFiles.length > 0 &&
             currentFolderFiles.every((f) => selectedIds.includes(f.id))
-              ? "is-checked"
-              : ""
-          }`}
+            ? "is-checked"
+            : ""
+            }`}
         >
           <SvgIcon
             svgType={
               currentFolderFiles.length > 0 &&
-              currentFolderFiles.every((f) => selectedIds.includes(f.id))
+                currentFolderFiles.every((f) => selectedIds.includes(f.id))
                 ? "check"
                 : "square"
             }
@@ -119,6 +121,38 @@ const SelectionBar = ({
         </div>
       )}
 
+      {/* Bulk Download Button */}
+      <div
+        className="rfm-selection-action-btn"
+        onClick={async (e) => {
+          e.stopPropagation();
+          // Single non-folder file → direct download
+          if (selectedIds.length === 1) {
+            const singleFile = currentFolderFiles.find((f) => f.id === selectedIds[0])
+              || fs.find((f) => f.id === selectedIds[0]);
+            if (singleFile && !singleFile.isDir) {
+              try {
+                const res = await fileService.getDownloadTicket(singleFile.id);
+                const link = document.createElement("a");
+                link.href = res.url.includes("?") ? `${res.url}&download=1` : `${res.url}?download=1`;
+                link.download = singleFile.name;
+                link.style.display = "none";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              } catch (err) {
+                console.error("Download failed:", err);
+              }
+              return;
+            }
+          }
+          handleBulkDownload();
+        }}
+        title="Download"
+      >
+        <SvgIcon svgType="download" />
+      </div>
+
       <div
         className="rfm-selection-action-btn ml-auto"
         onClick={(e) => {
@@ -127,8 +161,8 @@ const SelectionBar = ({
           const targetFile =
             selectedIds.length === 1
               ? currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
-                fs.find((f) => f.id === selectedIds[0]) ||
-                null
+              fs.find((f) => f.id === selectedIds[0]) ||
+              null
               : null;
 
           setContextMenu({

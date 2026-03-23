@@ -5,6 +5,7 @@ import SvgIcon from "../Icons/SvgIcon";
 import { fileService } from "../../../src/services/fileService";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { isEditableTextFile } from "../Modals/TextEditorModal";
 
 interface IContextMenuProps {
   x: number;
@@ -14,7 +15,9 @@ interface IContextMenuProps {
   onPreview: (file: FileType) => void;
   onViewMetadata: (file: FileType) => void;
   onRename: (file: FileType) => void;
+  onEdit?: (file: FileType) => void;
   onNewFolder: () => void;
+  onNewTextFile: () => void;
   onUpload: () => void;
   onShare?: (file: FileType) => void;
   onViewAccessLog?: (file: FileType) => void;
@@ -28,7 +31,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   onPreview,
   onViewMetadata,
   onRename,
+  onEdit,
   onNewFolder,
+  onNewTextFile,
   onUpload,
   onShare,
   onViewAccessLog,
@@ -60,6 +65,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     handleCut: hookHandleCut,
     handleDelete: hookHandleDelete,
     handlePaste: hookHandlePaste,
+    handleBulkDownload,
   } = useFileActions();
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -132,13 +138,23 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   };
 
   const handleDownload = async () => {
-    if (file && !file.isDir) {
+    onClose();
+
+    // Determine if this is a single non-folder file
+    const singleFile = file && !file.isDir ? file
+      : (selectedIds.length === 1
+        ? fs.find((f) => f.id === selectedIds[0] && !f.isDir) || null
+        : null);
+
+    // Single non-folder file → direct download via ticket (no ZIP)
+    if (singleFile && selectedIds.length <= 1) {
       try {
-        const res = await fileService.getDownloadTicket(file.id);
-        const url = res.url; // presigned URL from backend
+        const res = await fileService.getDownloadTicket(singleFile.id);
+        const url = res.url;
         const link = document.createElement("a");
-        link.href = url;
-        link.download = file.name;
+        link.href = url.includes("?") ? `${url}&download=1` : `${url}?download=1`;
+        link.download = singleFile.name;
+        link.style.display = "none";
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -146,8 +162,14 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         console.error("Failed to initiate download:", err);
         alert("Failed to prepare download. Please try again.");
       }
+      return;
     }
-    onClose();
+
+    // Multi-select or folder(s) → bulk ZIP download
+    const ids = selectedIds.length > 0 ? selectedIds : (file ? [file.id] : []);
+    if (ids.length > 0) {
+      handleBulkDownload(ids);
+    }
   };
 
   const handleViewMetadata = () => {
@@ -216,13 +238,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
           isMobile
             ? {}
             : {
-                top: y > window.innerHeight - 300 ? "auto" : y,
-                bottom:
-                  y > window.innerHeight - 300
-                    ? window.innerHeight - y + 5
-                    : "auto",
-                left: x,
-              }
+              top: y > window.innerHeight - 300 ? "auto" : y,
+              bottom:
+                y > window.innerHeight - 300
+                  ? window.innerHeight - y + 5
+                  : "auto",
+              left: x,
+            }
         }
       >
         {isMobile && (
@@ -246,8 +268,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               {(() => {
                 const targetFiles =
                   file &&
-                  selectedIds.includes(file.id) &&
-                  selectedIds.length > 1
+                    selectedIds.includes(file.id) &&
+                    selectedIds.length > 1
                     ? fs.filter((f) => selectedIds.includes(f.id))
                     : file
                       ? [file]
@@ -269,11 +291,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                   <>
                     {/* Open (Preview) - Bold */}
                     <div
-                      className={`rfm-context-menu-item font-bold ${
-                        isScanBusy
-                          ? "disabled opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
+                      className={`rfm-context-menu-item font-bold ${isScanBusy
+                        ? "disabled opacity-50 cursor-not-allowed"
+                        : ""
+                        }`}
                       onClick={isScanBusy ? undefined : handleOpen}
                     >
                       <SvgIcon
@@ -282,6 +303,23 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       />
                       Open (Preview)
                     </div>
+
+                    {/* Edit - Only for editable text files */}
+                    {targetFile && !targetFile.isDir && isEditableTextFile(targetFile.name, targetFile.mimeType, targetFile.size) && onEdit && (
+                      <div
+                        className={`rfm-context-menu-item ${isScanBusy
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
+                          }`}
+                        onClick={isScanBusy ? undefined : () => triggerAction(() => onEdit(targetFile))}
+                      >
+                        <SvgIcon
+                          svgType="edit"
+                          className="rfm-context-menu-icon"
+                        />
+                        Edit
+                      </div>
+                    )}
 
                     {/* View Meta Data - Only for single file */}
                     {targetFile && (
@@ -302,11 +340,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     {/* Rename - Only for single file */}
                     {targetFile && (
                       <div
-                        className={`rfm-context-menu-item ${
-                          isScanBusy
-                            ? "disabled opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
+                        className={`rfm-context-menu-item ${isScanBusy
+                          ? "disabled opacity-50 cursor-not-allowed"
+                          : ""
+                          }`}
                         onClick={isScanBusy ? undefined : handleRename}
                       >
                         <SvgIcon
@@ -375,11 +412,10 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                             <>
                               <SvgIcon
                                 svgType="star"
-                                className={`rfm-context-menu-icon ${
-                                  isAllFav
-                                    ? "fill-yellow-400 text-yellow-500"
-                                    : ""
-                                }`}
+                                className={`rfm-context-menu-icon ${isAllFav
+                                  ? "fill-yellow-400 text-yellow-500"
+                                  : ""
+                                  }`}
                               />
                               {isAllFav
                                 ? "Remove from Favorites"
@@ -421,14 +457,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                     )}
 
                     {/* Download - Allowed for files and folders */}
-                    {targetFile && (
+                    {targetFiles.length > 0 && (
                       <>
                         <div
-                          className={`rfm-context-menu-item ${
-                            isScanBusy
-                              ? "disabled opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
+                          className={`rfm-context-menu-item ${isScanBusy
+                            ? "disabled opacity-50 cursor-not-allowed"
+                            : ""
+                            }`}
                           onClick={isScanBusy ? undefined : handleDownload}
                         >
                           <SvgIcon
@@ -470,6 +505,13 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
               >
                 <SvgIcon svgType="plus" className="rfm-context-menu-icon" />
                 New Folder
+              </div>
+              <div
+                className="rfm-context-menu-item"
+                onClick={() => triggerAction(onNewTextFile)}
+              >
+                <SvgIcon svgType="edit" className="rfm-context-menu-icon" />
+                New Text File
               </div>
               <div
                 className="rfm-context-menu-item"
