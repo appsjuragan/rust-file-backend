@@ -29,6 +29,9 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         api::handlers::auth::register,
         api::handlers::auth::login,
+        api::handlers::device_auth::initiate_device_auth,
+        api::handlers::device_auth::confirm_device_auth,
+        api::handlers::device_auth::poll_device_token,
         api::handlers::captcha::generate_captcha,
         api::handlers::files::upload::upload_file,
         api::handlers::files::upload::pre_check_dedup,
@@ -70,11 +73,16 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::shares::get_public_share,
         api::handlers::shares::verify_share_password,
         api::handlers::shares::download_shared_file,
+        api::handlers::shares::get_public_share_thumbnail,
     ),
     components(
         schemas(
             api::handlers::auth::AuthRequest,
             api::handlers::auth::AuthResponse,
+            api::handlers::device_auth::DeviceCodeResponse,
+            api::handlers::device_auth::ConfirmDeviceRequest,
+            api::handlers::device_auth::ConfirmDeviceResponse,
+            api::handlers::device_auth::PollTokenResponse,
             api::handlers::captcha::CaptchaResponse,
             api::handlers::files::UploadResponse,
             api::handlers::files::PreCheckRequest,
@@ -135,6 +143,8 @@ pub struct AppState {
     pub download_tickets: Arc<DashMap<String, (String, DateTime<Utc>)>>,
     pub captchas: Arc<DashMap<String, CaptchaChallenge>>,
     pub cooldowns: Arc<DashMap<String, CooldownEntry>>,
+    /// In-memory OTP device-auth sessions for desktop sync client (keyed by device_code)
+    pub device_auth_sessions: Arc<DashMap<String, crate::entities::device_auth::DeviceAuthSession>>,
 }
 
 pub fn create_app(state: AppState) -> Router {
@@ -154,6 +164,9 @@ pub fn create_app(state: AppState) -> Router {
         .route("/captcha", get(api::handlers::captcha::generate_captcha))
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
+        // Device auth (OTP) — public: initiate + poll
+        .route("/auth/device", post(api::handlers::device_auth::initiate_device_auth))
+        .route("/auth/device/token", get(api::handlers::device_auth::poll_device_token))
         .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))
         .route(
             "/auth/oidc/callback",
@@ -161,7 +174,8 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route(
             "/download/:ticket",
-            get(api::handlers::files::download_file_with_ticket),
+            get(api::handlers::files::download_file_with_ticket)
+                .post(api::handlers::files::download_file_with_ticket),
         )
         .route(
             "/share/:token",
@@ -178,6 +192,10 @@ pub fn create_app(state: AppState) -> Router {
         .route(
             "/share/:token/download",
             get(api::handlers::shares::download_shared_file),
+        )
+        .route(
+            "/share/:token/thumbnail",
+            get(api::handlers::shares::get_public_share_thumbnail),
         );
 
     // Protected routes
@@ -275,6 +293,8 @@ pub fn create_app(state: AppState) -> Router {
             "/shares/:id/logs",
             get(api::handlers::shares::get_share_logs),
         )
+        // Device auth confirm (requires JWT — web user approves the OTP)
+        .route("/auth/device/confirm", post(api::handlers::device_auth::confirm_device_auth))
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

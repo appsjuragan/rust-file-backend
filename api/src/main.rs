@@ -169,6 +169,7 @@ async fn main() -> anyhow::Result<()> {
             download_tickets: Arc::new(DashMap::new()),
             captchas: captchas.clone(),
             cooldowns: cooldowns.clone(),
+            device_auth_sessions: Arc::new(DashMap::new()),
         };
 
         // Spawn periodic cleanup task for expired CAPTCHAs and stale cooldowns

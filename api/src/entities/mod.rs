@@ -1,6 +1,7 @@
 pub mod prelude;
 
 pub mod audit_logs;
+pub mod device_auth;
 pub mod download_archives;
 pub mod file_metadata;
 pub mod file_tags;

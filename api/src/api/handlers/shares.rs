@@ -63,6 +63,7 @@ pub struct PublicShareInfoResponse {
     pub permission: String,
     pub requires_password: bool,
     pub expires_at: chrono::DateTime<Utc>,
+    pub has_thumbnail: bool,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -83,6 +84,7 @@ pub struct PublicFileEntry {
     pub size: Option<i64>,
     pub mime_type: Option<String>,
     pub created_at: chrono::DateTime<Utc>,
+    pub has_thumbnail: bool,
 }
 
 #[derive(Deserialize)]
@@ -406,10 +408,11 @@ pub async fn get_public_share(
         filename: user_file.filename,
         is_folder: user_file.is_folder,
         size: storage_file.as_ref().map(|s| s.size),
-        mime_type: storage_file.and_then(|s| s.mime_type),
+        mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
         permission: share.permission,
         requires_password: share.password_hash.is_some(),
         expires_at: share.expires_at,
+        has_thumbnail: storage_file.as_ref().map(|s| s.has_thumbnail).unwrap_or(false),
     }))
 }
 
@@ -699,8 +702,9 @@ pub async fn list_shared_folder(
             filename: child.filename,
             is_folder: child.is_folder,
             size: storage.as_ref().map(|s| s.size),
-            mime_type: storage.and_then(|s| s.mime_type.clone()),
+            mime_type: storage.as_ref().and_then(|s| s.mime_type.clone()),
             created_at: child.created_at.unwrap_or_else(Utc::now),
+            has_thumbnail: storage.as_ref().map(|s| s.has_thumbnail).unwrap_or(false),
         })
         .collect();
 
@@ -728,4 +732,81 @@ pub async fn list_shared_folder(
         .await;
 
     Ok(Json(result))
+}
+
+/// Get shared thumbnail (public)
+#[utoipa::path(
+    get,
+    path = "/share/{token}/thumbnail",
+    params(
+        ("token" = String, Path, description = "Share token"),
+        ("file_id" = Option<String>, Query, description = "Filter by child file ID")
+    ),
+    responses(
+        (status = 200, description = "Thumbnail image stream"),
+        (status = 404, description = "Thumbnail not found or access denied")
+    )
+)]
+pub async fn get_public_share_thumbnail(
+    State(state): State<crate::AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<DownloadSharedFileQuery>,
+) -> Result<Response, AppError> {
+    let share = ShareService::get_share_by_token(&state.db, &token).await?;
+
+    let target_file_id = if let Some(ref fid) = query.file_id {
+        if fid == &share.user_file_id {
+            fid.clone()
+        } else {
+            let child = UserFiles::find_by_id(fid)
+                .one(&state.db)
+                .await?
+                .ok_or(AppError::NotFound("File not found".to_string()))?;
+
+            if child.parent_id.as_ref() != Some(&share.user_file_id) {
+                return Err(AppError::Forbidden("Unauthorized access".to_string()));
+            }
+            fid.clone()
+        }
+    } else {
+        share.user_file_id.clone()
+    };
+
+    let user_file = UserFiles::find_by_id(&target_file_id)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("File not found".to_string()))?;
+
+    let storage_file_id = user_file
+        .storage_file_id
+        .ok_or(AppError::NotFound("Storage missing".to_string()))?;
+
+    let storage_file = StorageFiles::find_by_id(storage_file_id.clone())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("File entry missing".to_string()))?;
+
+    if !storage_file.has_thumbnail {
+        return Err(AppError::NotFound("No thumbnail".to_string()));
+    }
+
+    let thumbnail_key = format!("thumbnails/{}.webp", storage_file_id);
+    let presigned_url = state
+        .storage
+        .generate_presigned_url_raw(&thumbnail_key, 43200, "image/webp", "inline")
+        .await
+        .map_err(|_| AppError::Internal("Presigner error".to_string()))?;
+
+    let url = url::Url::parse(&presigned_url).map_err(|_| AppError::Internal("Bad URL".to_string()))?;
+    let path = url.path();
+    let q = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, q);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("X-Accel-Redirect", internal_redirect_uri)
+        .header("Content-Type", "image/webp")
+        .header("Cache-Control", "public, max-age=3600")
+        .body(Body::empty())
+        .unwrap())
 }

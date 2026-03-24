@@ -12,8 +12,13 @@ pub struct Claims {
 }
 
 pub fn create_jwt(user_id: &str, secret: &str) -> Result<String> {
+    create_jwt_with_expiry(user_id, secret, 24)
+}
+
+/// Create a JWT with a custom expiry in hours (used by device auth for long-lived desktop tokens)
+pub fn create_jwt_with_expiry(user_id: &str, secret: &str, hours: i64) -> Result<String> {
     let expiration = Utc::now()
-        .checked_add_signed(Duration::hours(24))
+        .checked_add_signed(Duration::hours(hours))
         .expect("valid timestamp")
         .timestamp();
 

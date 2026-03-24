@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AppJuragan.ShellExtension -> F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\bin\Debug\net8.0-windows\AppJuragan.ShellExtension.dll
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(166,9): error CS0103: The name 'Directory' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(166,35): error CS0103: The name 'Path' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(168,32): error CS0103: The name 'File' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+
+Build FAILED.
+
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(166,9): error CS0103: The name 'Directory' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(166,35): error CS0103: The name 'Path' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\Services\ApiClient.cs(168,32): error CS0103: The name 'File' does not exist in the current context [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_atfmgfpx_wpftmp.csproj]
+    0 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:01.68

@@ -182,13 +182,14 @@ export const useFileActions = () => {
           if (statusRes.status === "ready") {
             isReady = true;
             if (statusRes.url) {
-              const link = document.createElement("a");
-              link.href = statusRes.url;
-              link.download = statusRes.filename || "download.zip";
-              link.style.display = "none";
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              const url = new URL(statusRes.url, window.location.origin);
+              const form = document.createElement("form");
+              form.method = "POST";
+              form.action = url.toString();
+              form.style.display = "none";
+              document.body.appendChild(form);
+              form.submit();
+              document.body.removeChild(form);
             }
           } else if (statusRes.status === "failed") {
             alert(`Preparation failed: ${statusRes.error_message || "Unknown error"}`);

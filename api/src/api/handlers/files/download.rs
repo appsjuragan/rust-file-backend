@@ -322,6 +322,54 @@ pub async fn download_file_with_ticket(
         }
     };
 
+    if file_id.starts_with("archive_") {
+        let archive_id = file_id.trim_start_matches("archive_").to_string();
+        let archive = crate::entities::download_archives::Entity::find_by_id(archive_id)
+            .one(&state.db)
+            .await?
+            .ok_or(AppError::NotFound("Archive not found or deleted".to_string()))?;
+
+        let s3_key = archive.s3_key.as_ref().ok_or(AppError::NotFound("Archive not ready".to_string()))?;
+
+        let content_type = "application/zip".to_string();
+        let encoded_filename = utf8_percent_encode(&archive.filename, NON_ALPHANUMERIC).to_string();
+        let content_disposition = format!(
+            "attachment; filename=\"{}\"; filename*=UTF-8''{}",
+            &archive.filename, encoded_filename
+        );
+
+        let presigned_url = state
+            .storage
+            .generate_presigned_url_raw(
+                s3_key,
+                43200, // 12 hours
+                &content_type,
+                &content_disposition,
+            )
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to generate presigned URL for archive: {}", e);
+                AppError::Internal("Failed to generate download URL".to_string())
+            })?;
+
+        let url = url::Url::parse(&presigned_url).map_err(|_| {
+            AppError::Internal("Failed to parse URL".to_string())
+        })?;
+
+        let path = url.path();
+        let q = url.query().unwrap_or("");
+        let internal_redirect_uri = format!("/minio_protected{}?{}", path, q);
+
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("X-Accel-Redirect", internal_redirect_uri)
+            .header(header::CONTENT_TYPE, content_type)
+            .header(header::CONTENT_DISPOSITION, content_disposition)
+            .header(header::CACHE_CONTROL, "private, max-age=3600")
+            .body(Body::empty())
+            .unwrap());
+    }
+
     let user_file = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
@@ -386,8 +434,8 @@ pub async fn download_file_with_ticket(
     // Extract path and query for X-Accel-Redirect
     // Should be /bucket/key?Signature=...
     let path = url.path();
-    let query = url.query().unwrap_or("");
-    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+    let query_str = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query_str);
 
     Ok(Response::builder()
         .status(StatusCode::OK)

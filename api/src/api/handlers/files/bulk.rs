@@ -161,6 +161,15 @@ pub async fn get_archive_status(
     if id.len() != 36 {
         return Err(AppError::BadRequest("Invalid archive ID format".to_string()));
     }
-    let status = state.file_service.get_archive_status(&claims.sub, &id).await?;
+    let mut status = state.file_service.get_archive_status(&claims.sub, &id).await?;
+    if status.status == "ready" {
+        let ticket = uuid::Uuid::new_v4().to_string();
+        let expiry = chrono::Utc::now() + chrono::Duration::hours(12);
+        state.download_tickets.insert(
+            ticket.clone(),
+            (format!("archive_{}", id), expiry),
+        );
+        status.url = Some(format!("/api/download/{}", ticket));
+    }
     Ok(Json(status))
 }

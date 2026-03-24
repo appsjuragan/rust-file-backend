@@ -1,0 +1,6 @@
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.csproj.AssemblyReference.cache
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.GeneratedMSBuildEditorConfig.editorconfig
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.AssemblyInfoInputs.cache
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.AssemblyInfo.cs
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.csproj.CoreCompileInputs.cache
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.ShellExtension\obj\Release\net8.0-windows\AppJuragan.ShellExtension.sourcelink.json

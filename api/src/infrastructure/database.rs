@@ -1,7 +1,7 @@
 use crate::entities::{
     allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
     share_access_logs, share_links, storage_files, tags, tokens, upload_sessions, user_file_facts,
-    user_files, user_settings, users,
+    user_files, user_settings, users, download_archives,
 };
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Schema};
 use std::env;
@@ -123,6 +123,10 @@ pub async fn run_migrations(db: &DatabaseConnection) -> anyhow::Result<()> {
                 .to_owned(),
             schema
                 .create_table_from_entity(share_access_logs::Entity)
+                .if_not_exists()
+                .to_owned(),
+            schema
+                .create_table_from_entity(download_archives::Entity)
                 .if_not_exists()
                 .to_owned(),
         ];

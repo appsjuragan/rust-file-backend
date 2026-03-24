@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod captcha;
+pub mod device_auth;
 pub mod files;
 pub mod health;
 pub mod shares;

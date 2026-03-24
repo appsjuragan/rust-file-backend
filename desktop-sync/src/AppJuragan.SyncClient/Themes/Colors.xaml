@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Brand colors -->
+    <Color x:Key="AccentPurple">#7C6AF0</Color>
+    <Color x:Key="AccentGreen">#4ECCA3</Color>
+    <Color x:Key="AccentYellow">#F5C542</Color>
+    <Color x:Key="AccentRed">#FF6B6B</Color>
+
+    <Color x:Key="BgBase">#0F1117</Color>
+    <Color x:Key="BgSurface">#12141C</Color>
+    <Color x:Key="BgCard">#1E2130</Color>
+    <Color x:Key="BgBorder">#2A2D3E</Color>
+
+    <Color x:Key="TextPrimary">#EAEBF0</Color>
+    <Color x:Key="TextSecondary">#8B8FA8</Color>
+    <Color x:Key="TextMuted">#52576B</Color>
+
+    <!-- Solid brushes -->
+    <SolidColorBrush x:Key="AccentBrush"          Color="{StaticResource AccentPurple}"/>
+    <SolidColorBrush x:Key="AccentGreenBrush"     Color="{StaticResource AccentGreen}"/>
+    <SolidColorBrush x:Key="AccentYellowBrush"    Color="{StaticResource AccentYellow}"/>
+    <SolidColorBrush x:Key="AccentRedBrush"       Color="{StaticResource AccentRed}"/>
+    <SolidColorBrush x:Key="BgBaseBrush"          Color="{StaticResource BgBase}"/>
+    <SolidColorBrush x:Key="BgSurfaceBrush"       Color="{StaticResource BgSurface}"/>
+    <SolidColorBrush x:Key="BgCardBrush"          Color="{StaticResource BgCard}"/>
+    <SolidColorBrush x:Key="BgBorderBrush"        Color="{StaticResource BgBorder}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="TextMutedBrush"       Color="{StaticResource TextMuted}"/>
+</ResourceDictionary>

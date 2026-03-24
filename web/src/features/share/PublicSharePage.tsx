@@ -24,6 +24,7 @@ interface PublicFileEntry {
   size?: number;
   mime_type?: string;
   created_at: string;
+  has_thumbnail: boolean;
 }
 
 const MediaViewer: React.FC<{ info: any; token: string; fileId?: string }> = ({
@@ -501,12 +502,19 @@ export const PublicSharePage: React.FC = () => {
                         }
                       >
                         <div className="rfm-share-file-info">
-                          <div className="rfm-share-file-icon">
+                          <div className={item.has_thumbnail ? "rfm-share-file-thumbnail-wrapper" : "rfm-share-file-icon"}>
                             {item.is_folder ? (
                               <Folder
                                 className="w-5 h-5 text-sky-500"
                                 fill="currentColor"
                                 fillOpacity={0.1}
+                              />
+                            ) : item.has_thumbnail ? (
+                              <img
+                                src={`/api/share/${token}/thumbnail?file_id=${item.id}`}
+                                alt={item.filename}
+                                className="rfm-share-file-thumbnail-img"
+                                loading="lazy"
                               />
                             ) : (
                               <File className="w-5 h-5 text-stone-400" />
