@@ -32,3 +32,15 @@ dump.rdb
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- .NET ---
+**/[Oo]bj/
+**/[Bb]in/
+*.user
+*.suo
+.vs/
+*.useros
+packages/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
