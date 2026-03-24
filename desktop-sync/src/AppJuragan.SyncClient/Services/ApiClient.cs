@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -23,42 +24,38 @@ public record PollTokenResponse(
     [property: JsonPropertyName("message")] string Message
 );
 
-public record FileMetadata(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("filename")] string Filename,
-    [property: JsonPropertyName("size")] long? Size,
-    [property: JsonPropertyName("mime_type")] string? MimeType,
-    [property: JsonPropertyName("is_folder")] bool IsFolder,
-    [property: JsonPropertyName("parent_id")] string? ParentId,
-    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-    [property: JsonPropertyName("is_favorite")] bool IsFavorite,
-    [property: JsonPropertyName("is_shared")] bool IsShared,
-    [property: JsonPropertyName("hash")] string? Hash
-);
+public class FileMetadata
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("filename")] public string Filename { get; set; } = "";
+    [JsonPropertyName("size")] public long? Size { get; set; }
+    [JsonPropertyName("mime_type")] public string? MimeType { get; set; }
+    [JsonPropertyName("is_folder")] public bool IsFolder { get; set; }
+    [JsonPropertyName("parent_id")] public string? ParentId { get; set; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
+    [JsonPropertyName("is_favorite")] public bool IsFavorite { get; set; }
+    [JsonPropertyName("is_shared")] public bool IsShared { get; set; }
+    [JsonPropertyName("hash")] public string? Hash { get; set; }
+}
 
-public record UploadInitRequest(
-    [property: JsonPropertyName("filename")] string Filename,
-    [property: JsonPropertyName("size")] long Size,
-    [property: JsonPropertyName("mime_type")] string MimeType,
-    [property: JsonPropertyName("parent_id")] string? ParentId
-);
+public class UploadInitRequest
+{
+    [JsonPropertyName("file_name")] public string Filename { get; set; } = "";
+    [JsonPropertyName("total_size")] public long Size { get; set; }
+    [JsonPropertyName("file_type")] public string MimeType { get; set; } = "";
+}
 
-public record UploadInitResponse(
-    [property: JsonPropertyName("upload_id")] string UploadId,
-    [property: JsonPropertyName("part_size")] long PartSize
-);
+public class UploadInitResponse
+{
+    [JsonPropertyName("upload_id")] public string UploadId { get; set; } = "";
+    [JsonPropertyName("chunk_size")] public long PartSize { get; set; }
+}
 
-public record CompleteUploadRequest(
-    [property: JsonPropertyName("parts")] List<PartInfo> Parts,
-    [property: JsonPropertyName("filename")] string Filename,
-    [property: JsonPropertyName("parent_id")] string? ParentId,
-    [property: JsonPropertyName("mime_type")] string MimeType
-);
-
-public record PartInfo(
-    [property: JsonPropertyName("part_number")] int PartNumber,
-    [property: JsonPropertyName("etag")] string ETag
-);
+public class CompleteUploadRequest
+{
+    [JsonPropertyName("parent_id")] public string? ParentId { get; set; }
+    [JsonPropertyName("hash")] public string? Hash { get; set; }
+}
 
 // ─── API Client ──────────────────────────────────────────────────────────────
 
@@ -86,14 +83,14 @@ public class ApiClient
 
     public async Task<DeviceCodeResponse?> InitiateDeviceAuthAsync(CancellationToken ct = default)
     {
-        var resp = await _http.PostAsync("/auth/device", null, ct);
+        var resp = await _http.PostAsync("auth/device", null, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<DeviceCodeResponse>(JsonOpts, ct);
     }
 
     public async Task<PollTokenResponse?> PollDeviceTokenAsync(string deviceCode, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"/auth/device/token?device_code={Uri.EscapeDataString(deviceCode)}", ct);
+        var resp = await _http.GetAsync($"auth/device/token?device_code={Uri.EscapeDataString(deviceCode)}", ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<PollTokenResponse>(JsonOpts, ct);
     }
@@ -103,7 +100,7 @@ public class ApiClient
     public async Task<List<FileMetadata>> ListFilesAsync(string? parentId = null, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var url = parentId == null ? "/files?parent_id=root" : $"/files?parent_id={Uri.EscapeDataString(parentId)}";
+        var url = parentId == null ? "files?parent_id=root" : $"files?parent_id={Uri.EscapeDataString(parentId)}";
         var resp = await _http.GetAsync(url, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];
@@ -131,7 +128,7 @@ public class ApiClient
     public async Task<UploadInitResponse?> InitUploadAsync(UploadInitRequest req, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.PostAsJsonAsync("/files/upload/init", req, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync("files/upload/init", req, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<UploadInitResponse>(JsonOpts, ct);
     }
@@ -141,7 +138,7 @@ public class ApiClient
         SetAuthHeader();
         var content = new ByteArrayContent(data);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        var resp = await _http.PutAsync($"/files/upload/{uploadId}/chunk/{partNumber}", content, ct);
+        var resp = await _http.PutAsync($"files/upload/{uploadId}/chunk/{partNumber}", content, ct);
         resp.EnsureSuccessStatusCode();
         // ETag is in response header
         return resp.Headers.ETag?.Tag?.Trim('"') ?? partNumber.ToString();
@@ -150,7 +147,7 @@ public class ApiClient
     public async Task<FileMetadata?> CompleteUploadAsync(string uploadId, CompleteUploadRequest req, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.PostAsJsonAsync($"/files/upload/{uploadId}/complete", req, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync($"files/upload/{uploadId}/complete", req, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<FileMetadata>(JsonOpts, ct);
     }
@@ -160,7 +157,7 @@ public class ApiClient
     public async Task DownloadFileAsync(string fileId, string localPath, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.GetAsync($"/files/{fileId}", HttpCompletionOption.ResponseHeadersRead, ct);
+        var resp = await _http.GetAsync($"files/{fileId}", HttpCompletionOption.ResponseHeadersRead, ct);
         resp.EnsureSuccessStatusCode();
 
         Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
@@ -175,7 +172,7 @@ public class ApiClient
     {
         SetAuthHeader();
         var body = new { name, parent_id = parentId };
-        var resp = await _http.PostAsJsonAsync("/folders", body, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync("folders", body, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<FileMetadata>(JsonOpts, ct);
     }
@@ -185,7 +182,14 @@ public class ApiClient
     public async Task ToggleFavoriteAsync(string fileId, CancellationToken ct = default)
     {
         SetAuthHeader();
-        await _http.PostAsync($"/files/{fileId}/favorite", null, ct);
+        await _http.PostAsync($"files/{fileId}/favorite", null, ct);
+    }
+
+    public async Task DeleteItemAsync(string id, CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var resp = await _http.DeleteAsync($"files/{Uri.EscapeDataString(id)}", ct);
+        resp.EnsureSuccessStatusCode();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

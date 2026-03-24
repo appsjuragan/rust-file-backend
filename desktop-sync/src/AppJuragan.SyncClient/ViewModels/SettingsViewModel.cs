@@ -9,7 +9,9 @@ namespace AppJuragan.SyncClient.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsService _settings;
-    private readonly Window _owner;
+    
+    // We'll use an event to notify the View to close, avoiding passing Window/Owner to VM
+    public event EventHandler? RequestClose;
 
     [ObservableProperty] private string _serverUrl;
     [ObservableProperty] private string _localFolder;
@@ -18,10 +20,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private int _maxTransfers;
 
-    public SettingsViewModel(SettingsService settings, Window owner)
+    public SettingsViewModel(SettingsService settings)
     {
         _settings = settings;
-        _owner = owner;
         var s = settings.Current;
         _serverUrl = s.ServerUrl;
         _localFolder = s.LocalSyncFolder;
@@ -52,11 +53,11 @@ public partial class SettingsViewModel : ObservableObject
             MaxConcurrentTransfers = MaxTransfers
         });
         ApplyStartup(RunOnStartup);
-        _owner.Close();
+        RequestClose?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
-    private void Cancel() => _owner.Close();
+    private void Cancel() => RequestClose?.Invoke(this, EventArgs.Empty);
 
     private static void ApplyStartup(bool enable)
     {

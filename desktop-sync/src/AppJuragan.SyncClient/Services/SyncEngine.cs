@@ -9,9 +9,10 @@ public enum SyncStatus { Idle, Syncing, Error, Paused }
 /// <summary>
 /// Core sync engine. Runs a periodic full-reconciliation loop:
 ///   1. Fetch remote file tree
-///   2. Download new/changed remote files
-///   3. Upload new/changed local files
-///   4. Update shell overlay badges
+///   2. Reconcile both-way deletions
+///   3. Download new/changed remote files
+///   4. Upload new/changed local files
+///   5. Update shell overlay badges
 /// All operations are best-effort: individual errors are logged and skipped.
 /// A FileSystemWatcher also triggers an incremental sync on local changes.
 /// </summary>
@@ -62,8 +63,19 @@ public class SyncEngine : IHostedService
     {
         _cts?.Cancel();
         _watcher?.Dispose();
+        
+        // Wait at most 3 seconds for the loop to finish, otherwise just move on
+        // (the process is shutting down anyway)
         if (_loopTask != null)
-            await _loopTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        {
+            var timeoutTask = Task.Delay(3000, cancellationToken);
+            var completedTask = await Task.WhenAny(_loopTask, timeoutTask).ConfigureAwait(false);
+            if (completedTask == timeoutTask)
+            {
+                _log.LogWarning("Sync engine stop timed out after 3s. Forcing exit.");
+            }
+        }
+        
         _state.Persist();
     }
 
@@ -90,9 +102,10 @@ public class SyncEngine : IHostedService
 
             // 1. Fetch complete remote tree
             var remoteItems = await _api.ListAllFilesRecursiveAsync(ct);
-
-            // 2. Build remote path lookup (relative path → FileMetadata)
             var remotePaths = BuildRemotePathMap(remoteItems);
+
+            // 2. Reconciliation: Handle Deletions both ways
+            await ReconcileDeletionsAsync(remotePaths, ct);
 
             // 3. Download: remote → local
             await ProcessDownloadsAsync(remotePaths, ct);
@@ -101,6 +114,8 @@ public class SyncEngine : IHostedService
             await ProcessUploadsAsync(remotePaths, ct);
 
             // 5. Update overlay badges
+
+            // 6. Update overlay badges
             RefreshOverlays(remoteItems);
 
             _state.Persist();
@@ -125,6 +140,7 @@ public class SyncEngine : IHostedService
         Dictionary<string, FileMetadata> remotePaths, CancellationToken ct)
     {
         var syncRoot = _settings.Current.LocalSyncFolder;
+        _log.LogInformation("Processing downloads: {Count} remote items, syncRoot={Root}", remotePaths.Count, syncRoot);
 
         foreach (var (relPath, remote) in remotePaths)
         {
@@ -133,26 +149,35 @@ public class SyncEngine : IHostedService
 
             if (remote.IsFolder)
             {
-                Directory.CreateDirectory(localPath);
+                if (!Directory.Exists(localPath)) {
+                    _log.LogDebug("📁 Creating folder: {Path}", relPath);
+                    Directory.CreateDirectory(localPath);
+                }
                 TrackState(remote, relPath);
                 continue;
             }
 
             var existing = _state.GetByRemoteId(remote.Id);
-            var needsDownload = existing == null               // never synced
-                || !File.Exists(localPath)                     // deleted locally
-                || existing.RemoteHash != (remote.Hash ?? ""); // changed on server
+            var fileExists = File.Exists(localPath);
 
-            if (!needsDownload) continue;
+            var needsDownload = existing == null               // never synced
+                || (fileExists && existing.RemoteHash != (remote.Hash ?? "")); // changed on server
+            
+            // Note: If !fileExists but existing != null, it was handled in ReconcileDeletionsAsync.
+
+            if (!needsDownload && fileExists) continue;
+            if (!needsDownload && !fileExists) continue; // Deleted locally, already handled
+
 
             try
             {
                 _log.LogInformation("⬇ Downloading {Path}", relPath);
                 FileActivity?.Invoke(this, $"Downloading: {Path.GetFileName(relPath)}");
                 await _api.DownloadFileAsync(remote.Id, localPath, ct);
+                var fi = new FileInfo(localPath);
+                _log.LogInformation("✔ Downloaded {Path} ({Size} bytes)", relPath, fi.Length);
                 var localHash = await SyncStateStore.ComputeLocalHashAsync(localPath);
                 TrackState(remote, relPath, localHash);
-                _log.LogInformation("✔ Downloaded {Path}", relPath);
             }
             catch (Exception ex)
             {
@@ -167,10 +192,8 @@ public class SyncEngine : IHostedService
         Dictionary<string, FileMetadata> remotePaths, CancellationToken ct)
     {
         var syncRoot = _settings.Current.LocalSyncFolder;
-        if (!Directory.Exists(syncRoot)) return;
-
-        // Enumerate all local files
-        var localFiles = Directory.EnumerateFiles(syncRoot, "*", SearchOption.AllDirectories);
+        // Upload new/changed files
+        var localFiles = Directory.EnumerateFiles(syncRoot, "*", SearchOption.AllDirectories).ToList();
         var uploadTasks = new List<Task>();
 
         foreach (var localPath in localFiles)
@@ -198,6 +221,45 @@ public class SyncEngine : IHostedService
         await Task.WhenAll(uploadTasks);
     }
 
+    private async Task ReconcileDeletionsAsync(Dictionary<string, FileMetadata> remotePaths, CancellationToken ct)
+    {
+        var syncRoot = _settings.Current.LocalSyncFolder;
+        var stateEntries = _state.All.Values.ToList();
+
+        foreach (var entry in stateEntries)
+        {
+            ct.ThrowIfCancellationRequested();
+            var localPath = Path.Combine(syncRoot, entry.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            bool diskExists = entry.IsFolder ? Directory.Exists(localPath) : File.Exists(localPath);
+
+            // Case 1: Remote Deletion (State has it, Server doesn't)
+            if (!remotePaths.ContainsKey(entry.RelativePath))
+            {
+                _log.LogInformation("🗑 Remote deletion detected: {Path}. Deleting locally...", entry.RelativePath);
+                try {
+                    if (entry.IsFolder && Directory.Exists(localPath)) Directory.Delete(localPath, true);
+                    else if (!entry.IsFolder && File.Exists(localPath)) File.Delete(localPath);
+                    _state.Remove(entry.RemoteId);
+                } catch (Exception ex) { _log.LogWarning(ex, "Failed to apply remote deletion locally"); }
+                continue;
+            }
+
+            // Case 2: Local Deletion (State has it, Server has it, Disk doesn't)
+            if (!diskExists)
+            {
+                _log.LogInformation("🗑 Local deletion detected: {Path}. Deleting from cloud...", entry.RelativePath);
+                try {
+                    FileActivity?.Invoke(this, $"Deleting from cloud: {Path.GetFileName(entry.RelativePath)}");
+                    await _api.DeleteItemAsync(entry.RemoteId, ct);
+                    _state.Remove(entry.RemoteId);
+                    remotePaths.Remove(entry.RelativePath); // Prevent re-download in this cycle
+                } catch (Exception ex) { _log.LogWarning(ex, "Failed to sync local deletion to cloud"); }
+            }
+        }
+    }
+
+
+
     private async Task UploadFileAsync(
         string localPath, string relPath,
         Dictionary<string, FileMetadata> remotePaths,
@@ -220,33 +282,40 @@ public class SyncEngine : IHostedService
             _log.LogInformation("⬆ Uploading {Path}", relPath);
             FileActivity?.Invoke(this, $"Uploading: {Path.GetFileName(relPath)}");
 
-            var init = await _api.InitUploadAsync(new UploadInitRequest(
-                info.Name, info.Length, mime, parentId), ct);
+            var init = await _api.InitUploadAsync(new UploadInitRequest
+            {
+                Filename = info.Name,
+                Size = info.Length,
+                MimeType = mime
+            }, ct);
             if (init == null) return;
 
             // Chunked upload
-            var parts = new List<PartInfo>();
             await using var file = File.OpenRead(localPath);
             var partSize = (int)Math.Max(init.PartSize, 1 * 1024 * 1024); // min 1MB
             var buffer = new byte[partSize];
             int partNumber = 1;
-
+            // Send file content
             while (true)
             {
                 var read = await file.ReadAsync(buffer.AsMemory(0, partSize), ct);
                 if (read == 0) break;
-                var etag = await _api.UploadChunkAsync(init.UploadId, partNumber, buffer[..read], ct);
-                parts.Add(new PartInfo(partNumber, etag));
+                await _api.UploadChunkAsync(init.UploadId, partNumber, buffer[..read], ct);
                 partNumber++;
             }
 
+            var localHash = await SyncStateStore.ComputeLocalHashAsync(localPath);
+
             // Complete upload
             var result = await _api.CompleteUploadAsync(init.UploadId,
-                new CompleteUploadRequest(parts, info.Name, parentId, mime), ct);
+                new CompleteUploadRequest
+                {
+                    ParentId = parentId,
+                    Hash = localHash
+                }, ct);
 
             if (result != null)
             {
-                var localHash = await SyncStateStore.ComputeLocalHashAsync(localPath);
                 TrackState(result, relPath, localHash);
                 _log.LogInformation("✔ Uploaded {Path}", relPath);
             }
@@ -345,7 +414,7 @@ public class SyncEngine : IHostedService
             current = parent;
         }
 
-        return string.Join('/', parts.ToArray().Reverse());
+        return string.Join('/', parts.ToArray());
     }
 
     private void TrackState(FileMetadata remote, string relPath, string localHash = "")
@@ -356,7 +425,7 @@ public class SyncEngine : IHostedService
             RelativePath = relPath,
             FileSize = remote.Size ?? 0,
             LocalHash = localHash,
-            RemoteHash = remote.Hash ?? "",
+            RemoteHash = !string.IsNullOrEmpty(remote.Hash) ? remote.Hash : localHash,
             LastSynced = DateTimeOffset.UtcNow,
             IsFolder = remote.IsFolder,
             IsFavorite = remote.IsFavorite,

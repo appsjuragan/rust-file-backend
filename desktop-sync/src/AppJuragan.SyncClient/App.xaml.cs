@@ -77,7 +77,8 @@ public partial class App : Application
         sc.AddHttpClient<ApiClient>((sp, client) =>
         {
             var settings = sp.GetRequiredService<SettingsService>().Current;
-            client.BaseAddress = new Uri(settings.ServerUrl);
+            var url = settings.ServerUrl.TrimEnd('/') + "/";
+            client.BaseAddress = new Uri(url);
             client.Timeout = TimeSpan.FromSeconds(60);
         });
 

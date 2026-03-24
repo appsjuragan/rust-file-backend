@@ -59,6 +59,7 @@ services:
       MINIO_BUCKET: filebe
       MINIO_REGION: us-east-1
       JWT_SECRET: your_super_secret_jwt_key
+      FRONTEND_URL: http://localhost:5173
       RUST_LOG: info
       OIDC_SKIP_DISCOVERY: "true"
       MAX_FILE_SIZE: 1073741824

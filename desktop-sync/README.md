@@ -28,14 +28,16 @@ The solution comprises two projects:
 
 ## Features Implemented
 
-* **Device Authentication (OTP)**: Seamless login leveraging the backend's `/auth/device` endpoints. The desktop opens a 6-digit code which the user approves inside their active web session online.
-* **Sync Engine**: A reliable sync engine (`SyncEngine.cs`) utilizing a continuous background `System.Timers.Timer` to reconcile local filesystem state with the `ApiClient` fetch of remote lists.
-* **Smart Hashing**: Employs MD5 checks via `SyncStateStore.cs` against local files to determine if uploading chunks to the `xxhash`-backed rust backend is required.
-* **Persistent Settings**: DPAPI keeps the JWT tied to the Windows profile gracefully (`AuthService.cs`).
-* **Shell Integration**: Includes a built-in static registrar `ShellOverlayRegistrar.cs` to inject CLSIDs bridging the `.NET` COM server (`OverlayHandlers.cs`).
-* **System Tray**: Complete tray-icon controls providing passive sync status (Idle, Syncing, Synced, Error). 
+* **Device Authentication (OTP)**: Seamless login leveraging the backend's `/auth/device` endpoints.
+* **Smart Two-Way Sync**: A reliable engine (`SyncEngine.cs`) that handles downloads, uploads, and **two-way deletions**. If you delete locally, it deletes on the cloud; if it's deleted elsewhere, it's removed locally.
+* **Premium Dark Mode UI**: Modern WPF interface with a glassmorphism aesthetic, custom scrollbars, and consistent brand colors matching the web frontend.
+* **Custom System Tray & Tooltip**: High-fidelity dark-mode tray tooltip with real-time status updates and branded status icons.
+* **Smart Hashing**: Employs MD5 checks via `SyncStateStore.cs` against local files to determine if uploading chunks is required.
+* **Optimized Shutdown**: Instant tray icon disposal and safe engine termination with a 3-second timeout for a snappy user experience.
+* **Shell Integration**: Visual icon overlays (green check marks for synced, blue linking for shared, yellow star for favorites).
 
 ## Troubleshooting
 
 - **Icon Overlays Missing**: Windows strictly limits the number of overlay icons system-wide to 15. If Dropbox, OneDrive, or similar software uses these up, the Shell extension registrar adds three spaces (`   AppJuragan`) to cheat the alphabetical sorting rank. Restart `explorer.exe` or sign out and in if they aren't appearing immediately.
-- **Login OTP fails**: Make sure the backend (`cargo run`) is running locally on port 3000, and ensure your web front-end is logged in.
+- **Settings Crash**: If the app fails to open the Settings window, check that the `.NET 8.0 Desktop Runtime` is installed.
+- **Login OTP fails**: Make sure the backend project is running locally, and ensure your web front-end is logged in.

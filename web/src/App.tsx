@@ -8,6 +8,7 @@ import { AuthPage } from "./features/auth/AuthPage";
 import Dashboard from "./features/dashboard/Dashboard";
 import { PublicSharePage } from "./features/share/PublicSharePage";
 import { BackendStatusMonitor } from "./components/BackendStatusMonitor";
+import { DeviceActivatePage } from "./features/device/DeviceActivatePage";
 import "./App.css";
 import "../lib/tailwind.css";
 
@@ -33,9 +34,19 @@ function App() {
   };
 
   const isSharePage = window.location.pathname.startsWith("/s/");
+  const isActivatePage = window.location.pathname.startsWith("/activate");
+  console.log("Current path:", window.location.pathname, "IsActivate:", isActivatePage);
 
   if (isSharePage) {
     return <PublicSharePage />;
+  }
+
+  if (isActivatePage) {
+    // Requires login to activate device
+    if (!isAuthenticated) {
+      return <AuthPage onLogin={handleLogin} />;
+    }
+    return <DeviceActivatePage />;
   }
 
   return (

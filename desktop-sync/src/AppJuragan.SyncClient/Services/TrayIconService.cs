@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace AppJuragan.SyncClient.Services;
 
@@ -16,6 +17,10 @@ public class TrayIconService : IDisposable
     private readonly ILogger<TrayIconService> _log;
     private TaskbarIcon? _tray;
 
+    // Shared tooltip elements updated dynamically
+    private TextBlock? _tooltipTitle;
+    private TextBlock? _tooltipStatus;
+
     public TrayIconService(IServiceProvider sp, SyncEngine sync,
         AuthService auth, ILogger<TrayIconService> log)
     {
@@ -25,11 +30,47 @@ public class TrayIconService : IDisposable
         _log = log;
     }
 
+    private DateTime _lastNotification = DateTime.MinValue;
+
     public void Initialize()
     {
+        // Build the always-dark custom tooltip
+        _tooltipTitle = new TextBlock
+        {
+            Text = "AppJuragan Sync",
+            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x6A, 0xF0)),
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable, Segoe UI, sans-serif")
+        };
+        _tooltipStatus = new TextBlock
+        {
+            Text = "Idle",
+            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8B, 0x8F, 0xA8)),
+            FontSize = 12,
+            FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable, Segoe UI, sans-serif"),
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+
+        var tooltipPanel = new StackPanel { Margin = new Thickness(0) };
+        tooltipPanel.Children.Add(_tooltipTitle);
+        tooltipPanel.Children.Add(_tooltipStatus);
+
+        var tooltipBorder = new Border
+        {
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x21, 0x30)),
+            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2A, 0x2D, 0x3E)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 8, 12, 8),
+            Child = tooltipPanel
+        };
+
         _tray = new TaskbarIcon
         {
-            ToolTipText = "AppJuragan Sync",
+            // ToolTipText must be empty so TrayToolTip takes over completely
+            ToolTipText = "",
+            TrayToolTip = tooltipBorder,
             Icon = LoadIcon("app"),
             ContextMenu = BuildContextMenu()
         };
@@ -47,20 +88,40 @@ public class TrayIconService : IDisposable
                     SyncStatus.Paused => "paused",
                     _ => "app"
                 });
-                _tray.ToolTipText = $"AppJuragan Sync — {status}";
+                if (_tooltipStatus != null)
+                    _tooltipStatus.Text = status.ToString();
             });
         };
 
         _sync.FileActivity += (_, msg) =>
         {
             if (_sp.GetRequiredService<SettingsService>().Current.ShowNotifications)
-                _tray.ShowBalloonTip("AppJuragan Sync", msg, BalloonIcon.Info);
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // Always update the tooltip status text
+                    if (_tooltipStatus != null)
+                        _tooltipStatus.Text = msg.Length > 50 ? msg[..47] + "…" : msg;
+                });
+
+                if ((DateTime.Now - _lastNotification).TotalSeconds > 5)
+                {
+                    _lastNotification = DateTime.Now;
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        _tray?.ShowBalloonTip("AppJuragan Sync", msg, BalloonIcon.Info);
+                    });
+                }
+            }
         };
     }
 
     private ContextMenu BuildContextMenu()
     {
-        var menu = new ContextMenu();
+        var menu = new ContextMenu
+        {
+            Style = (Style)Application.Current.FindResource("TrayContextMenu")
+        };
 
         var statusItem = new MenuItem { Header = "Sync Status...", FontWeight = FontWeights.Bold };
         statusItem.Click += (_, _) => ShowStatus();
@@ -89,8 +150,20 @@ public class TrayIconService : IDisposable
         var exitItem = new MenuItem { Header = "Exit" };
         exitItem.Click += async (_, _) =>
         {
-            await _sync.StopAsync(CancellationToken.None);
-            Application.Current.Shutdown();
+            // Close the icon immediately so it disappears from the tray instantly
+            _tray?.Dispose();
+            _tray = null;
+
+            // Wait for engine stop with a 3s timeout
+            try 
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await _sync.StopAsync(cts.Token);
+            }
+            finally 
+            {
+                Application.Current.Shutdown();
+            }
         };
         menu.Items.Add(exitItem);
 
@@ -113,13 +186,14 @@ public class TrayIconService : IDisposable
 
     private static Icon LoadIcon(string name)
     {
-        // Embedded resources under Resources/Icons/
-        var asm = typeof(TrayIconService).Assembly;
-        var resourceName = $"AppJuragan.SyncClient.Resources.Icons.{name}.ico";
-        var stream = asm.GetManifestResourceStream(resourceName);
-        if (stream != null) return new Icon(stream);
+        try
+        {
+            var uri = new Uri($"pack://application:,,,/Resources/Icons/{name}.ico");
+            var streamInfo = Application.GetResourceStream(uri);
+            if (streamInfo != null) return new Icon(streamInfo.Stream);
+        }
+        catch { }
 
-        // Fallback to a system icon if embedded icon is missing
         return SystemIcons.Application;
     }
 

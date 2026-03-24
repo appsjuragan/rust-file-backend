@@ -9,7 +9,7 @@ namespace AppJuragan.SyncClient.Services;
 public class AppSettings
 {
     [JsonPropertyName("serverUrl")]
-    public string ServerUrl { get; set; } = "http://localhost:3000";
+    public string ServerUrl { get; set; } = "http://localhost/api";
 
     [JsonPropertyName("localSyncFolder")]
     public string LocalSyncFolder { get; set; } = Path.Combine(
