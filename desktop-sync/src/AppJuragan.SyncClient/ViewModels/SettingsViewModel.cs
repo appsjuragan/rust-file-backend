@@ -17,9 +17,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _serverUrl;
     [ObservableProperty] private string _localFolder;
     [ObservableProperty] private int _syncInterval;
+    [ObservableProperty] private SyncMode _syncMode;
     [ObservableProperty] private bool _runOnStartup;
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private int _maxTransfers;
+
+    public IEnumerable<SyncMode> SyncModes => Enum.GetValues<SyncMode>();
 
     public SettingsViewModel(SettingsService settings)
     {
@@ -27,6 +30,7 @@ public partial class SettingsViewModel : ObservableObject
         var s = settings.Current;
         _serverUrl = s.ServerUrl;
         _localFolder = s.LocalSyncFolder;
+        _syncMode = s.SyncMode;
         _syncInterval = s.SyncIntervalSeconds;
         _runOnStartup = s.RunOnStartup;
         _showNotifications = s.ShowNotifications;
@@ -52,6 +56,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             ServerUrl = ServerUrl,
             LocalSyncFolder = LocalFolder,
+            SyncMode = SyncMode,
             SyncIntervalSeconds = SyncInterval,
             RunOnStartup = RunOnStartup,
             ShowNotifications = ShowNotifications,

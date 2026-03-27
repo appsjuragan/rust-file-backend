@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 
 namespace AppJuragan.SyncClient.Services;
 
+public enum SyncMode { Mirroring, Streaming }
+
 /// <summary>Persisted user settings stored in %LocalAppData%\AppJuragan\SyncClient\settings.json</summary>
 public class AppSettings
 {
@@ -14,6 +16,9 @@ public class AppSettings
     [JsonPropertyName("localSyncFolder")]
     public string LocalSyncFolder { get; set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppJuragan");
+
+    [JsonPropertyName("syncMode")]
+    public SyncMode SyncMode { get; set; } = SyncMode.Mirroring;
 
     [JsonPropertyName("syncIntervalSeconds")]
     public int SyncIntervalSeconds { get; set; } = 30;

@@ -36,6 +36,12 @@
                             Grid.Column="1" Command="{Binding BrowseFolderCommand}"/>
                 </Grid>
 
+                <!-- Sync Mode -->
+                <TextBlock Text="Sync Mode" Style="{StaticResource FieldLabel}"/>
+                <ComboBox ItemsSource="{Binding SyncModes}"
+                          SelectedItem="{Binding SyncMode}"
+                          Style="{StaticResource DarkComboBox}" Margin="0,0,0,16"/>
+
                 <!-- Sync interval -->
                 <TextBlock Text="Sync Interval (seconds)" Style="{StaticResource FieldLabel}"/>
                 <Slider Value="{Binding SyncInterval}" Minimum="15" Maximum="3600"

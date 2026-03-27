@@ -55,6 +55,7 @@ pub async fn create_folder(
         is_folder: Set(true),
         parent_id: Set(req.parent_id.clone()),
         created_at: Set(Some(Utc::now())),
+        updated_at: Set(Some(Utc::now())),
         is_favorite: Set(false),
         ..Default::default()
     };
@@ -192,6 +193,7 @@ pub async fn toggle_favorite(
 
     let mut active_model = item.into_active_model();
     active_model.is_favorite = Set(!active_model.is_favorite.unwrap());
+    active_model.updated_at = Set(Some(Utc::now()));
     let res = active_model.update(&state.db).await?;
 
     // Manual mapping for now to include metadata
@@ -384,6 +386,7 @@ pub async fn rename_item(
             let mut active_existing: user_files::ActiveModel = existing_file.clone().into();
             active_existing.storage_file_id = Set(new_storage_file_id.clone());
             active_existing.created_at = Set(Some(Utc::now()));
+            active_existing.updated_at = Set(Some(Utc::now()));
             let updated = active_existing.update(&state.db).await?;
 
             // Soft delete the original item (the one being renamed/moved)
@@ -429,6 +432,7 @@ pub async fn rename_item(
             active.parent_id = Set(Some(parent_id));
         }
     }
+    active.updated_at = Set(Some(Utc::now()));
 
     let updated = active.update(&state.db).await?;
     return_file_metadata(state, updated).await

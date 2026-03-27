@@ -61,6 +61,8 @@ public class FileMetadata
     [JsonPropertyName("is_folder")] public bool IsFolder { get; set; }
     [JsonPropertyName("parent_id")] public string? ParentId { get; set; }
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
+    [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; set; }
+    [JsonPropertyName("deleted_at")] public DateTimeOffset? DeletedAt { get; set; }
     [JsonPropertyName("is_favorite")] public bool IsFavorite { get; set; }
     [JsonPropertyName("is_shared")] public bool IsShared { get; set; }
     [JsonPropertyName("share_token")] public string? ShareToken { get; set; }
@@ -161,6 +163,24 @@ public class ApiClient
         SetAuthHeader();
         var query = parentId == null ? "parent_id=root" : $"parent_id={Uri.EscapeDataString(parentId)}";
         var url = $"{_baseUrl}files?{query}";
+        var resp = await _http.GetAsync(url, ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];
+    }
+
+    public async Task<List<FileMetadata>> GetDeltaAsync(DateTimeOffset since, CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var url = $"{_baseUrl}files/delta?since={since:o}"; // ISO 8601
+        var resp = await _http.GetAsync(url, ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];
+    }
+
+    public async Task<List<FileMetadata>> GetFolderPathAsync(string folderId, CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var url = $"{_baseUrl}files/{Uri.EscapeDataString(folderId)}/path";
         var resp = await _http.GetAsync(url, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];

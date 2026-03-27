@@ -35,6 +35,8 @@ public class SyncStateStore
     private readonly ILogger<SyncStateStore> _log;
     private ConcurrentDictionary<string, SyncEntry> _state = new();
 
+    public DateTimeOffset LastSyncTime { get; set; } = DateTimeOffset.MinValue;
+
     public SyncStateStore(ILogger<SyncStateStore> log)
     {
         _log = log;
@@ -62,8 +64,13 @@ public class SyncStateStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
+            var data = new SyncStateData
+            {
+                LastSyncTime = LastSyncTime,
+                Entries = _state.Values.ToList()
+            };
             File.WriteAllText(StatePath,
-                JsonSerializer.Serialize(_state.Values.ToList(),
+                JsonSerializer.Serialize(data,
                     new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex) { _log.LogWarning(ex, "Could not persist sync state"); }
@@ -74,12 +81,21 @@ public class SyncStateStore
         try
         {
             if (!File.Exists(StatePath)) return;
-            var list = JsonSerializer.Deserialize<List<SyncEntry>>(File.ReadAllText(StatePath));
-            if (list != null)
+            var data = JsonSerializer.Deserialize<SyncStateData>(File.ReadAllText(StatePath));
+            if (data != null)
+            {
+                LastSyncTime = data.LastSyncTime;
                 _state = new ConcurrentDictionary<string, SyncEntry>(
-                    list.ToDictionary(e => e.RemoteId));
+                    data.Entries.ToDictionary(e => e.RemoteId));
+            }
         }
         catch (Exception ex) { _log.LogWarning(ex, "Could not load sync state, starting fresh"); }
+    }
+
+    private class SyncStateData
+    {
+        public DateTimeOffset LastSyncTime { get; set; }
+        public List<SyncEntry> Entries { get; set; } = new();
     }
 
     /// <summary>Compute MD5 hash of a local file for change detection.</summary>

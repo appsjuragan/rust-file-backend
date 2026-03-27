@@ -15,6 +15,7 @@ pub struct Model {
     pub is_favorite: bool,
     pub expires_at: Option<DateTimeUtc>,
     pub created_at: Option<DateTimeUtc>,
+    pub updated_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,
     pub file_signature: Option<String>,
     pub original_parent_id: Option<String>,

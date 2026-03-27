@@ -1,5 +1,6 @@
 pub mod archive;
 pub mod bulk;
+pub mod delta;
 pub mod download;
 pub mod list;
 pub mod manage;
@@ -12,6 +13,7 @@ pub use types::*;
 // Re-export all handlers
 pub use archive::get_zip_contents;
 pub use bulk::{bulk_copy, bulk_delete, bulk_download, bulk_move, get_archive_status};
+pub use delta::get_delta;
 pub use download::{
     download_file, download_file_with_ticket, generate_download_ticket, get_thumbnail,
 };

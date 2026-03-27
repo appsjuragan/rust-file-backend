@@ -38,6 +38,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::upload::link_file,
         api::handlers::files::download::download_file,
         api::handlers::files::download::get_thumbnail,
+        api::handlers::files::delta::get_delta,
         api::handlers::files::list::list_files,
         api::handlers::files::manage::create_folder,
         api::handlers::files::manage::delete_item,
@@ -278,6 +279,7 @@ pub fn create_app(state: AppState) -> Router {
             "/files/:id/zip-contents",
             get(api::handlers::files::get_zip_contents),
         )
+        .route("/files/delta", get(api::handlers::files::get_delta))
         .route("/files", get(api::handlers::files::list_files))
         .route("/folders", post(api::handlers::files::create_folder))
         .route("/folders/tree", get(api::handlers::files::folder_tree))

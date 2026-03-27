@@ -117,6 +117,7 @@ public partial class App : Application
         });
 
         // Sync engine
+        sc.AddSingleton<CloudFilterService>();
         sc.AddSingleton<SyncEngine>();
         sc.AddSingleton<SyncStateStore>();
 

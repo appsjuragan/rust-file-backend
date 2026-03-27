@@ -348,6 +348,7 @@ impl FileService {
             active.storage_file_id = Set(Some(storage_file_id.clone()));
             active.expires_at = Set(expires_at);
             active.created_at = Set(Some(Utc::now())); // Update timestamp to "latest"
+            active.updated_at = Set(Some(Utc::now()));
             active.update(&self.db).await.map_err(|e| {
                 tracing::error!("Failed to update existing user_file: {}", e);
                 AppError::Internal(e.to_string())
@@ -377,6 +378,7 @@ impl FileService {
                 parent_id: Set(parent_id),
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
+                updated_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
                 is_favorite: Set(false),
                 ..Default::default()
@@ -463,6 +465,7 @@ impl FileService {
             active.storage_file_id = Set(Some(storage_file_id.clone()));
             active.expires_at = Set(expires_at);
             active.created_at = Set(Some(Utc::now()));
+            active.updated_at = Set(Some(Utc::now()));
             active.update(&self.db).await?;
 
             // Decrement ref count of old storage file if it's different
@@ -488,6 +491,7 @@ impl FileService {
                 parent_id: Set(parent_id),
                 expires_at: Set(expires_at),
                 created_at: Set(Some(Utc::now())),
+                updated_at: Set(Some(Utc::now())),
                 is_folder: Set(false),
                 is_favorite: Set(false),
                 ..Default::default()
