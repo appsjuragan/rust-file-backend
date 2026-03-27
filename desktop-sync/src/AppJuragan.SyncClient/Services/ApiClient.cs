@@ -171,7 +171,7 @@ public class ApiClient
     public async Task<List<FileMetadata>> GetDeltaAsync(DateTimeOffset since, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var url = $"{_baseUrl}files/delta?since={since:o}"; // ISO 8601
+        var url = $"{_baseUrl}files/delta?since={Uri.EscapeDataString(since.ToString("o"))}"; // ISO 8601
         var resp = await _http.GetAsync(url, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];

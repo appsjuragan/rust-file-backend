@@ -330,14 +330,19 @@ impl FileService {
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
         // Check for existing file with same name in the same folder for merging
-        let existing_user_file = UserFiles::find()
+        let mut existing_query = UserFiles::find()
             .filter(user_files::Column::UserId.eq(&user_id))
             .filter(user_files::Column::Filename.eq(&filename))
-            .filter(user_files::Column::ParentId.eq(parent_id.clone()))
             .filter(user_files::Column::IsFolder.eq(false))
-            .filter(user_files::Column::DeletedAt.is_null())
-            .one(&self.db)
-            .await?;
+            .filter(user_files::Column::DeletedAt.is_null());
+
+        if let Some(ref pid) = parent_id {
+            existing_query = existing_query.filter(user_files::Column::ParentId.eq(pid.clone()));
+        } else {
+            existing_query = existing_query.filter(user_files::Column::ParentId.is_null());
+        }
+
+        let existing_user_file = existing_query.one(&self.db).await?;
 
         let user_file_id = if let Some(existing) = existing_user_file {
             // Merge logic: Update existing record to point to new storage file
@@ -447,14 +452,19 @@ impl FileService {
         let expires_at = expiration_hours.map(|h| Utc::now() + Duration::hours(h));
 
         // Check for existing file with same name in the same folder for merging
-        let existing_user_file = UserFiles::find()
+        let mut existing_query = UserFiles::find()
             .filter(user_files::Column::UserId.eq(&user_id))
             .filter(user_files::Column::Filename.eq(&filename))
-            .filter(user_files::Column::ParentId.eq(parent_id.clone()))
             .filter(user_files::Column::IsFolder.eq(false))
-            .filter(user_files::Column::DeletedAt.is_null())
-            .one(&self.db)
-            .await?;
+            .filter(user_files::Column::DeletedAt.is_null());
+
+        if let Some(ref pid) = parent_id {
+            existing_query = existing_query.filter(user_files::Column::ParentId.eq(pid.clone()));
+        } else {
+            existing_query = existing_query.filter(user_files::Column::ParentId.is_null());
+        }
+
+        let existing_user_file = existing_query.one(&self.db).await?;
 
         let user_file_id = if let Some(existing) = existing_user_file {
             // Merge logic: Update existing record to point to new storage file

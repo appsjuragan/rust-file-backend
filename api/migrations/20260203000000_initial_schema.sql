@@ -1,10 +1,7 @@
--- Initial Schema for Rust File Backend
--- Unified for PostgreSQL (Priority)
+-- Unified Migration for Rust File Backend
+-- Consolidated Version
 
--- Extensions (PostgreSQL only - commented for SQLite compatibility)
--- CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- Users
+-- 1. Create Users & Auth
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY NOT NULL,
     username TEXT UNIQUE NOT NULL,
@@ -16,7 +13,15 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- User Settings
+CREATE TABLE IF NOT EXISTS tokens (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 2. User Architecture
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id TEXT PRIMARY KEY NOT NULL,
     theme TEXT NOT NULL DEFAULT 'dark',
@@ -26,16 +31,20 @@ CREATE TABLE IF NOT EXISTS user_settings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Tokens
-CREATE TABLE IF NOT EXISTS tokens (
-    id TEXT PRIMARY KEY NOT NULL,
-    user_id TEXT NOT NULL,
-    token TEXT UNIQUE NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
+CREATE TABLE IF NOT EXISTS user_file_facts (
+    user_id TEXT PRIMARY KEY NOT NULL,
+    total_files BIGINT DEFAULT 0,
+    total_size BIGINT DEFAULT 0,
+    video_count BIGINT DEFAULT 0,
+    audio_count BIGINT DEFAULT 0,
+    document_count BIGINT DEFAULT 0,
+    image_count BIGINT DEFAULT 0,
+    others_count BIGINT DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Storage Files (Deduplication Layer)
+-- 3. Storage Layer
 CREATE TABLE IF NOT EXISTS storage_files (
     id TEXT PRIMARY KEY NOT NULL,
     hash TEXT UNIQUE NOT NULL,
@@ -51,24 +60,35 @@ CREATE TABLE IF NOT EXISTS storage_files (
     is_encrypted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- User Files (File System Layer)
+CREATE TABLE IF NOT EXISTS file_metadata (
+    id TEXT PRIMARY KEY NOT NULL,
+    storage_file_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE CASCADE
+);
+
+-- 4. File System Layer
 CREATE TABLE IF NOT EXISTS user_files (
     id TEXT PRIMARY KEY NOT NULL,
     user_id TEXT NOT NULL,
-    storage_file_id TEXT, -- Nullable for folders
+    storage_file_id TEXT, 
     parent_id TEXT DEFAULT NULL,
+    original_parent_id TEXT, 
     is_folder BOOLEAN DEFAULT FALSE,
+    is_system BOOLEAN DEFAULT FALSE, 
     filename TEXT NOT NULL,
-    file_signature TEXT, -- Obfuscated: was encryption_key
+    file_signature TEXT, 
     is_favorite BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, 
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE SET NULL
 );
 
--- Upload Sessions
+-- 5. Uploads & Utilities
 CREATE TABLE IF NOT EXISTS upload_sessions (
     id TEXT PRIMARY KEY NOT NULL,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -86,13 +106,25 @@ CREATE TABLE IF NOT EXISTS upload_sessions (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
--- Tags
+CREATE TABLE IF NOT EXISTS download_archives (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    s3_key TEXT,                          
+    status TEXT NOT NULL DEFAULT 'pending', 
+    filename TEXT NOT NULL DEFAULT 'archive.zip',
+    file_size BIGINT DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,       
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 6. Social & Tagging
 CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT UNIQUE NOT NULL
 );
 
--- File Tags Junction
 CREATE TABLE IF NOT EXISTS file_tags (
     user_file_id TEXT NOT NULL,
     tag_id TEXT NOT NULL,
@@ -101,30 +133,6 @@ CREATE TABLE IF NOT EXISTS file_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
--- File Metadata
-CREATE TABLE IF NOT EXISTS file_metadata (
-    id TEXT PRIMARY KEY NOT NULL,
-    storage_file_id TEXT NOT NULL,
-    category TEXT NOT NULL,
-    metadata JSONB DEFAULT '{}',
-    FOREIGN KEY (storage_file_id) REFERENCES storage_files(id) ON DELETE CASCADE
-);
-
--- Audit Logs
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id TEXT PRIMARY KEY NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    event_type TEXT NOT NULL,
-    user_id TEXT,
-    resource_id TEXT,
-    action TEXT NOT NULL,
-    status TEXT NOT NULL,
-    details TEXT,
-    ip_address TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- Share Links
 CREATE TABLE IF NOT EXISTS share_links (
     id TEXT PRIMARY KEY NOT NULL,
     user_file_id TEXT NOT NULL,
@@ -141,7 +149,20 @@ CREATE TABLE IF NOT EXISTS share_links (
     FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Share Access Logs
+-- 7. Logging & Auditing
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id TEXT PRIMARY KEY NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    event_type TEXT NOT NULL,
+    user_id TEXT,
+    resource_id TEXT,
+    action TEXT NOT NULL,
+    status TEXT NOT NULL,
+    details TEXT,
+    ip_address TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS share_access_logs (
     id TEXT PRIMARY KEY NOT NULL,
     share_link_id TEXT NOT NULL,
@@ -154,21 +175,7 @@ CREATE TABLE IF NOT EXISTS share_access_logs (
     FOREIGN KEY (accessed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- User File Facts (Statistics)
-CREATE TABLE IF NOT EXISTS user_file_facts (
-    user_id TEXT PRIMARY KEY NOT NULL,
-    total_files BIGINT DEFAULT 0,
-    total_size BIGINT DEFAULT 0,
-    video_count BIGINT DEFAULT 0,
-    audio_count BIGINT DEFAULT 0,
-    document_count BIGINT DEFAULT 0,
-    image_count BIGINT DEFAULT 0,
-    others_count BIGINT DEFAULT 0,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Validation Tables
+-- 8. Validation Data
 CREATE TABLE IF NOT EXISTS allowed_mimes (
     id SERIAL PRIMARY KEY,
     mime_type TEXT UNIQUE NOT NULL,
@@ -190,7 +197,7 @@ CREATE TABLE IF NOT EXISTS blocked_extensions (
     description TEXT
 );
 
--- Indexes
+-- 9. Tooling & Indices
 CREATE INDEX IF NOT EXISTS idx_user_files_user_id ON user_files(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_files_parent_id ON user_files(parent_id);
 CREATE INDEX IF NOT EXISTS idx_user_files_filename ON user_files(filename);
@@ -209,10 +216,11 @@ CREATE INDEX IF NOT EXISTS idx_share_links_created_by ON share_links(created_by)
 CREATE INDEX IF NOT EXISTS idx_share_links_expires_at ON share_links(expires_at);
 CREATE INDEX IF NOT EXISTS idx_share_access_logs_share_link_id ON share_access_logs(share_link_id);
 CREATE INDEX IF NOT EXISTS idx_share_access_logs_accessed_at ON share_access_logs(accessed_at);
--- GIN index (PostgreSQL only - commented for SQLite compatibility)
--- CREATE INDEX IF NOT EXISTS idx_user_files_filename_trgm ON user_files USING gin (filename gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_download_archives_user_id ON download_archives(user_id);
+CREATE INDEX IF NOT EXISTS idx_download_archives_status ON download_archives(status);
+CREATE INDEX IF NOT EXISTS idx_download_archives_expires_at ON download_archives(expires_at);
 
--- Seed Initial System Data
+-- 10. Initial Data
 INSERT INTO allowed_mimes (mime_type, category) VALUES
 ('application/pdf', 'Documents'),
 ('application/msword', 'Documents'),

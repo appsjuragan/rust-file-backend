@@ -46,10 +46,20 @@
 - **Document Preview:** Support for **Microsoft Office** (Word, Excel, PPT) and **TIFF** images via `react-doc-viewer`
 - **Secure Thumbnails:** Public API for 128x128 media thumbnails in shared folders
 
-### 🗑️ Cloud Trash Bin (New!)
+### 🗑️ Cloud Trash Bin
 - **Recursive Deletion:** Permanently empty trash items with background cleanup
 - **Storage Statistics:** Real-time visibility of trash size and item count
 - **Actionable Context Menus:** Quick "Empty Trash" from the sidebar for better UX
+
+### 🔄 Progressive File Sync & Delta API (New!)
+- **Delta-Based Sync:** Desktop client uses the `/files/delta` API for efficient updates instead of full recursive scans.
+- **Native Experience:** High-performance WPF client for Windows (.NET 8).
+- **Personalized Paths:** Automatic sync folder isolation to `JuraganCloudSync\[Username]`.
+- **Cloud-First Protection:** Intelligent safety logic that prioritizes cloud data on initialization.
+- **Premium UI:** Dark-mode interface with shell overlays and system tray integration.
+- **Public Share Exposure:** View and copy active public share links directly from the sync window.
+- **Icon Indicators:** Visual status icons for Shared Items and Favorites (green check, blue share, yellow star).
+- **Background Sync:** Reliable periodic synchronization with configurable intervals.
 
 ### 🖼️ Automatic Thumbnail Generation
 - **WebP Format:** Optimized thumbnails (256px / 128px) for minimal bandwidth
@@ -58,26 +68,11 @@
 - **Dedicated Worker:** Separate `thumbnail-worker` process for asynchronous generation
 - **Lazy Loading:** Frontend loads thumbnails asynchronously with smooth animations
 
-### 🔄 Desktop Synchronization (New!)
-- **Native Experience:** High-performance WPF client for Windows (.NET 8)
-- **Personalized Paths:** Automatic sync folder isolation to `JuraganCloudSync\[Username]`
-- **Cloud-First Protection:** Intelligent safety logic that prioritizes cloud data on initialization
-- **Premium UI:** Dark-mode interface with shell overlays and system tray integration
-- **Public Share Exposure:** View and copy active public share links directly from the sync window
-- **Icon Indicators:** Visual status icons for Shared Items and Favorites (green check, blue share, yellow star)
-- **Background Sync:** Reliable periodic synchronization with configurable intervals
-
 ### 📋 Advanced File Operations
 - **Copy/Paste:** Recursive folder duplication with deduplication
 - **Bulk Actions:** Move, delete, and copy multiple items
 - **Archive Preview:** Inspect ZIP, 7z, RAR, TAR without extraction
 - **Favorites:** Star/unstar files and folders for quick access
-
-### 🧩 Resilient Parallel Uploads
-- Custom chunked upload engine with parallel workers
-- Exponential backoff retry mechanism
-- Multi-GB file support on unstable connections
-- Configurable chunk sizes (default: 10MB)
 
 ### 🔍 Advanced Search & Filtering
 - **Full-Text Search:** Real-time filename search with debouncing
@@ -115,6 +110,7 @@
 - **Pattern:** MVVM (CommunityToolkit.Mvvm)
 - **Updates:** Self-contained single-file publishing
 - **Auth:** Device Authorization Flow (OAuth2-style OTP)
+- **Engine:** Delta-based synchronization leveraging backend `/files/delta`
 
 **Features:**
 - Real-time file system monitoring
@@ -123,7 +119,6 @@
 - Dynamic API host configuration
 - Cloud-First safety mechanism for new installs
 - Explorer shell extension for status overlays
-```
 
 ### Backend (`api/`)
 
@@ -136,13 +131,14 @@
 - **Runtime:** Tokio async
 
 **Key Modules:**
-- `api/handlers/` — HTTP request handlers (auth, files, upload, captcha, users, settings, shares, health)
+- `api/handlers/` — HTTP request handlers (auth, files, upload, captcha, users, settings, shares, health, delta)
 - `services/` — Business logic (file, upload, metadata, scanner, audit, facts, share, thumbnail, worker)
 - `entities/` — Database models (SeaORM)
-- `infrastructure/` — Storage, database, scanner adapters
+- `infrastructure/` — Storage, database (SQLx Migrations), scanner adapters
 - `utils/` — Validation, auth, encryption helpers
 
 **Features:**
+- **Delta Sync API:** Efficient tracking of changes via `updated_at` timestamps
 - Chunked multipart uploads with resume capability
 - Content-based deduplication (SHA-256)
 - Background virus scanning queue
@@ -202,23 +198,20 @@
 
 ### Local Development
 
-1. **Clone Repository**
+1.  **Clone Repository**
 ```bash
 git clone https://github.com/appsjuragan/rust-file-backend.git
 cd rust-file-backend
 ```
 
-2. **Backend Setup**
+2.  **Backend Setup**
 ```bash
 cd api
 cp ../.env.sample .env
 # Edit .env with your database and S3 credentials
 
-# Run migrations
-cargo run --bin rust-file-backend -- --mode migrate
-
-# Start API server
-cargo run --bin rust-file-backend -- --mode api
+# Start API server (Migrations run automatically on startup)
+cargo run --bin rust-file-backend -- --mode all
 
 # Start background worker (separate terminal)
 cargo run --bin rust-file-backend -- --mode worker
@@ -227,7 +220,7 @@ cargo run --bin rust-file-backend -- --mode worker
 cargo run --bin rust-file-backend -- --mode thumbnail-worker
 ```
 
-3. **Frontend Setup**
+3.  **Frontend Setup**
 ```bash
 cd web
 cp .env.example .env
@@ -237,7 +230,7 @@ bun install
 bun run dev
 ```
 
-4. **Access Application**
+4.  **Access Application**
 - Frontend: http://localhost:5173
 - API Docs: http://localhost:3000/swagger-ui
 - Health Check: http://localhost:3000/health
@@ -289,7 +282,7 @@ docker compose up -d
 
 ---
 
-## 📡 API Reference
+## 📡 API Reference (Partial)
 
 ### Authentication
 - `POST /register` — Create new user (CAPTCHA-protected)
@@ -298,7 +291,8 @@ docker compose up -d
 - `GET /auth/oidc/login` — OIDC authentication flow
 - `GET /auth/oidc/callback` — OIDC callback handler
 
-### File Operations
+### File & Sync Operations
+- `GET /files/delta` — Get changes since last timestamp (for sync clients)
 - `POST /upload` — Single file upload
 - `POST /files/upload/init` — Initialize chunked upload
 - `GET /files/upload/sessions` — List pending upload sessions
@@ -360,11 +354,7 @@ Full API documentation available at `/swagger-ui` endpoint.
 
 ## 📦 Postman Collection
 
-Import `api/postman_collection.json` for ready-to-use API requests with:
-- Pre-configured authentication
-- Example payloads for all endpoints including sharing
-- Environment variables
-- Postman test scripts for auto-setting tokens
+Import `api/postman_collection.json` for ready-to-use API requests with pre-configured authentication.
 
 ---
 
@@ -417,37 +407,13 @@ All code follows:
 
 ---
 
-## 🔧 Configuration
+## 🔧 Infrastructure & Migrations
+The database schema is managed via **SQLx Migrations**. We maintain a consolidated, single-file migration for fresh installations:
+- `api/migrations/20260203000000_initial_schema.sql` (Consolidated)
 
-### Backend Environment Variables
-```env
-DATABASE_URL=postgresql://user:pass@localhost/rfb
-JWT_SECRET=your-secret-key
-# OIDC (optional)
-OIDC_ISSUER_URL=https://accounts.google.com
-OIDC_CLIENT_ID=your-client-id
-OIDC_CLIENT_SECRET=your-client-secret
-OIDC_REDIRECT_URL=http://localhost:3000/auth/oidc/callback
-OIDC_SKIP_DISCOVERY=false
-MINIO_ENDPOINT=http://localhost:9000
-MINIO_BUCKET=file-storage
-MINIO_ACCESS_KEY=rustfsadmin
-MINIO_SECRET_KEY=rustfsadmin
-MINIO_REGION=us-east-1
-CHUNK_SIZE=10485760
-MAX_FILE_SIZE=1073741824
-CLAMAV_HOST=localhost
-CLAMAV_PORT=3310
-ENABLE_VIRUS_SCAN=true
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-```
-
-See `.env.sample` in the project root for a complete reference.
-
-### Frontend Environment Variables
-```env
-VITE_API_URL=http://localhost:3000
-VITE_CHUNK_SIZE=10485760
+To reset the database (SQLx CLI required):
+```bash
+sqlx database reset
 ```
 
 ---
@@ -458,7 +424,6 @@ VITE_CHUNK_SIZE=10485760
 - **Concurrent Users:** 10,000+ simultaneous connections
 - **Memory Usage:** ~50MB base (API server)
 - **Deduplication Savings:** Up to 80% storage reduction
-- **Chunk Upload Parallelism:** 4 workers default
 
 ---
 
@@ -474,9 +439,7 @@ VITE_CHUNK_SIZE=10485760
 
 ## 📜 License
 
-Licensed under the **MIT License**. See `LICENSE` file for details.
-
-Created with ❤️ by the **AppsJuragan** team.
+Licensed under the **MIT License**. Created with ❤️ by the **AppsJuragan** team.
 
 ---
 
@@ -493,10 +456,11 @@ Created with ❤️ by the **AppsJuragan** team.
 - [ ] WebDAV support
 - [ ] Real-time collaboration
 - [ ] File versioning
-- [x] ~~Cloud Trash Bin with Statistics~~
+- [x] Cloud Trash Bin with Statistics
 - [ ] Mobile app (Capacitor)
 - [ ] End-to-end encryption option
-- [x] ~~File sharing with public links~~
-- [x] ~~Thumbnail generation~~
-- [x] ~~Favorites system~~
-- [x] ~~Native Desktop Sync Client~~
+- [x] File sharing with public links
+- [x] Thumbnail generation
+- [x] Favorites system
+- [x] Native Desktop Sync Client
+- [x] Efficient Delta API for Synchronization
