@@ -245,14 +245,14 @@
         <Setter Property="Foreground" Value="#EAEBF0"/>
         <Setter Property="BorderBrush" Value="#2A2D3E"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Padding" Value="8"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="8" Padding="4">
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
                         <ItemsPresenter />
                     </Border>
                 </ControlTemplate>
@@ -262,11 +262,11 @@
 
     <Style TargetType="Separator">
         <Setter Property="Background" Value="#2A2D3E"/>
-        <Setter Property="Margin" Value="0,4"/>
+        <Setter Property="Margin" Value="0,6"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Separator">
-                    <Border Height="1" Background="{TemplateBinding Background}" Margin="4,0"/>
+                    <Border Height="1" Background="{TemplateBinding Background}" Margin="8,0"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -326,14 +326,14 @@
         <Setter Property="Background" Value="#1A1B24"/>
         <Setter Property="BorderBrush" Value="#2A2D3E"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Padding" Value="8"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="8">
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                     </Border>
                 </ControlTemplate>
@@ -343,20 +343,20 @@
 
     <Style TargetType="MenuItem">
         <Setter Property="Foreground" Value="#8B8FA8"/>
-        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Padding" Value="12,10"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="bd" Background="Transparent" CornerRadius="6" Margin="2,1">
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="6" Margin="4,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="30" SharedSizeGroup="Icon"/>
+                                <ColumnDefinition Width="36" SharedSizeGroup="Icon"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="Shortcut"/>
                             </Grid.ColumnDefinitions>
-                            <ContentPresenter x:Name="Icon" ContentSource="Icon" Margin="4,0" VerticalAlignment="Center"/>
+                            <ContentPresenter x:Name="Icon" ContentSource="Icon" Margin="10,0,4,0" VerticalAlignment="Center"/>
                             <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" 
-                                              VerticalAlignment="Center" Margin="4,0,12,0"/>
+                                              VerticalAlignment="Center" Margin="6,0,16,0"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>

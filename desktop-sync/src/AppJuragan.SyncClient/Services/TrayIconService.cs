@@ -151,20 +151,34 @@ public class TrayIconService : IDisposable
     {
         var menu = new ContextMenu
         {
-            Style = (Style)Application.Current.FindResource("TrayContextMenu")
+            Style = (Style)Application.Current.FindResource("TrayContextMenu"),
+            MinWidth = 240,
+            FontSize = 14
         };
+
+        // Header panel always added for informational purpose
+        var headerStack = new StackPanel { Margin = new Thickness(12, 10, 12, 12) };
+        var titleText = new TextBlock 
+        { 
+            Text = "Juragan Cloud", 
+            FontWeight = FontWeights.Black, 
+            FontSize = 16,
+            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x6A, 0xF0)),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        headerStack.Children.Add(titleText);
 
         if (_profile != null)
         {
-            var userPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 2, 8, 2) };
+            var userPanel = new StackPanel { Orientation = Orientation.Horizontal };
             
             // Avatar circle
             var avatarBorder = new Border
             {
-                Width = 28,
-                Height = 28,
-                CornerRadius = new CornerRadius(14),
-                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x6A, 0xF0)),
+                Width = 32,
+                Height = 32,
+                CornerRadius = new CornerRadius(16),
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4E, 0xCC, 0xA3)),
                 Margin = new Thickness(0, 0, 10, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -176,7 +190,7 @@ public class TrayIconService : IDisposable
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = System.Windows.Media.Brushes.White,
-                FontSize = 12,
+                FontSize = 13,
                 FontWeight = FontWeights.Bold
             };
 
@@ -186,41 +200,70 @@ public class TrayIconService : IDisposable
                 Text = _profile.Name ?? _profile.Username, 
                 FontWeight = FontWeights.SemiBold,
                 Foreground = System.Windows.Media.Brushes.White,
-                FontSize = 13
+                FontSize = 14
             });
             textPanel.Children.Add(new TextBlock 
             { 
                 Text = _profile.Email ?? $"@{_profile.Username}", 
                 Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8B, 0x8F, 0xA8)),
-                FontSize = 10,
-                Margin = new Thickness(0, -1, 0, 0)
+                FontSize = 11,
+                Margin = new Thickness(0, 1, 0, 0)
             });
 
             userPanel.Children.Add(avatarBorder);
             userPanel.Children.Add(textPanel);
-
-            var userHeaderItem = new MenuItem { Header = userPanel, IsEnabled = false, Padding = new Thickness(10, 4, 10, 4) };
-            menu.Items.Add(userHeaderItem);
-            menu.Items.Add(new Separator());
+            headerStack.Children.Add(userPanel);
+        }
+        else
+        {
+            headerStack.Children.Add(new TextBlock 
+            { 
+                Text = "Not signed in or profile loading...", 
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8B, 0x8F, 0xA8)), 
+                FontSize = 12 
+            });
         }
 
-        var statusItem = new MenuItem { Header = "Sync Status...", FontWeight = FontWeights.Bold };
+        var headerItem = new MenuItem { Header = headerStack, IsEnabled = false, Padding = new Thickness(4) };
+        menu.Items.Add(headerItem);
+        menu.Items.Add(new Separator());
+
+        var statusItem = new MenuItem 
+        { 
+            Header = "Sync Status...", 
+            FontWeight = FontWeights.Bold,
+            Icon = new TextBlock { Text = "📊", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
         statusItem.Click += (_, _) => ShowStatus();
         menu.Items.Add(statusItem);
 
-        var syncNowItem = new MenuItem { Header = "Sync Now" };
+        var syncNowItem = new MenuItem 
+        { 
+            Header = "Sync Now",
+            Icon = new TextBlock { Text = "🔄", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            IsEnabled = _auth.IsAuthenticated
+        };
         syncNowItem.Click += async (_, _) => await _sync.RunFullSyncAsync();
         menu.Items.Add(syncNowItem);
 
         menu.Items.Add(new Separator());
 
-        var settingsItem = new MenuItem { Header = "Settings..." };
+        var settingsItem = new MenuItem 
+        { 
+            Header = "Settings...",
+            Icon = new TextBlock { Text = "⚙️", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
         settingsItem.Click += (_, _) => ShowSettings();
         menu.Items.Add(settingsItem);
 
         menu.Items.Add(new Separator());
 
-        var signOutItem = new MenuItem { Header = "Sign Out" };
+        var signOutItem = new MenuItem 
+        { 
+            Header = "Sign Out",
+            Icon = new TextBlock { Text = "🚪", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            IsEnabled = _auth.IsAuthenticated
+        };
         signOutItem.Click += async (_, _) =>
         {
             _tray?.Dispose();
@@ -243,7 +286,11 @@ public class TrayIconService : IDisposable
         };
         menu.Items.Add(signOutItem);
 
-        var exitItem = new MenuItem { Header = "Exit" };
+        var exitItem = new MenuItem 
+        { 
+            Header = "Exit",
+            Icon = new TextBlock { Text = "❌", FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
         exitItem.Click += async (_, _) =>
         {
             // Close the icon immediately so it disappears from the tray instantly

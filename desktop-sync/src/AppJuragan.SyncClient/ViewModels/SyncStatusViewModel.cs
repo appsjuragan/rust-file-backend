@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using AppJuragan.SyncClient.Services;
@@ -17,6 +18,8 @@ namespace AppJuragan.SyncClient.ViewModels
         private readonly SyncStateStore _state;
         private readonly SettingsService _settings;
         private readonly ApiClient _api;
+        private readonly AuthService _auth;
+        private readonly TrayIconService _tray;
 
         [ObservableProperty] private string _statusText = "Idle";
         [ObservableProperty] private int _totalSynced;
@@ -30,12 +33,14 @@ namespace AppJuragan.SyncClient.ViewModels
         public ObservableCollection<SyncEntry> SharedItems { get; } = new();
         public ObservableCollection<SyncEntry> FavoriteItems { get; } = new();
 
-        public SyncStatusViewModel(SyncEngine sync, SyncStateStore state, SettingsService settings, ApiClient api)
+        public SyncStatusViewModel(SyncEngine sync, SyncStateStore state, SettingsService settings, ApiClient api, AuthService auth, TrayIconService tray)
         {
             _sync = sync;
             _state = state;
             _settings = settings;
             _api = api;
+            _auth = auth;
+            _tray = tray;
 
             Refresh();
             _ = LoadAsync();
@@ -118,7 +123,7 @@ namespace AppJuragan.SyncClient.ViewModels
                 var publicShare = shares.FirstOrDefault(s => s.ShareType == "public");
                 if (publicShare != null)
                 {
-                    var link = $"{_api.BaseUrl.Replace("/api/v1/", "/s/")}{publicShare.ShareToken}";
+                    var link = $"{_api.BaseUrl.Replace("/api/v1/", "/s/").Replace("/api/", "/s/")}{publicShare.ShareToken}";
                     Clipboard.SetText(link);
                     _ = MessageBox.Show($"Public link copied to clipboard:\n{link}", "Share Link", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -146,6 +151,23 @@ namespace AppJuragan.SyncClient.ViewModels
             if (File.Exists(fullPath) || Directory.Exists(fullPath))
             {
                 Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
+            }
+        }
+
+        [RelayCommand]
+        private async Task SignOutAsync()
+        {
+            _tray.Dispose();
+            _auth.ClearToken();
+            try 
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await _sync.StopAsync(cts.Token);
+            }
+            finally 
+            {
+                System.Windows.Forms.Application.Restart();
+                Application.Current.Shutdown();
             }
         }
     }

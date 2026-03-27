@@ -41,6 +41,13 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Profile.Name, FallbackValue='Name'}" Foreground="White" FontWeight="Bold" FontSize="14"/>
                         <TextBlock Text="{Binding StorageFormatted}" Foreground="#8B8FA8" FontSize="11" Margin="0,1,0,0"/>
+                        <Button Command="{Binding SignOutCommand}" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,2,0,0" HorizontalAlignment="Left" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <TextBlock Text="Logout" Foreground="#E05252" FontSize="11" TextDecorations="Underline"/>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -97,16 +104,28 @@
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                                     <Border.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="🔗 Copy Shared Link" 
+                                            <MenuItem Header="Copy Shared Link" 
                                                       Command="{Binding PlacementTarget.Tag.CopyShareLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
-                                                      CommandParameter="{Binding}"/>
-                                            <MenuItem Header="📂 Copy Local Path" 
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="🔗" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Copy Local Path" 
                                                       Command="{Binding PlacementTarget.Tag.CopyLocalPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
-                                                      CommandParameter="{Binding}"/>
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="📂" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
                                             <Separator/>
-                                            <MenuItem Header="📁 Show in Explorer" 
+                                            <MenuItem Header="Show in Explorer" 
                                                       Command="{Binding PlacementTarget.Tag.OpenItemInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
-                                                      CommandParameter="{Binding}"/>
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="📁" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
                                         </ContextMenu>
                                     </Border.ContextMenu>
                                     <Grid>
@@ -138,13 +157,21 @@
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                                     <Border.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="📂 Copy Local Path" 
+                                            <MenuItem Header="Copy Local Path" 
                                                       Command="{Binding PlacementTarget.Tag.CopyLocalPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
-                                                      CommandParameter="{Binding}"/>
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="📂" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
                                             <Separator/>
-                                            <MenuItem Header="📁 Show in Explorer" 
+                                            <MenuItem Header="Show in Explorer" 
                                                       Command="{Binding PlacementTarget.Tag.OpenItemInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
-                                                      CommandParameter="{Binding}"/>
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="📁" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
                                         </ContextMenu>
                                     </Border.ContextMenu>
                                     <Grid>

@@ -692,7 +692,7 @@ public class SyncEngine : IHostedService
             IsFavorite = remote.IsFavorite,
             IsShared = remote.IsShared,
             ShareUrl = !string.IsNullOrEmpty(remote.ShareToken) 
-                ? $"{_api.BaseUrl.Replace("/api/v1/", "/s/")}{remote.ShareToken}" 
+                ? $"{_api.BaseUrl.Replace("/api/v1/", "/s/").Replace("/api/", "/s/")}{remote.ShareToken}" 
                 : ""
         });
     }

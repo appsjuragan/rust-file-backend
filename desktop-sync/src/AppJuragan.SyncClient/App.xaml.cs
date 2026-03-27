@@ -111,7 +111,7 @@ public partial class App : Application
         sc.AddHttpClient<ApiClient>((sp, client) =>
         {
             var settings = sp.GetRequiredService<SettingsService>().Current;
-            var url = settings.ServerUrl.TrimEnd('/') + "/";
+            var url = ApiClient.NormalizeBaseUrl(settings.ServerUrl);
             client.BaseAddress = new Uri(url);
             client.Timeout = TimeSpan.FromSeconds(60);
         });

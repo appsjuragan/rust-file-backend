@@ -68,9 +68,11 @@ public partial class LoginViewModel : ObservableObject
 
             UserCode = resp.UserCode;
             
-            // Calculate the frontend URL based on the server URL (strip /api/)
+            // Calculate the frontend URL based on the server URL
             var frontendUrl = ServerUrl.TrimEnd('/');
-            if (frontendUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+            if (frontendUrl.EndsWith("/api/v1", StringComparison.OrdinalIgnoreCase))
+                frontendUrl = frontendUrl[..^7];
+            else if (frontendUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
                 frontendUrl = frontendUrl[..^4];
             
             VerificationUri = $"{frontendUrl}/activate?user_code={resp.UserCode}";

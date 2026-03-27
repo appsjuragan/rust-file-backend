@@ -112,7 +112,7 @@ public class ApiClient
         _http = http;
         _auth = auth;
         _log = log;
-        _baseUrl = settings.Current.ServerUrl.TrimEnd('/') + "/";
+        _baseUrl = NormalizeBaseUrl(settings.Current.ServerUrl);
     }
 
     // ── Device auth flow ─────────────────────────────────────────────────────
@@ -280,8 +280,24 @@ public class ApiClient
 
     public void UpdateBaseAddress(string url)
     {
-        _baseUrl = url.TrimEnd('/') + "/";
+        _baseUrl = NormalizeBaseUrl(url);
         _log.LogInformation("API Base URL updated to {Url}", _baseUrl);
+    }
+
+    public static string NormalizeBaseUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return "http://localhost:8080/api/";
+        
+        url = url.TrimEnd('/');
+        
+        // If it doesn't end with /api or /api/v1, append /api
+        if (!url.EndsWith("/api", StringComparison.OrdinalIgnoreCase) && 
+            !url.EndsWith("/api/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            url += "/api";
+        }
+            
+        return url + "/";
     }
 
     private void SetAuthHeader()
@@ -289,5 +305,7 @@ public class ApiClient
         if (!string.IsNullOrEmpty(_auth.Token))
             _http.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", _auth.Token);
+        else
+            _http.DefaultRequestHeaders.Authorization = null;
     }
 }
