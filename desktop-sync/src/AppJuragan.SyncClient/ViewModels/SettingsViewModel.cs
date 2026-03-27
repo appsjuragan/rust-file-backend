@@ -1,6 +1,7 @@
 using AppJuragan.SyncClient.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using System.Windows;
 
@@ -43,6 +44,10 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
+        // Refresh API client URL before saving
+        var api = App.Services.GetRequiredService<ApiClient>();
+        api.UpdateBaseAddress(ServerUrl);
+
         _settings.Save(new AppSettings
         {
             ServerUrl = ServerUrl,

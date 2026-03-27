@@ -93,7 +93,7 @@
   }
 
   .rfm-preview-full {
-    @apply p-0 m-0 w-full h-full;
+    @apply p-0 m-0 w-full h-full flex-1 flex flex-col items-stretch justify-start overflow-auto !important;
   }
 
   .rfm-preview-pdf {
@@ -111,6 +111,23 @@
 
   .rfm-preview-audio {
     @apply w-[80%] max-w-[400px];
+  }
+
+  .rfm-doc-viewer-container {
+    @apply w-full h-full flex flex-col bg-stone-50 overflow-hidden rounded-lg;
+  }
+
+  /* Custom overrides for react-doc-viewer internals */
+  #proxy-renderer {
+    @apply flex-1 flex flex-col items-center justify-center !important;
+  }
+
+  #doc-viewer {
+    @apply flex-1 flex flex-col !important;
+  }
+
+  #ms-renderer {
+    @apply w-full h-full border-none !important;
   }
 
   .rfm-preview-textarea {

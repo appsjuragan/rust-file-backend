@@ -1,4 +1,4 @@
-# 🌐 RFB Web Frontend (v1.1.0)
+# 🌐 RFB Web Frontend (v1.2.0)
 
 The frontend is a modern React application built with **Vite**, **TypeScript**, and **Tailwind CSS**. It provides an intuitive, glassmorphic interface for file management with advanced features like drag-and-drop, chunked uploads, file sharing, thumbnail previews, and bulk operations.
 
@@ -25,6 +25,7 @@ Enterprise software doesn't have to be boring. RFB Web features:
 - **Icons:** Lucide React
 - **Tables:** TanStack Table v8
 - **File Upload:** react-dropzone
+- **Document Viewer:** react-doc-viewer (Word, Excel, PPT, TIFF)
 - **HTTP Client:** Custom fetch wrapper with JWT
 
 ---
@@ -118,6 +119,7 @@ web/
 - Upload progress toasts
 - Highlighted items after operations
 - Thumbnail previews with lazy loading
+- Cloud Trash Bin: recursive stats, empty trash with confirmation, item restoration
 
 ### 🔗 File Sharing
 

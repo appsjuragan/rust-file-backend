@@ -58,6 +58,7 @@
 }
 
 @layer utilities {
+
   /* Layout */
   .rfm-main-container {
     @apply flex flex-col box-border h-full w-full;

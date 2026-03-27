@@ -8,6 +8,7 @@
     <AssemblyName>AppJuragan.SyncClient</AssemblyName>
     <RootNamespace>AppJuragan.SyncClient</RootNamespace>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationIcon>Resources\Icons\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

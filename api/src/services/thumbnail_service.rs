@@ -47,17 +47,18 @@ impl ThumbnailService {
         let data = self.storage.get_file(&file.s3_key).await?;
 
         // Check if we can generate a thumbnail for this mime type
-        let thumb_data_res = if mime_type.starts_with("image/heic") || mime_type.starts_with("image/heif") {
-            self.generate_heif_thumbnail(&data).await
-        } else if mime_type.starts_with("image/") {
-            self.generate_image_thumbnail(&data)
-        } else if mime_type == "application/pdf" {
-            self.generate_pdf_thumbnail(&data).await
-        } else if mime_type.starts_with("video/") {
-            self.generate_video_thumbnail(&data, mime_type).await
-        } else {
-            return Err(anyhow!("Unsupported mime type for thumbnail generation"));
-        };
+        let thumb_data_res =
+            if mime_type.starts_with("image/heic") || mime_type.starts_with("image/heif") {
+                self.generate_heif_thumbnail(&data).await
+            } else if mime_type.starts_with("image/") {
+                self.generate_image_thumbnail(&data)
+            } else if mime_type == "application/pdf" {
+                self.generate_pdf_thumbnail(&data).await
+            } else if mime_type.starts_with("video/") {
+                self.generate_video_thumbnail(&data, mime_type).await
+            } else {
+                return Err(anyhow!("Unsupported mime type for thumbnail generation"));
+            };
 
         let thumb_data = match thumb_data_res {
             Ok(data) => data,

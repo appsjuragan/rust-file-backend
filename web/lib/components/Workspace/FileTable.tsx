@@ -39,6 +39,7 @@ interface FileTableItemProps {
     e: React.MouseEvent | { clientX: number; clientY: number },
     file: FileType | null,
   ) => void;
+  isMobile: boolean;
 }
 
 const FileTableItem = React.memo(
@@ -54,6 +55,7 @@ const FileTableItem = React.memo(
     handleDragLeave,
     handleDropOnFolder,
     handleContextMenu,
+    isMobile,
   }: FileTableItemProps) => {
     const isPending =
       row.original.scanStatus === "pending" ||
@@ -81,8 +83,12 @@ const FileTableItem = React.memo(
 
     return (
       <tr
-        {...longPressProps}
-        onClick={(e) => e.stopPropagation()}
+        {...(isMobile ? longPressProps : {
+          onClick: (e: React.MouseEvent) => {
+            e.stopPropagation();
+            handleTap(row.original, e);
+          }
+        })}
         data-id={row.original.id}
         draggable={!isInfected}
         onDragStart={(e) => !isInfected && handleDragStart(e, row.original)}
@@ -90,13 +96,10 @@ const FileTableItem = React.memo(
         onDragLeave={handleDragLeave}
         onDrop={(e) => !isInfected && handleDropOnFolder(e, row.original)}
         onDoubleClick={() => !isInfected && handleDoubleClick(row.original)}
-        className={`rfm-file-item rfm-workspace-list-icon-row ${
-          isPending ? "rfm-pending" : ""
-        } ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} ${
-          isSelected ? "rfm-selected" : ""
-        } ${isDragOver ? "rfm-drag-over" : ""} ${
-          isHighlighted ? "rfm-highlighted" : ""
-        }`}
+        className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? "rfm-pending" : ""
+          } ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} ${isSelected ? "rfm-selected" : ""
+          } ${isDragOver ? "rfm-drag-over" : ""} ${isHighlighted ? "rfm-highlighted" : ""
+          }`}
         onContextMenu={(e) => {
           const isMobile = window.innerWidth <= 768;
           if (isMobile) {
@@ -208,6 +211,7 @@ export const FileTable: React.FC<FileTableProps> = ({
             handleDragLeave={handleDragLeave}
             handleDropOnFolder={handleDropOnFolder}
             handleContextMenu={handleContextMenu}
+            isMobile={isMobile}
           />
         ))}
         {currentFolderFiles.length === 0 && (

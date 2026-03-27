@@ -1,7 +1,7 @@
 use crate::entities::{
-    allowed_mimes, audit_logs, blocked_extensions, file_metadata, file_tags, magic_signatures,
-    share_access_logs, share_links, storage_files, tags, tokens, upload_sessions, user_file_facts,
-    user_files, user_settings, users, download_archives,
+    allowed_mimes, audit_logs, blocked_extensions, download_archives, file_metadata, file_tags,
+    magic_signatures, share_access_logs, share_links, storage_files, tags, tokens, upload_sessions,
+    user_file_facts, user_files, user_settings, users,
 };
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Schema};
 use std::env;

@@ -1,0 +1,2 @@
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\App.xaml.cs(79,34): warning CS0168: The variable 'ex' is declared but never used [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient_dursp050_wpftmp.csproj]
+F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\App.xaml.cs(79,34): warning CS0168: The variable 'ex' is declared but never used [F:\source_code\rust-file-backend\desktop-sync\src\AppJuragan.SyncClient\AppJuragan.SyncClient.csproj]

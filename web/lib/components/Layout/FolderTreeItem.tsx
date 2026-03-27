@@ -21,15 +21,31 @@ export const buildChildrenMap = (
       map.set(key, [node]);
     }
   }
+
+  // Sort each child list
+  for (const list of map.values()) {
+    list.sort((a, b) => {
+      const isATrash = a.is_system && a.filename === ".Trash";
+      const isBTrash = b.is_system && b.filename === ".Trash";
+      if (isATrash && !isBTrash) return 1;
+      if (!isATrash && isBTrash) return -1;
+      return a.filename.localeCompare(b.filename, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+  }
+
   return map;
 };
 
 // Helper: convert FolderNode to a FileType-like object for drag-drop / context menu
 export const nodeToFileType = (node: FolderNode): FileType => ({
   id: node.id,
-  name: node.filename,
+  name: node.is_system && node.filename === ".Trash" ? "Trash" : node.filename,
   isDir: true,
   parentId: node.parent_id ?? "0",
+  isSystem: node.is_system,
 });
 
 export interface FolderTreeItemProps {
@@ -154,9 +170,8 @@ const FolderTreeItem = ({
   return (
     <div className="rfm-folder-branch">
       <div
-        className={`rfm-sidebar-item ${
-          currentFolder === node.id ? "active" : ""
-        } ${isDragOver ? "rfm-drag-over" : ""}`}
+        className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""
+          } ${isDragOver ? "rfm-drag-over" : ""}`}
         style={{ paddingLeft: `${Math.max(0.75, level * 0.75)}rem` }}
         onClick={handleFolderClick}
         onContextMenu={(e) => {
@@ -188,9 +203,12 @@ const FolderTreeItem = ({
         ) : (
           <span className="rfm-sidebar-chevron rfm-chevron-spacer" />
         )}
-        <SvgIcon svgType="folder" className="rfm-sidebar-icon" />
+        <SvgIcon
+          svgType={node.is_system && node.filename === ".Trash" ? "trash" : "folder"}
+          className="rfm-sidebar-icon"
+        />
         <span className="rfm-sidebar-item-text" data-text={node.filename}>
-          {node.filename}
+          {node.is_system && node.filename === ".Trash" ? "Trash" : node.filename}
         </span>
       </div>
 

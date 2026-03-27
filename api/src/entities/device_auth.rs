@@ -15,6 +15,8 @@ pub struct DeviceAuthSession {
     pub user_id: Option<String>,
     /// JWT token set upon confirmation (None = pending/denied)
     pub token: Option<String>,
+    /// Authenticated username set upon confirmation
+    pub username: Option<String>,
     /// Session status
     pub status: DeviceAuthStatus,
 }

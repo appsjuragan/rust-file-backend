@@ -42,6 +42,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::manage::create_folder,
         api::handlers::files::manage::delete_item,
         api::handlers::files::manage::rename_item,
+        api::handlers::files::manage::restore_item,
         api::handlers::files::list::get_folder_path,
         api::handlers::files::manage::toggle_favorite,
         api::handlers::files::archive::get_zip_contents,
@@ -53,6 +54,8 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::download::generate_download_ticket,
         api::handlers::files::download::download_file_with_ticket,
         api::handlers::files::list::folder_tree,
+        api::handlers::files::list::get_folder_stats,
+        api::handlers::files::manage::empty_trash,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
         api::handlers::health::get_validation_rules,
@@ -101,6 +104,7 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::BulkDownloadResponse,
             api::handlers::files::ArchiveStatusResponse,
             api::handlers::files::FolderTreeEntry,
+            api::handlers::files::list::FolderStatsResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
             api::handlers::health::HealthResponse,
@@ -165,8 +169,14 @@ pub fn create_app(state: AppState) -> Router {
         .route("/register", post(api::handlers::auth::register))
         .route("/login", post(api::handlers::auth::login))
         // Device auth (OTP) — public: initiate + poll
-        .route("/auth/device", post(api::handlers::device_auth::initiate_device_auth))
-        .route("/auth/device/token", get(api::handlers::device_auth::poll_device_token))
+        .route(
+            "/auth/device",
+            post(api::handlers::device_auth::initiate_device_auth),
+        )
+        .route(
+            "/auth/device/token",
+            get(api::handlers::device_auth::poll_device_token),
+        )
         .route("/auth/oidc/login", get(api::handlers::auth::login_oidc))
         .route(
             "/auth/oidc/callback",
@@ -249,8 +259,20 @@ pub fn create_app(state: AppState) -> Router {
             axum::routing::put(api::handlers::files::rename_item),
         )
         .route(
+            "/files/:id/restore",
+            post(api::handlers::files::restore_item),
+        )
+        .route(
             "/files/:id/path",
             get(api::handlers::files::get_folder_path),
+        )
+        .route(
+            "/files/:id/stats",
+            get(api::handlers::files::get_folder_stats),
+        )
+        .route(
+            "/trash/:id/empty",
+            axum::routing::delete(api::handlers::files::empty_trash),
         )
         .route(
             "/files/:id/zip-contents",
@@ -265,8 +287,14 @@ pub fn create_app(state: AppState) -> Router {
         )
         .route("/files/bulk-move", post(api::handlers::files::bulk_move))
         .route("/files/bulk-copy", post(api::handlers::files::bulk_copy))
-        .route("/files/bulk-download", post(api::handlers::files::bulk_download))
-        .route("/files/archive/:id/status", get(api::handlers::files::get_archive_status))
+        .route(
+            "/files/bulk-download",
+            post(api::handlers::files::bulk_download),
+        )
+        .route(
+            "/files/archive/:id/status",
+            get(api::handlers::files::get_archive_status),
+        )
         .route(
             "/settings",
             get(api::handlers::user_settings::get_settings)
@@ -294,7 +322,10 @@ pub fn create_app(state: AppState) -> Router {
             get(api::handlers::shares::get_share_logs),
         )
         // Device auth confirm (requires JWT — web user approves the OTP)
-        .route("/auth/device/confirm", post(api::handlers::device_auth::confirm_device_auth))
+        .route(
+            "/auth/device/confirm",
+            post(api::handlers::device_auth::confirm_device_auth),
+        )
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

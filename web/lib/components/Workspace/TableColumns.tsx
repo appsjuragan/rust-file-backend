@@ -36,6 +36,7 @@ export const getColumns = () => [
               hasThumbnail={info.row.original.hasThumbnail}
               isEncrypted={info.row.original.isEncrypted}
               scanStatus={info.row.original.scanStatus}
+              isSystem={info.row.original.isSystem}
               hideName={true}
               className="rfm-list-icon opacity-70"
             />
@@ -51,9 +52,8 @@ export const getColumns = () => [
 
       return (
         <div
-          className={`rfm-workspace-list-icon-td ${
-            isPending ? "rfm-pending" : ""
-          }`}
+          className={`rfm-workspace-list-icon-td ${isPending ? "rfm-pending" : ""
+            }`}
         >
           <FileIcon
             id={info.row.original.id}
@@ -63,6 +63,7 @@ export const getColumns = () => [
             hasThumbnail={info.row.original.hasThumbnail}
             isEncrypted={info.row.original.isEncrypted}
             scanStatus={info.row.original.scanStatus}
+            isSystem={info.row.original.isSystem}
             hideName={true}
             className="rfm-list-icon"
           />

@@ -10,8 +10,8 @@ use axum::{
 };
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
-    RelationTrait, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QuerySelect, RelationTrait, Set,
 };
 use uuid::Uuid;
 
@@ -80,6 +80,8 @@ pub async fn create_folder(
         has_thumbnail: false,
         is_encrypted: false,
         is_shared: false,
+        share_token: None,
+        is_system: res.is_system,
     }))
 }
 
@@ -120,6 +122,45 @@ pub async fn delete_item(
         .await;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/{id}/restore",
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Item restored", body = FileMetadataResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn restore_item(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+) -> Result<Json<FileMetadataResponse>, AppError> {
+    let res = state.file_service.restore_item(&claims.sub, &id).await?;
+
+    // Audit log
+    let audit = AuditService::new(state.db.clone());
+    audit
+        .log(
+            AuditEventType::FileRestore,
+            Some(claims.sub),
+            Some(id),
+            "restore_item",
+            "success",
+            None,
+            None,
+        )
+        .await;
+
+    return_file_metadata(state, res).await
 }
 
 #[utoipa::path(
@@ -202,6 +243,8 @@ pub async fn toggle_favorite(
             .map(|s| s.is_encrypted)
             .unwrap_or(false),
         is_shared: false,
+        share_token: None,
+        is_system: res.is_system,
     }))
 }
 
@@ -452,5 +495,66 @@ pub(crate) async fn return_file_metadata(
             .map(|s| s.is_encrypted)
             .unwrap_or(false),
         is_shared: false,
+        share_token: None,
+        is_system: updated.is_system,
     }))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/trash/{id}/empty",
+    responses(
+        (status = 200, description = "Trash emptied"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden (not a trash folder)"),
+        (status = 404, description = "Folder not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn empty_trash(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<StatusCode, AppError> {
+    // 1. Ensure it exists AND belongs to the user AND IS SYSTEM/TRASH
+    let folder = UserFiles::find_by_id(id.clone())
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::IsSystem.eq(true))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Trash folder not found".to_string()))?;
+
+    // Validate that it's a trash folder
+    if !folder.is_folder || (folder.filename != ".Trash" && folder.filename != "Trash") {
+        return Err(AppError::Forbidden(
+            "Only trash folders can be emptied".to_string(),
+        ));
+    }
+
+    // 2. Perform recursive HARD DELETE of all contents (items whose ancestor is this folder)
+    let db_backend = state.db.get_database_backend();
+
+    // SQLite and Postgres both support WITH RECURSIVE
+    let sql = format!(
+        r#"
+        WITH RECURSIVE descendants AS (
+            SELECT id FROM user_files WHERE parent_id = '{}' AND user_id = '{}'
+            UNION ALL
+            SELECT u.id FROM user_files u INNER JOIN descendants d ON u.parent_id = d.id WHERE u.user_id = '{}'
+        )
+        DELETE FROM user_files WHERE id IN (SELECT id FROM descendants) AND user_id = '{}'
+        "#,
+        id, claims.sub, claims.sub, claims.sub
+    );
+
+    // Note: We don't delete the Trash folder itself, just its contents.
+    state
+        .db
+        .execute(sea_orm::Statement::from_string(db_backend, sql))
+        .await?;
+
+    Ok(StatusCode::OK)
 }

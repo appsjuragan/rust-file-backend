@@ -38,6 +38,7 @@ interface FileGridItemProps {
     e: React.MouseEvent | { clientX: number; clientY: number },
     file: FileType | null,
   ) => void;
+  isMobile: boolean;
 }
 
 const FileGridItem = React.memo(
@@ -54,6 +55,7 @@ const FileGridItem = React.memo(
     handleDragLeave,
     handleDropOnFolder,
     handleContextMenu,
+    isMobile,
   }: FileGridItemProps) => {
     const isPending = f.scanStatus === "pending" || f.scanStatus === "scanning";
     const isScanning = f.scanStatus === "scanning";
@@ -87,9 +89,13 @@ const FileGridItem = React.memo(
 
     return (
       <button
-        {...longPressProps}
+        {...(isMobile ? longPressProps : {
+          onClick: (e: React.MouseEvent) => {
+            e.stopPropagation();
+            handleTap(f, e);
+          }
+        })}
         type="button"
-        onClick={(e) => e.stopPropagation()}
         onDoubleClick={() => !isInfected && handleDoubleClick(f)}
         data-id={f.id}
         draggable={!isInfected}
@@ -107,11 +113,9 @@ const FileGridItem = React.memo(
           e.stopPropagation();
           handleContextMenu(e, f);
         }}
-        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${
-          isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
-        } ${isSelected ? "rfm-selected" : ""} ${
-          isDragOver ? "rfm-drag-over" : ""
-        } ${isHighlighted ? "rfm-highlighted" : ""}`}
+        className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
+          } ${isSelected ? "rfm-selected" : ""} ${isDragOver ? "rfm-drag-over" : ""
+          } ${isHighlighted ? "rfm-highlighted" : ""}`}
         disabled={isPending}
       >
         <FileIcon
@@ -122,6 +126,7 @@ const FileGridItem = React.memo(
           hasThumbnail={f.hasThumbnail}
           isEncrypted={f.isEncrypted}
           scanStatus={f.scanStatus}
+          isSystem={f.isSystem}
           className="rfm-grid-icon"
         />
         {isPending && (
@@ -200,6 +205,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
           handleDragLeave={handleDragLeave}
           handleDropOnFolder={handleDropOnFolder}
           handleContextMenu={handleContextMenu}
+          isMobile={isMobile}
         />
       ))}
     </div>

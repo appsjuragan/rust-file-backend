@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -42,30 +42,42 @@
 - **Folder Sharing:** Share entire folders with browsable file listings
 - **Access Logging:** Track views, downloads, and password attempts with IP/User-Agent
 - **Public Share Page:** Beautiful, responsive frontend for recipients
-- **Media Preview:** Inline image, video, audio, and PDF preview on shared links
+- **Media Preview:** Inline image, video, audio, PDF, and **HEIC** preview on shared links
+- **Document Preview:** Support for **Microsoft Office** (Word, Excel, PPT) and **TIFF** images via `react-doc-viewer`
+- **Secure Thumbnails:** Public API for 128x128 media thumbnails in shared folders
+
+### 🗑️ Cloud Trash Bin (New!)
+- **Recursive Deletion:** Permanently empty trash items with background cleanup
+- **Storage Statistics:** Real-time visibility of trash size and item count
+- **Actionable Context Menus:** Quick "Empty Trash" from the sidebar for better UX
 
 ### 🖼️ Automatic Thumbnail Generation
-- **WebP Format:** Optimized thumbnails (256px) for minimal bandwidth
-- **Multi-Format Support:** Images, PDFs (via `pdftocairo`), and Videos (via `ffmpeg`)
-- **Encrypted File Detection:** Skips password-protected PDFs gracefully
+- **WebP Format:** Optimized thumbnails (256px / 128px) for minimal bandwidth
+- **Multi-Format Support:** Images, HEIC, PDFs (via `pdftocairo`), and Videos (via `ffmpeg`)
+- **Encrypted File Detection:** Skips password-protected PDFs gracefully with robust detection
 - **Dedicated Worker:** Separate `thumbnail-worker` process for asynchronous generation
 - **Lazy Loading:** Frontend loads thumbnails asynchronously with smooth animations
+
+### 🔄 Desktop Synchronization (New!)
+- **Native Experience:** High-performance WPF client for Windows (.NET 8)
+- **Personalized Paths:** Automatic sync folder isolation to `JuraganCloudSync\[Username]`
+- **Cloud-First Protection:** Intelligent safety logic that prioritizes cloud data on initialization
+- **Premium UI:** Dark-mode interface with shell overlays and system tray integration
+- **Public Share Exposure:** View and copy active public share links directly from the sync window
+- **Icon Indicators:** Visual status icons for Shared Items and Favorites (green check, blue share, yellow star)
+- **Background Sync:** Reliable periodic synchronization with configurable intervals
 
 ### 📋 Advanced File Operations
 - **Copy/Paste:** Recursive folder duplication with deduplication
 - **Bulk Actions:** Move, delete, and copy multiple items
 - **Archive Preview:** Inspect ZIP, 7z, RAR, TAR without extraction
-- **Download Tickets:** Time-limited shareable links
-- **PDF Preview:** Inline document viewing
 - **Favorites:** Star/unstar files and folders for quick access
 
-### 🔗 File Sharing
-- **Share Links:** Public or user-specific sharing with configurable permissions
-- **Password Protection:** Argon2id-hashed passwords for secure access
-- **Expiration Control:** Configurable expiry up to 1 year
-- **View/Download Modes:** Inline display or attachment download
-- **Access Logging:** Track views, downloads, and password attempts
-- **Public Share Page:** Standalone viewer with media preview
+### 🧩 Resilient Parallel Uploads
+- Custom chunked upload engine with parallel workers
+- Exponential backoff retry mechanism
+- Multi-GB file support on unstable connections
+- Configurable chunk sizes (default: 10MB)
 
 ### 🔍 Advanced Search & Filtering
 - **Full-Text Search:** Real-time filename search with debouncing
@@ -89,14 +101,28 @@
 │  Frontend   │      │  (Rust)      │      │  Database    │
 └─────────────┘      └──────────────┘      └─────────────┘
                             │
-                            ├─────▶ S3/RustFS (File Storage)
-                            └─────▶ ClamAV (Virus Scanning)
+┌─────────────┐             ├─────▶ S3/RustFS (File Storage)
+│ WPF Desktop │◀────────────┤
+│ Sync Client │             ├─────▶ ClamAV (Virus Scanning)
+└─────────────┘             └─────▶ Workers (Thumbnails, GC)
+```
 
-┌──────────────────────────────────────────────────────────┐
-│  Background Workers (separate processes)                 │
-│  ├── Worker: Virus scanning, cleanup, facts updates      │
-│  └── Thumbnail Worker: WebP thumbnail generation         │
-└──────────────────────────────────────────────────────────┘
+### Desktop Sync Client (`desktop-sync/`)
+
+**Technology Stack:**
+- **Language:** C# 12 / .NET 8
+- **Framework:** WPF (Windows Presentation Foundation)
+- **Pattern:** MVVM (CommunityToolkit.Mvvm)
+- **Updates:** Self-contained single-file publishing
+- **Auth:** Device Authorization Flow (OAuth2-style OTP)
+
+**Features:**
+- Real-time file system monitoring
+- Personalized local sync root management
+- DPAPI-encrypted token storage
+- Dynamic API host configuration
+- Cloud-First safety mechanism for new installs
+- Explorer shell extension for status overlays
 ```
 
 ### Backend (`api/`)
@@ -467,9 +493,10 @@ Created with ❤️ by the **AppsJuragan** team.
 - [ ] WebDAV support
 - [ ] Real-time collaboration
 - [ ] File versioning
-- [x] ~~Advanced search with filters~~
+- [x] ~~Cloud Trash Bin with Statistics~~
 - [ ] Mobile app (Capacitor)
 - [ ] End-to-end encryption option
 - [x] ~~File sharing with public links~~
 - [x] ~~Thumbnail generation~~
 - [x] ~~Favorites system~~
+- [x] ~~Native Desktop Sync Client~~

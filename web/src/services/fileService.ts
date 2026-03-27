@@ -60,6 +60,11 @@ export const fileService = {
       method: "DELETE",
     }),
 
+  restoreItem: (id: string) =>
+    request(`/files/${id}/restore`, {
+      method: "POST",
+    }),
+
   renameItem: (id: string, name?: string, parentId?: string) =>
     request(`/files/${id}/rename`, {
       method: "PUT",
@@ -177,4 +182,8 @@ export const fileService = {
 
   getArchiveStatus: (archiveId: string) =>
     request(`/files/archive/${archiveId}/status`),
+
+  getFolderStats: (id: string) => request(`/files/${id}/stats`),
+
+  emptyTrash: (id: string) => request(`/trash/${id}/empty`, { method: "DELETE" }),
 };

@@ -1,10 +1,17 @@
 <Window x:Class="AppJuragan.SyncClient.Views.SyncStatusWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:view="clr-namespace:AppJuragan.SyncClient.Views"
+        x:Name="StatusWindow"
         Title="AppJuragan Sync — Status"
         Width="560" Height="560"
         WindowStartupLocation="CenterScreen"
-        Background="#0F1117">
+        Background="#0F1117"
+        Icon="/Resources/Icons/app.ico">
+    <Window.Resources>
+        <view:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <view:BoolToIconConverter x:Key="BoolToIconConverter"/>
+    </Window.Resources>
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -13,13 +20,31 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="🗂 AppJuragan Sync" FontSize="22" FontWeight="Black"
-                       Foreground="#7C6AF0"/>
-            <TextBlock Text="{Binding StatusText}" FontSize="13" Foreground="#8B8FA8"
-                       Margin="0,4,0,0"/>
-        </StackPanel>
+        <!-- Header & Profile -->
+        <Grid Grid.Row="0" Margin="0,0,0,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="🗂 AppJuragan Sync" FontSize="22" FontWeight="Black"
+                           Foreground="#7C6AF0"/>
+                <TextBlock Text="{Binding StatusText}" FontSize="13" Foreground="#8B8FA8"
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+            
+            <Border Grid.Column="1" Background="#1E2130" Padding="12,8" CornerRadius="10">
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="34" Height="34" CornerRadius="17" Background="#7C6AF0" Margin="0,0,12,0">
+                        <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Profile.Name, FallbackValue='Name'}" Foreground="White" FontWeight="Bold" FontSize="14"/>
+                        <TextBlock Text="{Binding StorageFormatted}" Foreground="#8B8FA8" FontSize="11" Margin="0,1,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!-- Stats bar -->
         <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,20">
@@ -49,19 +74,97 @@
             </Border>
         </UniformGrid>
 
-        <!-- Sync log -->
-        <Border Grid.Row="2" Background="#12141C" CornerRadius="10" Padding="12">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding ActivityLog}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="#8B8FA8" FontSize="12"
-                                       Margin="0,1" FontFamily="Cascadia Mono, Consolas, monospace"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
+        <!-- Content Tabs -->
+        <TabControl Grid.Row="2" Margin="0,0,0,4">
+            <TabItem Header="Activity Log">
+                <ScrollViewer Margin="12">
+                    <ItemsControl ItemsSource="{Binding ActivityLog}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="#8B8FA8" FontSize="12"
+                                           Margin="0,1" FontFamily="Cascadia Mono, Consolas, monospace"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Shared Items">
+                <ScrollViewer Margin="12">
+                    <ItemsControl ItemsSource="{Binding SharedItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ClickableItem}" Padding="8,6" Margin="0,1" Cursor="Hand"
+                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="🔗 Copy Shared Link" 
+                                                      Command="{Binding PlacementTarget.Tag.CopyShareLinkCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding}"/>
+                                            <MenuItem Header="📂 Copy Local Path" 
+                                                      Command="{Binding PlacementTarget.Tag.CopyLocalPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding}"/>
+                                            <Separator/>
+                                            <MenuItem Header="📁 Show in Explorer" 
+                                                      Command="{Binding PlacementTarget.Tag.OpenItemInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding}"/>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding IsFolder, Converter={StaticResource BoolToIconConverter}}" 
+                                                   FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding ShareUrl}" Foreground="#8B8FA8" FontSize="10" FontStyle="Italic" Visibility="{Binding ShareUrl, Converter={StaticResource StringToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="🔗 Shared" Foreground="#4ECCA3" FontSize="10" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Favorites">
+                <ScrollViewer Margin="12">
+                    <ItemsControl ItemsSource="{Binding FavoriteItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ClickableItem}" Padding="8,6" Margin="0,1" Cursor="Hand"
+                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="📂 Copy Local Path" 
+                                                      Command="{Binding PlacementTarget.Tag.CopyLocalPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding}"/>
+                                            <Separator/>
+                                            <MenuItem Header="📁 Show in Explorer" 
+                                                      Command="{Binding PlacementTarget.Tag.OpenItemInExplorerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                      CommandParameter="{Binding}"/>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding IsFolder, Converter={StaticResource BoolToIconConverter}}" 
+                                                   FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RelativePath}" Foreground="White" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="⭐ Fav" Foreground="#F5C542" FontSize="10" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
         <!-- Actions -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0"

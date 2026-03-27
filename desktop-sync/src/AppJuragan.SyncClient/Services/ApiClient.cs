@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -7,6 +8,24 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace AppJuragan.SyncClient.Services;
+public record UserProfileResponse(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("username")] string Username,
+    [property: JsonPropertyName("email")] string? Email,
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("avatar_url")] string? AvatarUrl
+);
+
+public record UserFactsResponse(
+    [property: JsonPropertyName("total_files")] long TotalFiles,
+    [property: JsonPropertyName("total_size")] long TotalSize,
+    [property: JsonPropertyName("video_count")] long VideoCount,
+    [property: JsonPropertyName("audio_count")] long AudioCount,
+    [property: JsonPropertyName("document_count")] long DocumentCount,
+    [property: JsonPropertyName("image_count")] long ImageCount,
+    [property: JsonPropertyName("others_count")] long OthersCount,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt
+);
 
 // ─── API DTOs ────────────────────────────────────────────────────────────────
 
@@ -17,11 +36,20 @@ public record DeviceCodeResponse(
     [property: JsonPropertyName("interval")] int Interval,
     [property: JsonPropertyName("verification_uri")] string VerificationUri
 );
-
 public record PollTokenResponse(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("token")] string? Token,
+    [property: JsonPropertyName("username")] string? Username,
     [property: JsonPropertyName("message")] string Message
+);
+
+public record ShareResponse(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("user_file_id")] string UserFileId,
+    [property: JsonPropertyName("share_token")] string ShareToken,
+    [property: JsonPropertyName("share_type")] string ShareType,
+    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
+    [property: JsonPropertyName("filename")] string? Filename
 );
 
 public class FileMetadata
@@ -35,7 +63,9 @@ public class FileMetadata
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
     [JsonPropertyName("is_favorite")] public bool IsFavorite { get; set; }
     [JsonPropertyName("is_shared")] public bool IsShared { get; set; }
+    [JsonPropertyName("share_token")] public string? ShareToken { get; set; }
     [JsonPropertyName("hash")] public string? Hash { get; set; }
+    [JsonPropertyName("is_system")] public bool IsSystem { get; set; }
 }
 
 public class UploadInitRequest
@@ -72,27 +102,56 @@ public class ApiClient
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public ApiClient(HttpClient http, AuthService auth, ILogger<ApiClient> log)
+    private string _baseUrl;
+    public string BaseUrl => _baseUrl;
+
+    public ApiClient(HttpClient http, AuthService auth, SettingsService settings, ILogger<ApiClient> log)
     {
         _http = http;
         _auth = auth;
         _log = log;
+        _baseUrl = settings.Current.ServerUrl.TrimEnd('/') + "/";
     }
 
     // ── Device auth flow ─────────────────────────────────────────────────────
 
     public async Task<DeviceCodeResponse?> InitiateDeviceAuthAsync(CancellationToken ct = default)
     {
-        var resp = await _http.PostAsync("auth/device", null, ct);
+        var resp = await _http.PostAsync(_baseUrl + "auth/device", null, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<DeviceCodeResponse>(JsonOpts, ct);
     }
 
     public async Task<PollTokenResponse?> PollDeviceTokenAsync(string deviceCode, CancellationToken ct = default)
     {
-        var resp = await _http.GetAsync($"auth/device/token?device_code={Uri.EscapeDataString(deviceCode)}", ct);
+        var resp = await _http.GetAsync($"{_baseUrl}auth/device/token?device_code={Uri.EscapeDataString(deviceCode)}", ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<PollTokenResponse>(JsonOpts, ct);
+    }
+
+    public async Task<UserProfileResponse?> GetProfileAsync(CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var resp = await _http.GetAsync(_baseUrl + "users/me", ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<UserProfileResponse>(JsonOpts, ct);
+    }
+
+    public async Task<UserFactsResponse?> GetUserFactsAsync(CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var resp = await _http.GetAsync(_baseUrl + "users/me/facts", ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<UserFactsResponse>(JsonOpts, ct);
+    }
+
+    public async Task<List<ShareResponse>> GetFileSharesAsync(string fileId, CancellationToken ct = default)
+    {
+        SetAuthHeader();
+        var url = $"{_baseUrl}shares?user_file_id={Uri.EscapeDataString(fileId)}";
+        var resp = await _http.GetAsync(url, ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<ShareResponse>>(JsonOpts, ct) ?? [];
     }
 
     // ── File list ─────────────────────────────────────────────────────────────
@@ -100,7 +159,8 @@ public class ApiClient
     public async Task<List<FileMetadata>> ListFilesAsync(string? parentId = null, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var url = parentId == null ? "files?parent_id=root" : $"files?parent_id={Uri.EscapeDataString(parentId)}";
+        var query = parentId == null ? "parent_id=root" : $"parent_id={Uri.EscapeDataString(parentId)}";
+        var url = $"{_baseUrl}files?{query}";
         var resp = await _http.GetAsync(url, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<FileMetadata>>(JsonOpts, ct) ?? [];
@@ -116,8 +176,12 @@ public class ApiClient
         {
             var pid = queue.Dequeue();
             var items = await ListFilesAsync(pid, ct);
-            all.AddRange(items);
-            foreach (var item in items.Where(i => i.IsFolder))
+            
+            // Filter out system items (like .Trash) so they are never added to the sync map
+            var filteredItems = items.Where(i => !i.IsSystem).ToList();
+            all.AddRange(filteredItems);
+
+            foreach (var item in filteredItems.Where(i => i.IsFolder))
                 queue.Enqueue(item.Id);
         }
         return all;
@@ -128,7 +192,7 @@ public class ApiClient
     public async Task<UploadInitResponse?> InitUploadAsync(UploadInitRequest req, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.PostAsJsonAsync("files/upload/init", req, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync(_baseUrl + "files/upload/init", req, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<UploadInitResponse>(JsonOpts, ct);
     }
@@ -138,7 +202,7 @@ public class ApiClient
         SetAuthHeader();
         var content = new ByteArrayContent(data);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        var resp = await _http.PutAsync($"files/upload/{uploadId}/chunk/{partNumber}", content, ct);
+        var resp = await _http.PutAsync($"{_baseUrl}files/upload/{uploadId}/chunk/{partNumber}", content, ct);
         resp.EnsureSuccessStatusCode();
         // ETag is in response header
         return resp.Headers.ETag?.Tag?.Trim('"') ?? partNumber.ToString();
@@ -147,7 +211,7 @@ public class ApiClient
     public async Task<FileMetadata?> CompleteUploadAsync(string uploadId, CompleteUploadRequest req, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.PostAsJsonAsync($"files/upload/{uploadId}/complete", req, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync($"{_baseUrl}files/upload/{uploadId}/complete", req, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<FileMetadata>(JsonOpts, ct);
     }
@@ -157,7 +221,7 @@ public class ApiClient
     public async Task DownloadFileAsync(string fileId, string localPath, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.GetAsync($"files/{fileId}", HttpCompletionOption.ResponseHeadersRead, ct);
+        var resp = await _http.GetAsync($"{_baseUrl}files/{fileId}", HttpCompletionOption.ResponseHeadersRead, ct);
         resp.EnsureSuccessStatusCode();
 
         Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
@@ -172,7 +236,7 @@ public class ApiClient
     {
         SetAuthHeader();
         var body = new { name, parent_id = parentId };
-        var resp = await _http.PostAsJsonAsync("folders", body, JsonOpts, ct);
+        var resp = await _http.PostAsJsonAsync(_baseUrl + "folders", body, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<FileMetadata>(JsonOpts, ct);
     }
@@ -182,17 +246,23 @@ public class ApiClient
     public async Task ToggleFavoriteAsync(string fileId, CancellationToken ct = default)
     {
         SetAuthHeader();
-        await _http.PostAsync($"files/{fileId}/favorite", null, ct);
+        await _http.PostAsync($"{_baseUrl}files/{fileId}/favorite", null, ct);
     }
 
     public async Task DeleteItemAsync(string id, CancellationToken ct = default)
     {
         SetAuthHeader();
-        var resp = await _http.DeleteAsync($"files/{Uri.EscapeDataString(id)}", ct);
+        var resp = await _http.DeleteAsync($"{_baseUrl}files/{Uri.EscapeDataString(id)}", ct);
         resp.EnsureSuccessStatusCode();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    public void UpdateBaseAddress(string url)
+    {
+        _baseUrl = url.TrimEnd('/') + "/";
+        _log.LogInformation("API Base URL updated to {Url}", _baseUrl);
+    }
 
     private void SetAuthHeader()
     {

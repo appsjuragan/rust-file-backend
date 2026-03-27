@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useFileManager } from "../../context";
 import { FileType } from "../../types";
 import SvgIcon from "../Icons/SvgIcon";
@@ -6,6 +6,7 @@ import { fileService } from "../../../src/services/fileService";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { isEditableTextFile } from "../Modals/TextEditorModal";
+import { formatSize } from "../../utils/fileUtils";
 
 interface IContextMenuProps {
   x: number;
@@ -59,6 +60,50 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     favorites,
     toggleFavorite,
   } = useFileManager();
+
+  const [stats, setStats] = useState<{
+    total_items: number;
+    total_size: number;
+    file_count: number;
+    folder_count: number;
+  } | null>(null);
+  const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+
+  const isTargetTrash = file?.isSystem && (file.name === "Trash" || file.name === ".Trash");
+
+  useEffect(() => {
+    if (isTargetTrash && file?.id) {
+      fileService.getFolderStats(file.id).then(setStats).catch(console.error);
+    }
+  }, [isTargetTrash, file?.id]);
+
+  const handleEmptyTrash = () => {
+    if (!file?.id) return;
+    setShowEmptyTrashConfirm(true);
+  };
+
+  const confirmEmptyTrash = async () => {
+    if (!file?.id) return;
+    setShowEmptyTrashConfirm(false);
+    onClose();
+    if (setDialogState) {
+      setDialogState({
+        isVisible: true,
+        title: "Emptying Trash",
+        message: "Permanently deleting all items in Trash...",
+        type: "alert",
+      });
+    }
+    try {
+      await fileService.emptyTrash(file.id);
+      if (onRefresh) await onRefresh(currentFolder);
+      if (setDialogState) setDialogState({ isVisible: false } as any);
+    } catch (error) {
+      console.error("Failed to empty trash", error);
+      if (setDialogState) setDialogState({ isVisible: false } as any);
+      alert("Failed to empty trash.");
+    }
+  };
 
   const {
     handleCopy: hookHandleCopy,
@@ -223,6 +268,34 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     onClose();
   };
 
+  const handleRestore = async () => {
+    onClose();
+    const ids = selectedIds.length > 0 ? selectedIds : file ? [file.id] : [];
+    if (ids.length === 0) return;
+
+    try {
+      if (setDialogState) {
+        setDialogState({
+          isVisible: true,
+          title: "Restoring...",
+          message: "Moving items back to their original locations.",
+          type: "alert",
+        });
+      }
+      await Promise.all(ids.map((id) => fileService.restoreItem(id)));
+      if (onRefresh) await onRefresh(currentFolder);
+      if (setDialogState) setDialogState({ isVisible: false } as any);
+    } catch (err) {
+      console.error("Failed to restore items:", err);
+      alert("Failed to restore some items.");
+    }
+  };
+
+  const currentFolderItem = fs.find((f) => f.id === currentFolder);
+  const isInTrash =
+    currentFolderItem?.isSystem &&
+    (currentFolderItem?.name === "Trash" || currentFolderItem?.name === ".Trash");
+
   return (
     <>
       {isMobile && (
@@ -263,7 +336,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         )}
         <div className="rfm-context-menu-body">
           {/* File-specific actions or Bulk actions if multiple selected */}
-          {(file || selectedIds.length > 0) && (
+          {(file || selectedIds.length > 0) && !isTargetTrash && (
             <>
               {(() => {
                 const targetFiles =
@@ -289,39 +362,71 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
                 return (
                   <>
-                    {/* Open (Preview) - Bold */}
-                    <div
-                      className={`rfm-context-menu-item font-bold ${isScanBusy
-                        ? "disabled opacity-50 cursor-not-allowed"
-                        : ""
-                        }`}
-                      onClick={isScanBusy ? undefined : handleOpen}
-                    >
-                      <SvgIcon
-                        svgType="eye"
-                        className="rfm-context-menu-icon"
-                      />
-                      Open (Preview)
-                    </div>
-
-                    {/* Edit - Only for editable text files */}
-                    {targetFile && !targetFile.isDir && isEditableTextFile(targetFile.name, targetFile.mimeType, targetFile.size) && onEdit && (
-                      <div
-                        className={`rfm-context-menu-item ${isScanBusy
-                          ? "disabled opacity-50 cursor-not-allowed"
-                          : ""
-                          }`}
-                        onClick={isScanBusy ? undefined : () => triggerAction(() => onEdit(targetFile))}
-                      >
-                        <SvgIcon
-                          svgType="edit"
-                          className="rfm-context-menu-icon"
-                        />
-                        Edit
-                      </div>
+                    {/* Trash specific actions */}
+                    {isInTrash && (
+                      <>
+                        <div
+                          className="rfm-context-menu-item font-bold text-blue-500"
+                          onClick={handleRestore}
+                        >
+                          <SvgIcon
+                            svgType="home"
+                            className="rfm-context-menu-icon"
+                          />
+                          Restore to original folder
+                        </div>
+                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+                      </>
                     )}
 
-                    {/* View Meta Data - Only for single file */}
+                    {!isInTrash && (
+                      <>
+                        {/* Open (Preview) - Bold */}
+                        <div
+                          className={`rfm-context-menu-item font-bold ${isScanBusy
+                            ? "disabled opacity-50 cursor-not-allowed"
+                            : ""
+                            }`}
+                          onClick={isScanBusy ? undefined : handleOpen}
+                        >
+                          <SvgIcon
+                            svgType="eye"
+                            className="rfm-context-menu-icon"
+                          />
+                          Open (Preview)
+                        </div>
+
+                        {/* Edit - Only for editable text files */}
+                        {targetFile &&
+                          !targetFile.isDir &&
+                          isEditableTextFile(
+                            targetFile.name,
+                            targetFile.mimeType,
+                            targetFile.size,
+                          ) &&
+                          onEdit && (
+                            <div
+                              className={`rfm-context-menu-item ${isScanBusy
+                                ? "disabled opacity-50 cursor-not-allowed"
+                                : ""
+                                }`}
+                              onClick={
+                                isScanBusy
+                                  ? undefined
+                                  : () => triggerAction(() => onEdit(targetFile))
+                              }
+                            >
+                              <SvgIcon
+                                svgType="edit"
+                                className="rfm-context-menu-icon"
+                              />
+                              Edit
+                            </div>
+                          )}
+                      </>
+                    )}
+
+                    {/* View Meta Data - Only for single file (Shared by BOTH) */}
                     {targetFile && (
                       <div
                         className="rfm-context-menu-item"
@@ -335,148 +440,177 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       </div>
                     )}
 
-                    <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
-
-                    {/* Rename - Only for single file */}
-                    {targetFile && (
+                    {/* Preview for Trash item (if user insisted on 'view') */}
+                    {isInTrash && targetFile && (
                       <div
                         className={`rfm-context-menu-item ${isScanBusy
                           ? "disabled opacity-50 cursor-not-allowed"
                           : ""
                           }`}
-                        onClick={isScanBusy ? undefined : handleRename}
+                        onClick={isScanBusy ? undefined : handleOpen}
                       >
                         <SvgIcon
-                          svgType="edit"
+                          svgType="eye"
                           className="rfm-context-menu-icon"
                         />
-                        Rename
+                        View (Preview)
                       </div>
                     )}
 
-                    {/* Cut & Paste & Copy */}
-                    <div className="rfm-context-menu-item" onClick={handleCut}>
-                      <SvgIcon
-                        svgType="scissors"
-                        className="rfm-context-menu-icon"
-                      />
-                      Cut{" "}
-                      {selectedIds.length > 1
-                        ? `(${selectedIds.length} items)`
-                        : ""}
-                    </div>
+                    {!isInTrash && (
+                      <>
+                        <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
-                    {clipboardIds.length > 0 &&
-                      clipboardSourceFolder !== currentFolder && (
+                        {/* Rename - Only for single file */}
+                        {targetFile && (
+                          <div
+                            className={`rfm-context-menu-item ${isScanBusy
+                              ? "disabled opacity-50 cursor-not-allowed"
+                              : ""
+                              }`}
+                            onClick={isScanBusy ? undefined : handleRename}
+                          >
+                            <SvgIcon
+                              svgType="edit"
+                              className="rfm-context-menu-icon"
+                            />
+                            Rename
+                          </div>
+                        )}
+
+                        {/* Cut & Paste & Copy */}
                         <div
                           className="rfm-context-menu-item"
-                          onClick={handlePaste}
+                          onClick={handleCut}
+                        >
+                          <SvgIcon
+                            svgType="scissors"
+                            className="rfm-context-menu-icon"
+                          />
+                          Cut{" "}
+                          {selectedIds.length > 1
+                            ? `(${selectedIds.length} items)`
+                            : ""}
+                        </div>
+
+                        {clipboardIds.length > 0 &&
+                          clipboardSourceFolder !== currentFolder && (
+                            <div
+                              className="rfm-context-menu-item"
+                              onClick={handlePaste}
+                            >
+                              <SvgIcon
+                                svgType="clipboard"
+                                className="rfm-context-menu-icon"
+                              />
+                              Paste ({clipboardIds.length} item
+                              {clipboardIds.length > 1 ? "s" : ""})
+                            </div>
+                          )}
+
+                        <div
+                          className="rfm-context-menu-item"
+                          onClick={handleCopy}
                         >
                           <SvgIcon
                             svgType="clipboard"
                             className="rfm-context-menu-icon"
                           />
-                          Paste ({clipboardIds.length} item
-                          {clipboardIds.length > 1 ? "s" : ""})
-                        </div>
-                      )}
-
-                    <div className="rfm-context-menu-item" onClick={handleCopy}>
-                      <SvgIcon
-                        svgType="clipboard"
-                        className="rfm-context-menu-icon"
-                      />
-                      Copy{" "}
-                      {selectedIds.length > 1
-                        ? `(${selectedIds.length} items)`
-                        : ""}
-                    </div>
-                    <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
-
-                    {/* Favorites Toggle - For single or multiple selection */}
-                    {targetFiles.length > 0 && (
-                      <div
-                        className="rfm-context-menu-item"
-                        onClick={() => {
-                          toggleFavorite(targetFiles);
-                          onClose();
-                        }}
-                      >
-                        {(() => {
-                          const isAllFav =
-                            targetFiles.length > 0 &&
-                            targetFiles.every((item) =>
-                              favorites.some((f) => f.id === item.id),
-                            );
-                          return (
-                            <>
-                              <SvgIcon
-                                svgType="star"
-                                className={`rfm-context-menu-icon ${isAllFav
-                                  ? "fill-yellow-400 text-yellow-500"
-                                  : ""
-                                  }`}
-                              />
-                              {isAllFav
-                                ? "Remove from Favorites"
-                                : "Add to Favorites"}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-
-                    {/* Share */}
-                    {targetFile && onShare && (
-                      <div
-                        className="rfm-context-menu-item"
-                        onClick={() => triggerAction(() => onShare(targetFile))}
-                      >
-                        <SvgIcon
-                          svgType="share"
-                          className="rfm-context-menu-icon"
-                        />
-                        Share
-                      </div>
-                    )}
-
-                    {/* Access Log */}
-                    {targetFile && targetFile.isShared && onViewAccessLog && (
-                      <div
-                        className="rfm-context-menu-item"
-                        onClick={() =>
-                          triggerAction(() => onViewAccessLog(targetFile))
-                        }
-                      >
-                        <SvgIcon
-                          svgType="log"
-                          className="rfm-context-menu-icon"
-                        />
-                        Access Log
-                      </div>
-                    )}
-
-                    {/* Download - Allowed for files and folders */}
-                    {targetFiles.length > 0 && (
-                      <>
-                        <div
-                          className={`rfm-context-menu-item ${isScanBusy
-                            ? "disabled opacity-50 cursor-not-allowed"
-                            : ""
-                            }`}
-                          onClick={isScanBusy ? undefined : handleDownload}
-                        >
-                          <SvgIcon
-                            svgType="download"
-                            className="rfm-context-menu-icon"
-                          />
-                          Download {isScanBusy && "(Checking...)"}
+                          Copy{" "}
+                          {selectedIds.length > 1
+                            ? `(${selectedIds.length} items)`
+                            : ""}
                         </div>
                         <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+
+                        {/* Favorites Toggle - For single or multiple selection */}
+                        {targetFiles.length > 0 && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={() => {
+                              toggleFavorite(targetFiles);
+                              onClose();
+                            }}
+                          >
+                            {(() => {
+                              const isAllFav =
+                                targetFiles.length > 0 &&
+                                targetFiles.every((item) =>
+                                  favorites.some((f) => f.id === item.id),
+                                );
+                              return (
+                                <>
+                                  <SvgIcon
+                                    svgType="star"
+                                    className={`rfm-context-menu-icon ${isAllFav
+                                      ? "fill-yellow-400 text-yellow-500"
+                                      : ""
+                                      }`}
+                                  />
+                                  {isAllFav
+                                    ? "Remove from Favorites"
+                                    : "Add to Favorites"}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Share */}
+                        {targetFile && onShare && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={() =>
+                              triggerAction(() => onShare(targetFile))
+                            }
+                          >
+                            <SvgIcon
+                              svgType="share"
+                              className="rfm-context-menu-icon"
+                            />
+                            Share
+                          </div>
+                        )}
+
+                        {/* Access Log */}
+                        {targetFile && targetFile.isShared && onViewAccessLog && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={() =>
+                              triggerAction(() => onViewAccessLog(targetFile))
+                            }
+                          >
+                            <SvgIcon
+                              svgType="log"
+                              className="rfm-context-menu-icon"
+                            />
+                            Access Log
+                          </div>
+                        )}
+
+                        {/* Download - Allowed for files and folders */}
+                        {targetFiles.length > 0 && (
+                          <>
+                            <div
+                              className={`rfm-context-menu-item ${isScanBusy
+                                ? "disabled opacity-50 cursor-not-allowed"
+                                : ""
+                                }`}
+                              onClick={isScanBusy ? undefined : handleDownload}
+                            >
+                              <SvgIcon
+                                svgType="download"
+                                className="rfm-context-menu-icon"
+                              />
+                              Download {isScanBusy && "(Checking...)"}
+                            </div>
+                            <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+                          </>
+                        )}
                       </>
                     )}
 
-                    {/* Delete */}
+                    {/* Delete (Common but specialized in Trash to mean Permanent) */}
                     <div
                       className="rfm-context-menu-item text-rose-500"
                       onClick={handleDelete}
@@ -485,7 +619,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                         svgType="trash"
                         className="rfm-context-menu-icon !fill-rose-500"
                       />
-                      Delete{" "}
+                      {isInTrash ? "Delete Permanently" : "Delete"}{" "}
                       {selectedIds.length > 1
                         ? `(${selectedIds.length} items)`
                         : ""}
@@ -496,7 +630,87 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
             </>
           )}
 
-          {(!file || (file && file.isDir)) && (
+          {isTargetTrash && (
+            <>
+              <div className="rfm-context-menu-item text-rose-500 font-bold" onClick={handleEmptyTrash}>
+                <SvgIcon svgType="trash" className="rfm-context-menu-icon !fill-rose-500" />
+                Empty Trash
+              </div>
+              <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+              <div className="rfm-context-menu-info px-3 py-1 text-xs opacity-60">
+                Items: {stats?.total_items ?? "..."}
+              </div>
+              <div className="rfm-context-menu-info px-3 py-1 text-xs opacity-60">
+                Size: {stats ? formatSize(stats.total_size) : "..."}
+              </div>
+              <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
+              <div className="rfm-context-menu-info px-3 py-1 text-xs opacity-60">
+                Files: {stats?.file_count ?? "..."} &nbsp;&bull;&nbsp; Folders: {stats?.folder_count ?? "..."}
+              </div>
+            </>
+          )}
+
+          {/* Empty Trash Confirmation Dialog */}
+          {showEmptyTrashConfirm && (
+            <div
+              className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={(e) => { e.stopPropagation(); setShowEmptyTrashConfirm(false); }}
+            >
+              <div
+                className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/50 p-6 max-w-sm w-full mx-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shrink-0">
+                    <SvgIcon svgType="trash" className="w-5 h-5 !fill-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-stone-900 dark:text-white text-base">Empty Trash?</h3>
+                    <p className="text-xs text-stone-500 dark:text-slate-400">This action cannot be undone.</p>
+                  </div>
+                </div>
+                {stats && (
+                  <div className="mb-4 bg-stone-50 dark:bg-slate-800 rounded-xl p-4 flex flex-col gap-2 border border-stone-200 dark:border-slate-700">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-500 dark:text-slate-400">Total Items</span>
+                      <span className="font-semibold text-stone-800 dark:text-white">{stats.total_items}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-500 dark:text-slate-400">Total Size</span>
+                      <span className="font-semibold text-stone-800 dark:text-white">{formatSize(stats.total_size)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-500 dark:text-slate-400">Files</span>
+                      <span className="font-medium text-stone-700 dark:text-slate-300">{stats.file_count}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-500 dark:text-slate-400">Folders</span>
+                      <span className="font-medium text-stone-700 dark:text-slate-300">{stats.folder_count}</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-stone-600 dark:text-slate-400 mb-5">
+                  All <strong className="text-rose-500">{stats?.total_items ?? "all"} item{stats?.total_items !== 1 ? "s" : ""}</strong> will be <strong>permanently deleted</strong> and cannot be recovered.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-slate-800 text-stone-700 dark:text-slate-300 text-sm font-semibold hover:bg-stone-200 dark:hover:bg-slate-700 transition-colors"
+                    onClick={() => setShowEmptyTrashConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 active:scale-95 transition-all"
+                    onClick={confirmEmptyTrash}
+                  >
+                    Empty Trash
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isInTrash && !isTargetTrash && (!file || (file && file.isDir)) && (
             <>
               <div className="rfm-border-t my-1 border-stone-200 dark:border-slate-800" />
               <div
@@ -523,7 +737,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
             </>
           )}
 
-          {clipboardIds.length > 0 &&
+          {!isInTrash &&
+            !isTargetTrash &&
+            clipboardIds.length > 0 &&
             clipboardSourceFolder !== currentFolder && (
               <div className="rfm-context-menu-item" onClick={handlePaste}>
                 <SvgIcon

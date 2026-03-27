@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using System.IO;
 using System.Windows.Media;
 
 namespace AppJuragan.SyncClient.ViewModels;
@@ -46,6 +47,13 @@ public partial class LoginViewModel : ObservableObject
     private async Task StartSignInAsync()
     {
         SetError("");
+        
+        // Update settings and API client base URL before starting
+        var current = _settings.Current;
+        current.ServerUrl = ServerUrl;
+        _settings.Save(current);
+        _api.UpdateBaseAddress(ServerUrl);
+
         StartVisible = false;
 
         try
@@ -59,13 +67,19 @@ public partial class LoginViewModel : ObservableObject
             }
 
             UserCode = resp.UserCode;
-            VerificationUri = resp.VerificationUri;
+            
+            // Calculate the frontend URL based on the server URL (strip /api/)
+            var frontendUrl = ServerUrl.TrimEnd('/');
+            if (frontendUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+                frontendUrl = frontendUrl[..^4];
+            
+            VerificationUri = $"{frontendUrl}/activate?user_code={resp.UserCode}";
             _expiresAt = DateTimeOffset.UtcNow.AddSeconds(resp.ExpiresIn);
             OtpVisible = true;
             IsPolling = true;
 
             // Open browser automatically
-            try { Process.Start(new ProcessStartInfo(resp.VerificationUri) { UseShellExecute = true }); }
+            try { Process.Start(new ProcessStartInfo(VerificationUri) { UseShellExecute = true }); }
             catch { /* ignore – user can navigate manually */ }
 
             // Start countdown timer
@@ -121,6 +135,16 @@ public partial class LoginViewModel : ObservableObject
                 {
                     case "approved":
                         _auth.StoreToken(poll.Token!);
+                        
+                        // Set the local sync folder path to: C:\Users\[windows user]\JuraganCloudSync\[username]\
+                        var currentSettings = _settings.Current;
+                        var baseSyncDir = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), 
+                            "JuraganCloudSync");
+                        
+                        currentSettings.LocalSyncFolder = Path.Combine(baseSyncDir, poll.Username ?? "User");
+                        _settings.Save(currentSettings);
+
                         IsPolling = false;
                         SuccessVisible = true;
                         await _sync.StartAsync(CancellationToken.None);

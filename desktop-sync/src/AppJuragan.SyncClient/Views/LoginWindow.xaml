@@ -6,7 +6,8 @@
         Width="420" Height="520"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        Background="#0F1117">
+        Background="#0F1117"
+        Icon="/Resources/Icons/app.ico">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>

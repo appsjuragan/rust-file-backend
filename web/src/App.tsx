@@ -35,7 +35,7 @@ function App() {
 
   const isSharePage = window.location.pathname.startsWith("/s/");
   const isActivatePage = window.location.pathname.startsWith("/activate");
-  console.log("Current path:", window.location.pathname, "IsActivate:", isActivatePage);
+  //console.log("Current path:", window.location.pathname, "IsActivate:", isActivatePage);
 
   if (isSharePage) {
     return <PublicSharePage />;

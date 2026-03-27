@@ -3,12 +3,12 @@ use crate::services::{scanner::VirusScanner, storage::StorageService};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
+pub mod archive;
 pub mod bulk;
 pub mod delete;
 pub mod metadata;
 pub mod types;
 pub mod upload;
-pub mod archive;
 
 pub use types::StagedFile;
 

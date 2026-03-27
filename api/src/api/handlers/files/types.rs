@@ -30,6 +30,8 @@ pub struct FileMetadataResponse {
     pub has_thumbnail: bool,
     pub is_encrypted: bool,
     pub is_shared: bool,
+    pub share_token: Option<String>,
+    pub is_system: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -37,6 +39,7 @@ pub struct FolderTreeEntry {
     pub id: String,
     pub filename: String,
     pub parent_id: Option<String>,
+    pub is_system: bool,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]

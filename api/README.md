@@ -1,4 +1,4 @@
-# 🦀 Rust File Backend API (v1.1.0)
+# 🦀 Rust File Backend API (v1.2.0)
 
 The backend API is a high-performance Rust service built with **Axum**, **SeaORM**, and **Tokio**. It provides secure file management with deduplication, chunked uploads, virus scanning, file sharing, thumbnail generation, and S3-compatible storage.
 
@@ -284,6 +284,8 @@ PORT=3000
 - `PUT /files/:id/rename` — Rename/move item
 - `POST /files/:id/favorite` — Toggle favorite status
 - `GET /files/:id/thumbnail` — Get WebP thumbnail
+- `GET /files/:id/stats` — Get folder statistics (recursive item count & size)
+- `POST /files/empty-trash` — Permanently delete all items in trash
 
 ### List Files Query Parameters
 - `parent_id` — Filter by parent folder
@@ -324,6 +326,7 @@ PORT=3000
 - `POST /pre-check` — Check file existence (dedup)
 - `POST /files/link` — Link existing storage file
 - `GET /files/:id/zip-contents` — Preview archive
+- `POST /files/:id/restore` — Restore item from trash to original location
 - `POST /files/:id/ticket` — Generate download ticket
 - `GET /download/:ticket` — Download via ticket
 

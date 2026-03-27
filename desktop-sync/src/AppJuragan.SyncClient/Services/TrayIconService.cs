@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using AppJuragan.SyncClient.Views;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +23,7 @@ public class TrayIconService : IDisposable
     // Shared tooltip elements updated dynamically
     private TextBlock? _tooltipTitle;
     private TextBlock? _tooltipStatus;
+    private UserProfileResponse? _profile;
 
     public TrayIconService(IServiceProvider sp, SyncEngine sync,
         AuthService auth, ILogger<TrayIconService> log)
@@ -114,6 +118,33 @@ public class TrayIconService : IDisposable
                 }
             }
         };
+
+        // Try to load profile to show in context menu
+        _ = Task.Run(LoadProfileAsync);
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        if (!_auth.IsAuthenticated) return;
+
+        try
+        {
+            var api = _sp.GetRequiredService<ApiClient>();
+            _profile = await api.GetProfileAsync();
+
+            // Rebuild context menu once profile is loaded
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (_tray != null)
+                {
+                    _tray.ContextMenu = BuildContextMenu();
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Failed to load user profile for tray icon");
+        }
     }
 
     private ContextMenu BuildContextMenu()
@@ -122,6 +153,56 @@ public class TrayIconService : IDisposable
         {
             Style = (Style)Application.Current.FindResource("TrayContextMenu")
         };
+
+        if (_profile != null)
+        {
+            var userPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 2, 8, 2) };
+            
+            // Avatar circle
+            var avatarBorder = new Border
+            {
+                Width = 28,
+                Height = 28,
+                CornerRadius = new CornerRadius(14),
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7C, 0x6A, 0xF0)),
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            
+            var initials = string.IsNullOrEmpty(_profile.Name) ? _profile.Username[..1].ToUpper() : _profile.Name[..1].ToUpper();
+            avatarBorder.Child = new TextBlock
+            {
+                Text = initials,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 12,
+                FontWeight = FontWeights.Bold
+            };
+
+            var textPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            textPanel.Children.Add(new TextBlock 
+            { 
+                Text = _profile.Name ?? _profile.Username, 
+                FontWeight = FontWeights.SemiBold,
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 13
+            });
+            textPanel.Children.Add(new TextBlock 
+            { 
+                Text = _profile.Email ?? $"@{_profile.Username}", 
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8B, 0x8F, 0xA8)),
+                FontSize = 10,
+                Margin = new Thickness(0, -1, 0, 0)
+            });
+
+            userPanel.Children.Add(avatarBorder);
+            userPanel.Children.Add(textPanel);
+
+            var userHeaderItem = new MenuItem { Header = userPanel, IsEnabled = false, Padding = new Thickness(10, 4, 10, 4) };
+            menu.Items.Add(userHeaderItem);
+            menu.Items.Add(new Separator());
+        }
 
         var statusItem = new MenuItem { Header = "Sync Status...", FontWeight = FontWeights.Bold };
         statusItem.Click += (_, _) => ShowStatus();
@@ -140,10 +221,25 @@ public class TrayIconService : IDisposable
         menu.Items.Add(new Separator());
 
         var signOutItem = new MenuItem { Header = "Sign Out" };
-        signOutItem.Click += (_, _) =>
+        signOutItem.Click += async (_, _) =>
         {
+            _tray?.Dispose();
+            _tray = null;
+            
             _auth.ClearToken();
-            MessageBox.Show("Signed out. Restart to sign in again.", "AppJuragan Sync");
+            _profile = null;
+            
+            try 
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await _sync.StopAsync(cts.Token);
+            }
+            finally 
+            {
+                // Restart the app to show login window
+                System.Windows.Forms.Application.Restart();
+                Application.Current.Shutdown();
+            }
         };
         menu.Items.Add(signOutItem);
 

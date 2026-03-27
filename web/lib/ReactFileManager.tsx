@@ -349,6 +349,14 @@ export const ReactFileManager = ({
       if (a.isDir && !b.isDir) return -1;
       if (!a.isDir && b.isDir) return 1;
 
+      // System Trash always at the bottom of Home directory folders
+      if (a.isDir && b.isDir && (a.parentId === "0" || !a.parentId)) {
+        const isATrash = a.isSystem && a.name === "Trash";
+        const isBTrash = b.isSystem && b.name === "Trash";
+        if (isATrash && !isBTrash) return 1;
+        if (!isATrash && isBTrash) return -1;
+      }
+
       let comparison = 0;
       switch (sortField) {
         case SortField.Name:
@@ -373,6 +381,8 @@ export const ReactFileManager = ({
     const map = new Map<string, FileType[]>();
     for (const f of sortedFs) {
       if (f.name === "/") continue;
+      // Hide System Trash from the main file list in Home
+      if (f.isDir && f.isSystem && f.name === "Trash" && (f.parentId === "0" || !f.parentId)) continue;
       const pid = f.parentId || "0";
       const list = map.get(pid);
       if (list) {

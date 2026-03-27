@@ -17,6 +17,8 @@ pub enum AuditEventType {
     FileDecrypt,
     FileAccess,
     FileDelete,
+    FileUpdate,
+    FileRestore,
     ShareCreate,
     ShareRevoke,
     ShareAccess,

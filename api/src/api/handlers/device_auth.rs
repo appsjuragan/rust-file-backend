@@ -6,11 +6,15 @@
 ///   3. Web user (already logged in) → POST /auth/device/confirm         → approves with their JWT
 ///   4. Desktop polls GET /auth/device/token?device_code=…               → eventually gets JWT
 use crate::api::error::AppError;
-use crate::entities::{device_auth::*, *};
+use crate::entities::{device_auth::*, prelude::Users, *};
 use crate::utils::auth::Claims;
-use axum::{Extension, Json, extract::{Query, State}};
+use axum::{
+    Extension, Json,
+    extract::{Query, State},
+};
 use chrono::Utc;
 use rand::Rng;
+use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -52,6 +56,8 @@ pub struct PollTokenResponse {
     pub status: String,
     /// Present only when status == "approved"
     pub token: Option<String>,
+    /// Authenticated username set upon confirmation
+    pub username: Option<String>,
     /// Human-readable message
     pub message: String,
 }
@@ -85,10 +91,13 @@ pub async fn initiate_device_auth(
         expires_at,
         user_id: None,
         token: None,
+        username: None,
         status: DeviceAuthStatus::Pending,
     };
 
-    state.device_auth_sessions.insert(device_code.clone(), session);
+    state
+        .device_auth_sessions
+        .insert(device_code.clone(), session);
 
     let frontend_url =
         std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
@@ -129,8 +138,8 @@ pub async fn confirm_device_auth(
         .find(|e| e.value().user_code == payload.user_code)
         .map(|e| e.key().clone());
 
-    let device_code = entry
-        .ok_or_else(|| AppError::NotFound("Invalid or expired OTP code".to_string()))?;
+    let device_code =
+        entry.ok_or_else(|| AppError::NotFound("Invalid or expired OTP code".to_string()))?;
 
     // Scope the borrow so we can mutate below
     let expired = {
@@ -158,6 +167,12 @@ pub async fn confirm_device_auth(
         }));
     }
 
+    // Fetch user for username
+    let user = Users::find_by_id(&claims.sub)
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("User not found".to_string()))?;
+
     // Generate a long-lived token for the desktop (7 days)
     let token_str = {
         use crate::utils::auth::create_jwt_with_expiry;
@@ -180,11 +195,12 @@ pub async fn confirm_device_auth(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    // Update session with approved token
+    // Update session with approved token and username
     state.device_auth_sessions.alter(&device_code, |_, mut s| {
         s.status = DeviceAuthStatus::Approved;
         s.user_id = Some(claims.sub.clone());
         s.token = Some(token_str.clone());
+        s.username = Some(user.username.clone());
         s
     });
 
@@ -215,18 +231,23 @@ pub async fn poll_device_token(
     let session = state
         .device_auth_sessions
         .get(&params.device_code)
-        .ok_or_else(|| AppError::NotFound("Device code not found or already consumed".to_string()))?;
+        .ok_or_else(|| {
+            AppError::NotFound("Device code not found or already consumed".to_string())
+        })?;
 
     // Check expiry
     if session.expires_at < Utc::now() {
         drop(session);
-        state.device_auth_sessions.alter(&params.device_code, |_, mut s| {
-            s.status = DeviceAuthStatus::Expired;
-            s
-        });
+        state
+            .device_auth_sessions
+            .alter(&params.device_code, |_, mut s| {
+                s.status = DeviceAuthStatus::Expired;
+                s
+            });
         return Ok(Json(PollTokenResponse {
             status: "expired".to_string(),
             token: None,
+            username: None,
             message: "OTP code has expired. Please restart the sign-in.".to_string(),
         }));
     }
@@ -235,16 +256,19 @@ pub async fn poll_device_token(
         DeviceAuthStatus::Pending => PollTokenResponse {
             status: "pending".to_string(),
             token: None,
+            username: None,
             message: "Waiting for user to enter OTP in the browser".to_string(),
         },
         DeviceAuthStatus::Approved => {
             let token = session.token.clone();
+            let username = session.username.clone();
             drop(session);
             // Remove session after successful token delivery (one-time use)
             state.device_auth_sessions.remove(&params.device_code);
             PollTokenResponse {
                 status: "approved".to_string(),
                 token,
+                username,
                 message: "Authentication successful".to_string(),
             }
         }
@@ -254,12 +278,14 @@ pub async fn poll_device_token(
             PollTokenResponse {
                 status: "denied".to_string(),
                 token: None,
+                username: None,
                 message: "User denied access. Please restart the sign-in.".to_string(),
             }
         }
         DeviceAuthStatus::Expired => PollTokenResponse {
             status: "expired".to_string(),
             token: None,
+            username: None,
             message: "Session expired".to_string(),
         },
     };

@@ -1,7 +1,10 @@
 use crate::api::error::AppError;
 use crate::services::audit::{AuditEventType, AuditService};
 use crate::utils::auth::Claims;
-use axum::{Extension, Json, extract::{State, Path}};
+use axum::{
+    Extension, Json,
+    extract::{Path, State},
+};
 
 use super::types::*;
 
@@ -25,7 +28,8 @@ pub async fn bulk_delete(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDeleteRequest>,
 ) -> Result<Json<BulkDeleteResponse>, AppError> {
-    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    req.validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let item_ids_for_audit = req.item_ids.clone();
     let deleted_count = state
@@ -71,7 +75,8 @@ pub async fn bulk_move(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkMoveResponse>, AppError> {
-    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    req.validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let moved_count = state
         .file_service
@@ -99,7 +104,8 @@ pub async fn bulk_copy(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkMoveRequest>,
 ) -> Result<Json<BulkCopyResponse>, AppError> {
-    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    req.validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let copied_count = state
         .file_service
@@ -127,7 +133,8 @@ pub async fn bulk_download(
     Extension(claims): Extension<Claims>,
     Json(req): Json<BulkDownloadRequest>,
 ) -> Result<Json<BulkDownloadResponse>, AppError> {
-    req.validate().map_err(|e| AppError::BadRequest(e.to_string()))?;
+    req.validate()
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let archive_id = state
         .file_service
@@ -159,16 +166,20 @@ pub async fn get_archive_status(
 ) -> Result<Json<ArchiveStatusResponse>, AppError> {
     // Basic format validation
     if id.len() != 36 {
-        return Err(AppError::BadRequest("Invalid archive ID format".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid archive ID format".to_string(),
+        ));
     }
-    let mut status = state.file_service.get_archive_status(&claims.sub, &id).await?;
+    let mut status = state
+        .file_service
+        .get_archive_status(&claims.sub, &id)
+        .await?;
     if status.status == "ready" {
         let ticket = uuid::Uuid::new_v4().to_string();
         let expiry = chrono::Utc::now() + chrono::Duration::hours(12);
-        state.download_tickets.insert(
-            ticket.clone(),
-            (format!("archive_{}", id), expiry),
-        );
+        state
+            .download_tickets
+            .insert(ticket.clone(), (format!("archive_{}", id), expiry));
         status.url = Some(format!("/api/download/{}", ticket));
     }
     Ok(Json(status))

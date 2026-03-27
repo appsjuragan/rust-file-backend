@@ -47,8 +47,42 @@ public partial class App : Application
         var auth = Services.GetRequiredService<AuthService>();
         if (auth.IsAuthenticated)
         {
-            var sync = Services.GetRequiredService<SyncEngine>();
-            _ = sync.StartAsync(CancellationToken.None);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var api = Services.GetRequiredService<ApiClient>();
+                    var settings = Services.GetRequiredService<SettingsService>();
+                    var sync = Services.GetRequiredService<SyncEngine>();
+
+                    // Ensure sync path is personalized: JuraganCloudSync\[username]
+                    if (settings.Current.LocalSyncFolder.EndsWith("AppJuragan") || settings.Current.LocalSyncFolder.EndsWith("User"))
+                    {
+                        var profile = await api.GetProfileAsync();
+                        if (profile != null)
+                        {
+                            var baseSyncDir = Path.Combine(
+                                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                "JuraganCloudSync");
+                            var newPath = Path.Combine(baseSyncDir, profile.Username);
+
+                            if (settings.Current.LocalSyncFolder != newPath)
+                            {
+                                settings.Current.LocalSyncFolder = newPath;
+                                settings.Save(settings.Current);
+                            }
+                        }
+                    }
+
+                    await sync.StartAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    // If fail to fetch profile (offline), just start sync with whatever path we have
+                    var sync = Services.GetRequiredService<SyncEngine>();
+                    await sync.StartAsync(CancellationToken.None);
+                }
+            });
         }
         else
         {

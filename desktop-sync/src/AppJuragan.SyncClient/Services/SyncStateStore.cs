@@ -23,6 +23,7 @@ public class SyncEntry
     public bool IsFolder { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsShared { get; set; }
+    public string ShareUrl { get; set; } = "";
 }
 
 public class SyncStateStore

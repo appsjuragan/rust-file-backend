@@ -7,6 +7,8 @@ import MpegTsPlayer from "../MpegTsPlayer/MpegTsPlayer";
 
 const PdfViewer = React.lazy(() => import("../PdfViewer/PdfViewer"));
 const HeicViewer = React.lazy(() => import("./HeicViewer"));
+const DocViewerWrapper = React.lazy(() => import("./DocViewerWrapper"));
+const LocalOfficeViewer = React.lazy(() => import("./LocalOfficeViewer"));
 
 interface IPreviewModalProps {
   isVisible: boolean;
@@ -55,6 +57,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
         "js",
         "css",
         "html",
+        "htm",
         "rs",
         "py",
         "log",
@@ -66,6 +69,23 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     (mimeType === "application/zip" ||
       ["zip", "7z", "tar", "gz", "rar"].includes(extension)) &&
     (size || 0) < 500 * 1024 * 1024;
+  const isLocalOfficeFile =
+    ["docx", "xlsx", "xls"].includes(extension) ||
+    [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-office",
+    ].includes(mimeType || "");
+
+
+  const isDocViewerFile =
+    !isLocalOfficeFile && (
+      ["tiff"].includes(extension) ||
+      ["image/tiff"].includes(mimeType || "")
+    );
+
 
   useEffect(() => {
     if (!isVisible) {
@@ -195,7 +215,7 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
     };
 
     if (
-      ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension) &&
+      ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(extension) &&
       secureUrl
     ) {
       return (
@@ -300,6 +320,36 @@ const PreviewModal: React.FC<IPreviewModalProps> = ({
           onContextMenu={handleContextMenu}
         >
           <PdfViewer url={secureUrl} disableContextMenu />
+        </div>
+      );
+    }
+
+    if (isDocViewerFile && secureUrl) {
+      return (
+        <div
+          className="rfm-preview-content rfm-preview-full doc-viewer-wrapper"
+          onContextMenu={handleContextMenu}
+        >
+          <DocViewerWrapper
+            url={secureUrl}
+            fileName={fileName}
+            mimeType={mimeType}
+          />
+        </div>
+      );
+    }
+
+    if (isLocalOfficeFile && secureUrl) {
+      return (
+        <div
+          className="rfm-preview-content rfm-preview-full"
+          onContextMenu={handleContextMenu}
+        >
+          <LocalOfficeViewer
+            url={secureUrl}
+            fileName={fileName}
+            extension={extension}
+          />
         </div>
       );
     }

@@ -35,6 +35,8 @@ The solution comprises two projects:
 * **Smart Hashing**: Employs MD5 checks via `SyncStateStore.cs` against local files to determine if uploading chunks is required.
 * **Optimized Shutdown**: Instant tray icon disposal and safe engine termination with a 3-second timeout for a snappy user experience.
 * **Shell Integration**: Visual icon overlays (green check marks for synced, blue linking for shared, yellow star for favorites).
+* **Public Share Links**: Direct access to public share URLs from the sync window with "Copy Link" capability.
+* **Storage Context**: Automatic mapping of system folder names (e.g., .Trash -> Trash) for consistent UX.
 
 ## Troubleshooting
 

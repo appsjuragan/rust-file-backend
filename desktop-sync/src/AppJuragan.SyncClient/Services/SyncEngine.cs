@@ -100,17 +100,35 @@ public class SyncEngine : IHostedService
         {
             _log.LogInformation("=== Full sync cycle starting ===");
 
-            // 1. Fetch complete remote tree
-            var remoteItems = await _api.ListAllFilesRecursiveAsync(ct);
+            // Refresh BaseAddress from settings to handle URL changes in-flight
+            _api.UpdateBaseAddress(_settings.Current.ServerUrl);
+
+            // 1. Fetch complete remote tree, excluding system items (like .Trash)
+            var remoteItems = (await _api.ListAllFilesRecursiveAsync(ct))
+                .Where(i => !i.IsSystem).ToList();
             var remotePaths = BuildRemotePathMap(remoteItems);
 
-            // 2. Reconciliation: Handle Deletions both ways
-            await ReconcileDeletionsAsync(remotePaths, ct);
+            // 2. Safety Check: If local folder is empty but Cloud has files, 
+            // the state might be out of sync. Prioritize download.
+            var syncRoot = _settings.Current.LocalSyncFolder;
+            bool localDirEmpty = !Directory.Exists(syncRoot) || !Directory.EnumerateFileSystemEntries(syncRoot).Any();
+            
+            if (localDirEmpty && remoteItems.Any())
+            {
+                _log.LogInformation("🛡 Local folder is empty while Cloud has data. Prioritizing Cloud-First sync.");
+                // Skip ReconcileDeletions for this cycle to avoid deleting from Cloud 
+                // due to state mismatch or missing local files.
+            }
+            else
+            {
+                // 3. Reconciliation: Handle Deletions both ways
+                await ReconcileDeletionsAsync(remotePaths, ct);
+            }
 
-            // 3. Download: remote → local
+            // 4. Download: remote → local (Cloud Wins)
             await ProcessDownloadsAsync(remotePaths, ct);
 
-            // 4. Upload: local → remote
+            // 5. Upload: local → remote (Only new/changed local files)
             await ProcessUploadsAsync(remotePaths, ct);
 
             // 5. Update overlay badges
@@ -430,6 +448,9 @@ public class SyncEngine : IHostedService
             IsFolder = remote.IsFolder,
             IsFavorite = remote.IsFavorite,
             IsShared = remote.IsShared,
+            ShareUrl = !string.IsNullOrEmpty(remote.ShareToken) 
+                ? $"{_api.BaseUrl.Replace("/api/v1/", "/s/")}{remote.ShareToken}" 
+                : ""
         });
     }
 

@@ -3,12 +3,12 @@ export type UploadStatus = {
   name: string;
   progress: number;
   status:
-    | "queued"
-    | "hashing"
-    | "uploading"
-    | "processing"
-    | "completed"
-    | "error";
+  | "queued"
+  | "hashing"
+  | "uploading"
+  | "processing"
+  | "completed"
+  | "error";
   error?: string;
   size?: number;
   uploadId?: string;
@@ -52,6 +52,8 @@ export interface BackendFile {
   isEncrypted?: boolean;
   is_shared?: boolean;
   isShared?: boolean;
+  is_system?: boolean;
+  isSystem?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -63,12 +65,12 @@ export type FileType = {
   parentId?: string; // Optional because the root folder does not have a parent
   lastModified?: number;
   scanStatus?:
-    | "pending"
-    | "scanning"
-    | "clean"
-    | "infected"
-    | "unchecked"
-    | "not_supported";
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "infected"
+  | "unchecked"
+  | "not_supported";
   size?: number;
   mimeType?: string;
   hash?: string;
@@ -78,6 +80,7 @@ export type FileType = {
   hasThumbnail?: boolean;
   isEncrypted?: boolean;
   isShared?: boolean;
+  isSystem?: boolean;
 };
 
 export type FileSystemType = FileType[];
@@ -93,6 +96,7 @@ export type FolderNode = {
   id: string;
   filename: string;
   parent_id: string | null;
+  is_system?: boolean;
 };
 
 export interface ShareLink {

@@ -35,13 +35,13 @@ const THUMBNAIL_EXTENSIONS = new Set([
   "mpg",
   "mpeg",
   "ts",
-  "pdf",
   "m4v",
   "3gp",
   "3g2",
   "ogv",
   "asf",
   "vob",
+  "tiff",
   "heic",
   "heif",
 ]);
@@ -59,6 +59,7 @@ interface IFileIcon {
   scanStatus?: string;
   isEncrypted?: boolean;
   isShared?: boolean;
+  isSystem?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
@@ -113,7 +114,7 @@ const FileIcon = (props: IFileIcon) => {
     const ext = fileExtension.toLowerCase();
 
     if (
-      ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico", "heic", "heif"].includes(ext)
+      ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico", "heic", "heif", "tiff"].includes(ext)
     )
       return "image";
     if (
@@ -164,6 +165,7 @@ const FileIcon = (props: IFileIcon) => {
         "go",
         "rs",
         "html",
+        "htm",
         "css",
       ].includes(ext)
     )
@@ -235,7 +237,7 @@ const FileIcon = (props: IFileIcon) => {
     const controller = new AbortController();
     const canFetch = showThumbnails && !isPolling;
 
-    if (props.hasThumbnail && showThumbnails) {
+    if (props.hasThumbnail && showThumbnails && supportsThumbnail) {
       // Thumbnail is known to exist, fetch it
       fetchThumbnail(controller.signal);
     } else if (supportsThumbnail && canFetch) {
@@ -312,7 +314,7 @@ const FileIcon = (props: IFileIcon) => {
       data-color={colorCategory}
     >
       <div className="rfm-file-icon-wrapper relative flex justify-center items-center shrink-0 overflow-hidden rounded">
-        {thumbnailUrl && showThumbnails ? (
+        {thumbnailUrl && showThumbnails && supportsThumbnail ? (
           <img
             src={thumbnailUrl}
             alt={props.name}
@@ -327,7 +329,13 @@ const FileIcon = (props: IFileIcon) => {
               <div className="rfm-thumb-shimmer" />
             )}
             <SvgIcon
-              svgType={props.isDir ? "folder" : "file"}
+              svgType={
+                props.isDir
+                  ? props.isSystem && props.name === "Trash"
+                    ? "trash"
+                    : "folder"
+                  : "file"
+              }
               className="rfm-file-icon-svg"
             />
             {!props.isDir && fileExtension && (

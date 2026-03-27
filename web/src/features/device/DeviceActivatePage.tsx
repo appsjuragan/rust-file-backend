@@ -106,7 +106,7 @@ export const DeviceActivatePage: React.FC = () => {
                     </p>
                 </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit} autoComplete="off">
                     {error && (
                         <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-4 flex items-center border border-red-200 dark:border-red-800">
                             <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400 mr-3" />
@@ -125,6 +125,9 @@ export const DeviceActivatePage: React.FC = () => {
                             required
                             maxLength={6}
                             value={code}
+                            autoFocus
+                            autoComplete="off"
+                            spellCheck={false}
                             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             className="appearance-none rounded-lg relative block w-full px-4 py-4 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-2xl text-center tracking-widest font-mono"
                             placeholder="000000"

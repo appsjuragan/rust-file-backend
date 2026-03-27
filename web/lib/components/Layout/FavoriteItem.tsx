@@ -68,7 +68,7 @@ const FavoriteItem = ({ fav, onRemove, onSelect }: FavoriteItemProps) => {
         onTouchEnd={handleTouchEnd}
       >
         <SvgIcon
-          svgType={fav.isDir ? "folder" : "file"}
+          svgType={fav.isDir ? (fav.isSystem && fav.name === "Trash" ? "trash" : "folder") : "file"}
           size={16}
           className="mr-2 opacity-70"
         />

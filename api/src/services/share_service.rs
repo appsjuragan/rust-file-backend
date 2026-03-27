@@ -194,6 +194,23 @@ impl ShareService {
     }
 
     /// Check if a file has any active share links
+    pub async fn get_active_share_token(
+        db: &sea_orm::DatabaseConnection,
+        user_file_id: &str,
+    ) -> Result<Option<String>, AppError> {
+        let share = ShareLinks::find()
+            .filter(
+                Condition::all()
+                    .add(share_links::Column::UserFileId.eq(user_file_id))
+                    .add(share_links::Column::ExpiresAt.gt(Utc::now())),
+            )
+            .one(db)
+            .await?;
+
+        Ok(share.map(|s| s.share_token))
+    }
+
+    /// Check if a file has any active share links
     pub async fn has_active_shares(
         db: &sea_orm::DatabaseConnection,
         user_file_id: &str,

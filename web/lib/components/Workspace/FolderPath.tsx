@@ -88,6 +88,16 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     }
   };
 
+  // Map internal system folder names to user-friendly display names
+  const getDisplayName = (name: string) => {
+    const systemNames: Record<string, string> = {
+      ".Trash": "Trash",
+      ".trash": "Trash",
+      "Trash": "Trash",
+    };
+    return systemNames[name] ?? name;
+  };
+
   const breadcrumbs = useMemo(() => {
     const crumbs: { id: string; name: string; parentId: string }[] = [];
     let currentId = currentFolder;
@@ -97,7 +107,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
       if (folder) {
         crumbs.unshift({
           id: folder.id,
-          name: folder.name,
+          name: getDisplayName(folder.name),
           parentId: folder.parentId || "0",
         });
         currentId = folder.parentId || "0";
@@ -106,7 +116,7 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
         if (treeFolder) {
           crumbs.unshift({
             id: treeFolder.id,
-            name: treeFolder.filename,
+            name: getDisplayName(treeFolder.filename),
             parentId: treeFolder.parent_id || "0",
           });
           currentId = treeFolder.parent_id || "0";

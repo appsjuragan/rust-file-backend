@@ -327,9 +327,14 @@ pub async fn download_file_with_ticket(
         let archive = crate::entities::download_archives::Entity::find_by_id(archive_id)
             .one(&state.db)
             .await?
-            .ok_or(AppError::NotFound("Archive not found or deleted".to_string()))?;
+            .ok_or(AppError::NotFound(
+                "Archive not found or deleted".to_string(),
+            ))?;
 
-        let s3_key = archive.s3_key.as_ref().ok_or(AppError::NotFound("Archive not ready".to_string()))?;
+        let s3_key = archive
+            .s3_key
+            .as_ref()
+            .ok_or(AppError::NotFound("Archive not ready".to_string()))?;
 
         let content_type = "application/zip".to_string();
         let encoded_filename = utf8_percent_encode(&archive.filename, NON_ALPHANUMERIC).to_string();
@@ -352,9 +357,8 @@ pub async fn download_file_with_ticket(
                 AppError::Internal("Failed to generate download URL".to_string())
             })?;
 
-        let url = url::Url::parse(&presigned_url).map_err(|_| {
-            AppError::Internal("Failed to parse URL".to_string())
-        })?;
+        let url = url::Url::parse(&presigned_url)
+            .map_err(|_| AppError::Internal("Failed to parse URL".to_string()))?;
 
         let path = url.path();
         let q = url.query().unwrap_or("");
@@ -493,13 +497,13 @@ pub(crate) fn resolve_file_headers(
 
     let encoded_filename = utf8_percent_encode(filename, NON_ALPHANUMERIC).to_string();
 
-    let disposition_type = if !force_download && (
-        content_type.starts_with("video/")
+    let disposition_type = if !force_download
+        && (content_type.starts_with("video/")
             || content_type.starts_with("audio/")
             || content_type.starts_with("image/")
             || content_type == "application/pdf"
-            || content_type.starts_with("text/")
-    ) {
+            || content_type.starts_with("text/"))
+    {
         "inline"
     } else {
         "attachment"

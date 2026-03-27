@@ -12,7 +12,18 @@ use sea_orm::{
     sea_query::{Expr, Func},
 };
 
+use serde::Serialize;
+use utoipa::ToSchema;
+
 use super::types::*;
+
+#[derive(Serialize, ToSchema)]
+pub struct FolderStatsResponse {
+    pub total_items: u64,
+    pub total_size: u64,
+    pub file_count: u64,
+    pub folder_count: u64,
+}
 
 #[utoipa::path(
     get,
@@ -187,12 +198,14 @@ pub async fn list_files(
             None
         };
 
-        let is_shared = crate::services::share_service::ShareService::has_active_shares(
+        let share_token = crate::services::share_service::ShareService::get_active_share_token(
             &state.db,
             &user_file.id,
         )
         .await
-        .unwrap_or(false);
+        .unwrap_or(None);
+
+        let is_shared = share_token.is_some();
 
         result.push(FileMetadataResponse {
             id: user_file.id,
@@ -219,6 +232,8 @@ pub async fn list_files(
                 .map(|s| s.is_encrypted)
                 .unwrap_or(false),
             is_shared,
+            share_token,
+            is_system: user_file.is_system,
         });
     }
 
@@ -285,6 +300,8 @@ pub async fn get_folder_path(
                 has_thumbnail: false,
                 is_encrypted: false,
                 is_shared: false,
+                share_token: None,
+                is_system: folder.is_system,
             },
         );
 
@@ -326,8 +343,121 @@ pub async fn folder_tree(
             id: f.id,
             filename: f.filename,
             parent_id: f.parent_id,
+            is_system: f.is_system,
         })
         .collect();
 
     Ok(Json(result))
+}
+
+#[utoipa::path(
+    get,
+    path = "/files/{id}/stats",
+    params(
+        ("id" = String, Path, description = "Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Folder statistics", body = FolderStatsResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Folder not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn get_folder_stats(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<FolderStatsResponse>, AppError> {
+    // 1. First ensure the folder exists and belongs to the user
+    UserFiles::find_by_id(id.clone())
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("Folder not found".to_string()))?;
+
+    // 2. Fetch all descendants recursively to calculate stats
+    // We use a recursive query (CTE) to find all items that have the given ID as an ancestor
+
+    let db_backend = state.db.get_database_backend();
+    let sql = if db_backend == sea_orm::DatabaseBackend::Postgres {
+        format!(
+            r#"
+            WITH RECURSIVE descendants AS (
+                SELECT id, is_folder, storage_file_id
+                FROM user_files
+                WHERE parent_id = '{}' AND user_id = '{}' AND deleted_at IS NULL
+                UNION ALL
+                SELECT u.id, u.is_folder, u.storage_file_id
+                FROM user_files u
+                INNER JOIN descendants d ON u.parent_id = d.id
+                WHERE u.user_id = '{}' AND u.deleted_at IS NULL
+            )
+            SELECT 
+                COUNT(*) as total_items,
+                COALESCE(SUM(s.size), 0)::bigint as total_size,
+                COUNT(*) FILTER (WHERE descendants.is_folder = false) as file_count,
+                COUNT(*) FILTER (WHERE descendants.is_folder = true) as folder_count
+            FROM descendants
+            LEFT JOIN storage_files s ON descendants.storage_file_id = s.id
+            "#,
+            id, claims.sub, claims.sub
+        )
+    } else {
+        // SQLite
+        format!(
+            r#"
+            WITH RECURSIVE descendants AS (
+                SELECT id, is_folder, storage_file_id
+                FROM user_files
+                WHERE parent_id = '{}' AND user_id = '{}' AND deleted_at IS NULL
+                UNION ALL
+                SELECT u.id, u.is_folder, u.storage_file_id
+                FROM user_files u
+                INNER JOIN descendants d ON u.parent_id = d.id
+                WHERE u.user_id = '{}' AND u.deleted_at IS NULL
+            )
+            SELECT 
+                COUNT(*) as total_items,
+                CAST(COALESCE(SUM(s.size), 0) AS INTEGER) as total_size,
+                COALESCE(SUM(CASE WHEN descendants.is_folder = 0 THEN 1 ELSE 0 END), 0) as file_count,
+                COALESCE(SUM(CASE WHEN descendants.is_folder = 1 THEN 1 ELSE 0 END), 0) as folder_count
+            FROM descendants
+            LEFT JOIN storage_files s ON descendants.storage_file_id = s.id
+            "#,
+            id, claims.sub, claims.sub
+        )
+    };
+
+    let query_res = state
+        .db
+        .query_one(sea_orm::Statement::from_string(db_backend, sql))
+        .await
+        .map_err(|e| {
+            tracing::error!("Stats query error for user {}: {}", claims.sub, e);
+            AppError::Internal(e.to_string())
+        })?;
+
+    if let Some(res) = query_res {
+        let total_items = res.try_get::<i64>("", "total_items").unwrap_or(0);
+        let total_size = res.try_get::<i64>("", "total_size").unwrap_or(0);
+        let file_count = res.try_get::<i64>("", "file_count").unwrap_or(0);
+        let folder_count = res.try_get::<i64>("", "folder_count").unwrap_or(0);
+
+        Ok(Json(FolderStatsResponse {
+            total_items: total_items as u64,
+            total_size: total_size as u64,
+            file_count: file_count as u64,
+            folder_count: folder_count as u64,
+        }))
+    } else {
+        Ok(Json(FolderStatsResponse {
+            total_items: 0,
+            total_size: 0,
+            file_count: 0,
+            folder_count: 0,
+        }))
+    }
 }

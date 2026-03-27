@@ -17,6 +17,9 @@ pub struct Model {
     pub created_at: Option<DateTimeUtc>,
     pub deleted_at: Option<DateTimeUtc>,
     pub file_signature: Option<String>,
+    pub original_parent_id: Option<String>,
+    #[sea_orm(default_value = "false")]
+    pub is_system: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

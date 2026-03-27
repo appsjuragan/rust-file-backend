@@ -412,7 +412,10 @@ pub async fn get_public_share(
         permission: share.permission,
         requires_password: share.password_hash.is_some(),
         expires_at: share.expires_at,
-        has_thumbnail: storage_file.as_ref().map(|s| s.has_thumbnail).unwrap_or(false),
+        has_thumbnail: storage_file
+            .as_ref()
+            .map(|s| s.has_thumbnail)
+            .unwrap_or(false),
     }))
 }
 
@@ -797,7 +800,8 @@ pub async fn get_public_share_thumbnail(
         .await
         .map_err(|_| AppError::Internal("Presigner error".to_string()))?;
 
-    let url = url::Url::parse(&presigned_url).map_err(|_| AppError::Internal("Bad URL".to_string()))?;
+    let url =
+        url::Url::parse(&presigned_url).map_err(|_| AppError::Internal("Bad URL".to_string()))?;
     let path = url.path();
     let q = url.query().unwrap_or("");
     let internal_redirect_uri = format!("/minio_protected{}?{}", path, q);
