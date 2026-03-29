@@ -44,6 +44,7 @@ const THUMBNAIL_EXTENSIONS = new Set([
   "tiff",
   "heic",
   "heif",
+  "pdf",
 ]);
 
 interface IFileIcon {

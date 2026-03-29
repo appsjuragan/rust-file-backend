@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useFileManager } from "../../context";
-import { FileType } from "../../types";
+import { FileType, FolderNode } from "../../types";
 import SvgIcon from "../Icons/SvgIcon";
 import { fileService } from "../../../src/services/fileService";
 import { useFileActions } from "../../hooks/useFileActions";
@@ -59,6 +59,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     setClipboardSourceFolder,
     favorites,
     toggleFavorite,
+    folderTree,
   } = useFileManager();
 
   const [stats, setStats] = useState<{
@@ -291,10 +292,16 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     }
   };
 
-  const currentFolderItem = fs.find((f) => f.id === currentFolder);
+  const currentFolderTreeNode = folderTree.find(
+    (f: FolderNode) => f.id === currentFolder,
+  );
+  const currentFolderItem = fs.find((f: FileType) => f.id === currentFolder);
   const isInTrash =
-    currentFolderItem?.isSystem &&
-    (currentFolderItem?.name === "Trash" || currentFolderItem?.name === ".Trash");
+    (currentFolderItem?.isSystem &&
+      (currentFolderItem?.name === "Trash" ||
+        currentFolderItem?.name === ".Trash")) ||
+    (currentFolderTreeNode?.is_system &&
+      currentFolderTreeNode?.filename === ".Trash");
 
   return (
     <>
