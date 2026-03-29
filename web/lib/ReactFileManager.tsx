@@ -190,6 +190,7 @@ export const ReactFileManager = ({
   const [shares, setShares] = useState<ShareLink[]>([]);
   const [sharesMinimized, setSharesMinimized] = useState<boolean>(false);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(true);
+  const [autoplay, setAutoplay] = useState<boolean>(true);
 
   const refreshShares = useCallback(async () => {
     try {
@@ -213,6 +214,7 @@ export const ReactFileManager = ({
     const savedCurrentFolder = localStorage.getItem(
       `rfm_currentFolder_${userId}`,
     );
+    const savedAutoplay = localStorage.getItem(`rfm_autoplay_${userId}`);
 
     if (savedField) setSortField(savedField as SortField);
     if (savedDirection) setSortDirection(savedDirection as SortDirection);
@@ -220,6 +222,7 @@ export const ReactFileManager = ({
     if (savedViewStyle) setViewStyle(savedViewStyle as ViewStyle);
     if (savedSidebarVisible)
       setInternalSidebarVisible(savedSidebarVisible === "true");
+    if (savedAutoplay) setAutoplay(savedAutoplay === "true");
     // Only restore if we are at root ("0") to avoid overriding active navigation
     // if (savedCurrentFolder && !propCurrentFolder && internalCurrentFolder === "0") {
     //   setInternalCurrentFolder(savedCurrentFolder);
@@ -563,6 +566,11 @@ export const ReactFileManager = ({
   // ─── Sub-memos: each slice only re-computes when its own state changes ───
 
   // 1. File system + navigation (changes when files load or folder changes)
+  useEffect(() => {
+    if (!userId) return;
+    localStorage.setItem(`rfm_autoplay_${userId}`, autoplay.toString());
+  }, [autoplay, userId]);
+
   const fsValue = useMemo(
     () => ({
       fs: sortedFs,
@@ -633,6 +641,8 @@ export const ReactFileManager = ({
       setUploadedFileData,
       showThumbnails,
       setShowThumbnails,
+      autoplay,
+      setAutoplay,
     }),
     [
       viewStyle,
@@ -642,6 +652,7 @@ export const ReactFileManager = ({
       sidebarVisible,
       uploadedFileData,
       showThumbnails,
+      autoplay,
     ],
   );
 
@@ -812,18 +823,43 @@ export const ReactFileManager = ({
               onClose={() => setNewFolderModalVisible(false)}
               clickPosition={modalPosition}
             />
-            {previewFile && (
-              <PreviewModal
-                isVisible={previewVisible}
-                onClose={() => setPreviewVisible(false)}
-                fileName={previewFile.name}
-                fileId={previewFile.id}
-                mimeType={previewFile.mimeType}
-                size={previewFile.size}
-                scanStatus={previewFile.scanStatus}
-                clickPosition={modalPosition}
-              />
-            )}
+            {previewFile && (() => {
+              const targetParentId = previewFile.parentId || "0";
+              const currentFolderFiles = filesByParent?.get(targetParentId) || [];
+              const mediaExtensions = [
+                "jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "heic", "heif", "tiff",
+                "mp4", "webm", "ogg", "mkv", "avi", "mov", "flv", "wmv", "m4v", "ts", "m2ts",
+                "mp3", "wav"
+              ];
+              const previewableFiles = currentFolderFiles.filter(f =>
+                !f.isDir && (mediaExtensions.includes(f.name.split('.').pop()?.toLowerCase() || "") ||
+                  f.mimeType?.startsWith("image/") ||
+                  f.mimeType?.startsWith("video/") ||
+                  f.mimeType?.startsWith("audio/"))
+              );
+
+              const currentFile = previewFile;
+              const currentIndex = previewableFiles.findIndex(f => f.id === currentFile.id);
+
+              const previousFile = currentIndex > 0 ? previewableFiles[currentIndex - 1] : null;
+              const nextFile = currentIndex < previewableFiles.length - 1 ? previewableFiles[currentIndex + 1] : null;
+
+              const onNext = nextFile ? () => setPreviewFile(nextFile) : undefined;
+              const onPrevious = previousFile ? () => setPreviewFile(previousFile) : undefined;
+
+              return (
+                <PreviewModal
+                  isVisible={previewVisible}
+                  onClose={() => setPreviewVisible(false)}
+                  currentFile={currentFile}
+                  previousFile={previousFile}
+                  nextFile={nextFile}
+                  clickPosition={modalPosition}
+                  onNext={onNext}
+                  onPrevious={onPrevious}
+                />
+              );
+            })()}
           </>
         )}
         <UploadProgressToast />

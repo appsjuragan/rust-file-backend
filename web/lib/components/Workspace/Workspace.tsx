@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useFileManager } from "../../context";
 import type { FileType } from "../../types";
-import { ViewStyle } from "../../types";
+import { ViewStyle, SortField, SortDirection } from "../../types";
 import { isDescendantOrSelf } from "../../utils/fileUtils";
 import { useFileActions } from "../../hooks/useFileActions";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -273,11 +273,40 @@ const Workspace = () => {
 
   const columns = useMemo(() => getColumns(), []);
 
+  // Sync table sorting with context sort state
+  const { sortField, sortDirection, setSortField, setSortDirection } = useFileManager();
+  const tableSorting = useMemo(() => {
+    let id = "name";
+    if (sortField === SortField.Size) id = "size";
+    else if (sortField === SortField.Type) id = "mimeType";
+    else if (sortField === SortField.Date) id = "lastModified";
+    return [{ id, desc: sortDirection === SortDirection.Desc }];
+  }, [sortField, sortDirection]);
+
+  const handleSortingChange = useCallback((updater: any) => {
+    const nextSorting = typeof updater === "function" ? updater(tableSorting) : updater;
+    if (nextSorting && nextSorting.length > 0) {
+      const { id, desc } = nextSorting[0];
+      let field: SortField = SortField.Name;
+      if (id === "size") field = SortField.Size;
+      else if (id === "mimeType") field = SortField.Type;
+      else if (id === "lastModified") field = SortField.Date;
+
+      setSortField(field);
+      setSortDirection(desc ? SortDirection.Desc : SortDirection.Asc);
+    }
+  }, [tableSorting, setSortField, setSortDirection]);
+
   const table = useReactTable({
     data: currentFolderFiles,
     columns,
+    state: {
+      sorting: tableSorting,
+    },
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    manualSorting: true, // Data is already sorted by the parent ReactFileManager
   });
 
   const handleItemClick = (file: FileType, e: React.MouseEvent) => {

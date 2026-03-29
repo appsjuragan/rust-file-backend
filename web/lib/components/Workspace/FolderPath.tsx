@@ -4,7 +4,7 @@ import { useFileManager } from "../../context";
 // Types
 import type { FileType } from "../../types";
 import { ViewStyle, SortField, SortDirection, IconSize } from "../../types";
-import { ArrowDown, ArrowUp, ChevronDown, Check } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Check, Eye, ListFilter } from "lucide-react";
 // Components
 import SvgIcon from "../Icons/SvgIcon";
 
@@ -37,6 +37,8 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     folderTree,
     showThumbnails,
     setShowThumbnails,
+    autoplay,
+    setAutoplay,
     isLoading,
   } = useFileManager();
 
@@ -273,10 +275,10 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
             <div
               className={`rfm-sort-trigger ${sortMenuVisible ? "active" : ""}`}
               onClick={() => setSortMenuVisible(!sortMenuVisible)}
+              title="View & Sort Settings"
             >
-              <span>
-                {sortOptions.find((o) => o.value === sortField)?.label}
-              </span>
+              <Eye size={16} />
+              <ListFilter size={16} className="-ml-1 opacity-60" />
               <ChevronDown
                 size={14}
                 className={`rfm-sort-chevron ${sortMenuVisible ? "open" : ""}`}
@@ -313,6 +315,17 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
                 >
                   <span>Enable Thumbnails</span>
                   {showThumbnails && <Check size={14} className="text-teal-500" />}
+                </div>
+
+                <div
+                  className={`rfm-sort-option ${autoplay ? "selected" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAutoplay(!autoplay);
+                  }}
+                >
+                  <span>Autoplay Media</span>
+                  {autoplay && <Check size={14} className="text-teal-500" />}
                 </div>
               </div>
             )}

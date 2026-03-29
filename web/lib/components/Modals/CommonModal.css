@@ -210,11 +210,11 @@
   }
 
   .rfm-modal-icon {
-    @apply w-8 h-8 p-1.5 flex items-center justify-center text-white cursor-pointer transition-all duration-200 rounded-lg z-[1000] relative;
-    background-color: rgba(153, 27, 27, 0.9);
-    /* Red-800 with high opacity */
-    backdrop-filter: blur(4px);
+    @apply w-10 h-10 p-2 flex items-center justify-center text-white cursor-pointer transition-all duration-200 rounded-full z-[1000] relative !important;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
     opacity: 1 !important;
+    pointer-events: auto !important;
   }
 
   .rfm-modal-icon svg {
@@ -338,7 +338,7 @@
     }
 
     .rfm-preview-modal .rfm-modal-header {
-      @apply absolute top-0 left-0 right-0 z-20 border-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-3 px-6 flex items-center justify-between border-b border-stone-100 dark:border-slate-800;
+      @apply absolute top-0 left-0 right-0 z-[100] border-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-3 px-6 flex items-center justify-between border-b border-stone-100 dark:border-slate-800;
       background-image: none !important;
       box-shadow: none;
       box-sizing: border-box;
@@ -439,6 +439,77 @@
     .rfm-modal-body {
       @apply p-2;
     }
+  }
+
+  .rfm-preview-modal-container {
+    @apply relative w-full h-full flex flex-col items-center justify-center overflow-hidden;
+  }
+
+  .rfm-preview-window {
+    @apply relative w-full h-full overflow-hidden flex-1 flex items-center justify-center;
+  }
+
+  .rfm-preview-item {
+    @apply absolute inset-0 flex items-center justify-center transition-all duration-500 ease-out pointer-events-none;
+    opacity: 0 !important;
+    visibility: hidden;
+    transform: scale(0.95) translateY(10px);
+    z-index: 10;
+  }
+
+  .rfm-preview-item.is-active {
+    @apply pointer-events-auto;
+    opacity: 1 !important;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+    z-index: 30;
+  }
+
+  .rfm-preview-item.is-preload {
+    opacity: 0 !important;
+    visibility: hidden;
+    transform: scale(0.95) translateX(40px);
+    z-index: 20;
+  }
+
+  /* Transition for content inside the items */
+  .rfm-preview-content {
+    @apply transition-transform duration-700 ease-out;
+  }
+
+  .rfm-preview-nav-overlay {
+    @apply absolute inset-y-0 left-0 right-0 flex items-center pointer-events-none px-6 z-50;
+  }
+
+  .rfm-preview-nav-btn {
+    @apply w-12 h-12 flex items-center justify-center bg-black/20 text-white rounded-full backdrop-blur-md opacity-0 hover:bg-black/40 hover:scale-110 active:scale-95 transition-all duration-300 pointer-events-auto cursor-pointer border border-white/10;
+  }
+
+  .rfm-nav-next {
+    @apply ml-auto;
+  }
+
+  /* Show buttons on hover on desktop */
+  @media (min-width: 769px) {
+    .rfm-preview-modal-container:hover .rfm-preview-nav-btn {
+      @apply opacity-100;
+    }
+  }
+
+  /* Always visible on touch-enabled mobile */
+  @media (max-width: 768px) {
+    .rfm-preview-nav-btn {
+      @apply opacity-60 w-10 h-10 px-2;
+    }
+
+    .rfm-preview-nav-overlay {
+      @apply px-4;
+    }
+  }
+
+  .rfm-preview-nav-btn svg {
+    @apply w-6 h-6;
+    fill: white !important;
   }
 
   /* ==================== Text Editor Modal ==================== */

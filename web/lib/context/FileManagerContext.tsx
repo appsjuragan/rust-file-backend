@@ -139,6 +139,8 @@ interface ProviderInterface {
   setSharesMinimized: Dispatch<SetStateAction<boolean>>;
   showThumbnails: boolean;
   setShowThumbnails: Dispatch<boolean>;
+  autoplay: boolean;
+  setAutoplay: Dispatch<boolean>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

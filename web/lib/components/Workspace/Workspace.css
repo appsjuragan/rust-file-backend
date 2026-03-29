@@ -479,11 +479,11 @@
 
 .rfm-sort-trigger {
   height: 36px;
-  @apply flex items-center gap-2 bg-stone-100 dark:bg-slate-800 rounded-lg px-3 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none;
+  @apply flex items-center gap-1.5 bg-stone-100 dark:bg-slate-800 rounded-xl px-2.5 border border-stone-200 dark:border-slate-700 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-700 select-none shadow-sm;
 }
 
-.rfm-sort-trigger span {
-  @apply text-xs font-bold text-stone-600 dark:text-slate-200 uppercase tracking-wider;
+.rfm-sort-trigger svg {
+  @apply text-stone-500 dark:text-slate-400;
 }
 
 .rfm-sort-chevron {
