@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import CommonModal from "./CommonModal";
 import SvgIcon from "../Icons/SvgIcon";
 import { useFileManager } from "../../context";
@@ -10,10 +10,12 @@ interface ShareModalProps {
   onClose: () => void;
   onCreateShare: (params: {
     user_file_id: string;
-    share_type: "public" | "user";
+    share_type: "public" | "user" | "group";
     password?: string;
     permission: "view" | "download";
     expires_in_hours: number;
+    shared_with_group_id?: string;
+    shared_with_user_id?: string;
   }) => Promise<ShareLink>;
   onListShares: (fileId: string) => Promise<ShareLink[]>;
   onRevokeShare: (shareId: string) => Promise<void>;
@@ -40,10 +42,23 @@ const ShareModal: React.FC<ShareModalProps> = ({
   const [password, setPassword] = useState("");
   const [usePassword, setUsePassword] = useState(false);
   const [expiryHours, setExpiryHours] = useState(24);
+  const [shareTargetType, setShareTargetType] = useState<
+    "public" | "group" | "user"
+  >("public");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [userGroups, setUserGroups] = useState<any[]>([]);
   const [existingShares, setExistingShares] = useState<ShareLink[]>([]);
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [newShareToken, setNewShareToken] = useState<string | null>(null);
+
+  // User search state for "People" tab
+  const [userQuery, setUserQuery] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   const baseUrl = window.location.origin;
 
@@ -63,22 +78,96 @@ const ShareModal: React.FC<ShareModalProps> = ({
       setNewShareToken(null);
       setPassword("");
       setUsePassword(false);
+      setShareTargetType("public");
+      setSelectedGroupId("");
+      setSelectedUsers([]);
+      setUserQuery("");
+
+      // Load user groups
+      import("../../../src/services/adminService").then((mod) => {
+        mod.adminService.listMyGroups().then((groups: any[]) => {
+          setUserGroups(groups);
+          if (groups.length > 0) setSelectedGroupId(groups[0].id);
+        });
+      });
     }
   }, [isVisible, file, loadShares]);
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced user search
+  useEffect(() => {
+    if (shareTargetType !== "user") return;
+    const delayDebounceFn = setTimeout(() => {
+      if (userQuery.trim().length >= 1) {
+        setIsSearchingUsers(true);
+        import("../../../src/services/fileService").then((mod) => {
+          mod.fileService
+            .searchUsersForSharing(userQuery)
+            .then((data: any[]) => {
+              setUserSuggestions(data);
+              setIsSearchingUsers(false);
+              setIsUserDropdownOpen(true);
+            })
+            .catch(() => {
+              setIsSearchingUsers(false);
+            });
+        });
+      } else {
+        setUserSuggestions([]);
+        setIsUserDropdownOpen(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [userQuery, shareTargetType]);
 
   const handleCreate = async () => {
     if (!file) return;
     setCreating(true);
     try {
-      const share = await onCreateShare({
-        user_file_id: file.id,
-        share_type: "public",
-        password: usePassword ? password : undefined,
-        permission,
-        expires_in_hours: expiryHours,
-      });
-      setNewShareToken(share.share_token);
+      if (shareTargetType === "user" && selectedUsers.length > 0) {
+        // Multi-user share: create one for each selected person
+        let lastToken = null;
+        for (const user of selectedUsers) {
+          const share = await onCreateShare({
+            user_file_id: file.id,
+            share_type: "user",
+            password: usePassword ? password : undefined,
+            permission,
+            expires_in_hours: expiryHours,
+            shared_with_user_id: user.id,
+          });
+          lastToken = share.share_token;
+        }
+        setNewShareToken(lastToken);
+      } else {
+        const share = await onCreateShare({
+          user_file_id: file.id,
+          share_type: shareTargetType,
+          password: usePassword ? password : undefined,
+          permission,
+          expires_in_hours: expiryHours,
+          shared_with_group_id:
+            shareTargetType === "group" ? selectedGroupId : undefined,
+          shared_with_user_id: undefined,
+        });
+        setNewShareToken(share.share_token);
+      }
       await loadShares();
+      setSelectedUsers([]);
     } catch {
       /* show error */
     }
@@ -111,6 +200,35 @@ const ShareModal: React.FC<ShareModalProps> = ({
     return `${diffD}d remaining`;
   };
 
+  const getShareTypeBadge = (share: ShareLink) => {
+    switch (share.share_type) {
+      case "user":
+        return (
+          <span className="rfm-share-badge rfm-share-badge-type-user">
+            <SvgIcon svgType="user" size={9} />
+          </span>
+        );
+      case "group":
+        return (
+          <span className="rfm-share-badge rfm-share-badge-type-group">
+            <SvgIcon svgType="folder" size={9} />
+          </span>
+        );
+      default:
+        return (
+          <span className="rfm-share-badge rfm-share-badge-type-public">
+            <SvgIcon svgType="share" size={9} />
+          </span>
+        );
+    }
+  };
+
+  const isCreateDisabled =
+    creating ||
+    (usePassword && !password) ||
+    (shareTargetType === "group" && !selectedGroupId) ||
+    (shareTargetType === "user" && selectedUsers.length === 0);
+
   if (!file) return null;
 
   return (
@@ -126,6 +244,154 @@ const ShareModal: React.FC<ShareModalProps> = ({
         {/* Create new share */}
         <div className="rfm-share-create-section">
           <div className="rfm-share-field">
+            <label className="rfm-share-label">Share With</label>
+            <div className="rfm-share-toggle-group">
+              <button
+                type="button"
+                className={`rfm-share-toggle-btn ${shareTargetType === "public" ? "active" : ""}`}
+                onClick={() => setShareTargetType("public")}
+              >
+                <SvgIcon svgType="share" size={13} />
+                <span>Public</span>
+              </button>
+              <button
+                type="button"
+                className={`rfm-share-toggle-btn ${shareTargetType === "user" ? "active" : ""}`}
+                onClick={() => setShareTargetType("user")}
+              >
+                <SvgIcon svgType="user" size={13} />
+                <span>People</span>
+              </button>
+              <button
+                type="button"
+                className={`rfm-share-toggle-btn ${shareTargetType === "group" ? "active" : ""}`}
+                onClick={() => setShareTargetType("group")}
+              >
+                <SvgIcon svgType="folder" size={13} />
+                <span>Group</span>
+              </button>
+            </div>
+          </div>
+
+          {/* User search for "People" sharing */}
+          {shareTargetType === "user" && (
+            <div className="rfm-share-field">
+              <label className="rfm-share-label">Select People</label>
+              <div className="rfm-share-user-search" ref={userDropdownRef}>
+                <div className="rfm-share-user-input-wrapper">
+                  {selectedUsers.length > 0 && (
+                    <div className="rfm-share-selected-users-list">
+                      {selectedUsers.map((u) => (
+                        <div key={u.id} className="rfm-share-user-pill">
+                          <span className="rfm-share-user-pill-name">
+                            {u.name || u.username}
+                          </span>
+                          <button
+                            type="button"
+                            className="rfm-share-user-pill-remove"
+                            onClick={() =>
+                              setSelectedUsers((prev) =>
+                                prev.filter((usr) => usr.id !== u.id),
+                              )
+                            }
+                          >
+                            <SvgIcon svgType="close" size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="rfm-share-input-row">
+                    <SvgIcon svgType="search" size={14} />
+                    <input
+                      type="text"
+                      value={userQuery}
+                      onChange={(e) => setUserQuery(e.target.value)}
+                      onFocus={() => {
+                        if (userSuggestions.length > 0)
+                          setIsUserDropdownOpen(true);
+                      }}
+                      placeholder="Search people..."
+                      className="rfm-share-user-input"
+                    />
+                  </div>
+                  {isSearchingUsers && (
+                    <div className="rfm-share-user-spinner" />
+                  )}
+                </div>
+
+                {isUserDropdownOpen && userSuggestions.length > 0 && (
+                  <div className="rfm-share-user-dropdown">
+                    {userSuggestions.map((user: any) => {
+                      const isAlreadySelected = selectedUsers.some(
+                        (u) => u.id === user.id,
+                      );
+                      if (isAlreadySelected) return null;
+
+                      return (
+                        <div
+                          key={user.id}
+                          className="rfm-share-user-option"
+                          onClick={() => {
+                            setSelectedUsers((prev) => [...prev, user]);
+                            setUserQuery("");
+                            setIsUserDropdownOpen(false);
+                            setUserSuggestions([]);
+                          }}
+                        >
+                          <div className="rfm-share-user-option-avatar">
+                            {(user.name || user.username || "U")
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+                          <div className="rfm-share-user-option-info">
+                            <span className="rfm-share-user-option-name">
+                              {user.name || user.username}
+                            </span>
+                            <span className="rfm-share-user-option-username">
+                              @{user.username}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {shareTargetType === "group" && (
+            <div className="rfm-share-field">
+              <label className="rfm-share-label">Select Group</label>
+              <select
+                className="rfm-share-input"
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  background: "rgba(0,0,0,0.4)",
+                  color: "white",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              >
+                {userGroups.length === 0 && (
+                  <option disabled value="">
+                    No groups available
+                  </option>
+                )}
+                {userGroups.map((g) => (
+                  <option key={g.id} value={g.id} style={{ color: "black" }}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="rfm-share-field">
             <label className="rfm-share-label">Permission</label>
             <div className="rfm-share-toggle-group">
               <button
@@ -135,8 +401,6 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   if (permission !== "view") {
                     setPermission("view");
                     setNewShareToken(null);
-                    setPassword("");
-                    setUsePassword(false);
                   }
                 }}
               >
@@ -150,8 +414,6 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   if (permission !== "download") {
                     setPermission("download");
                     setNewShareToken(null);
-                    setPassword("");
-                    setUsePassword(false);
                   }
                 }}
               >
@@ -207,7 +469,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
             type="button"
             className="rfm-share-create-btn"
             onClick={handleCreate}
-            disabled={creating || (usePassword && !password)}
+            disabled={isCreateDisabled}
           >
             {creating ? "Creating..." : "Create Share Link"}
           </button>
@@ -244,6 +506,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 <div key={share.id} className="rfm-share-item">
                   <div className="rfm-share-item-info">
                     <div className="rfm-share-item-meta">
+                      {getShareTypeBadge(share)}
                       <span
                         className="rfm-share-badge rfm-share-badge-permission"
                         title={

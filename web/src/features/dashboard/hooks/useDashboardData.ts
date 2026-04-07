@@ -24,7 +24,8 @@ export function useDashboardData() {
     name?: string;
     email?: string;
     avatarUrl?: string;
-  }>({ id: "", name: "", email: "", avatarUrl: "" });
+    isAdmin?: boolean;
+  }>({ id: "", name: "", email: "", avatarUrl: "", isAdmin: false });
   const [username, setUsername] = useState(
     localStorage.getItem("username") || "User",
   );
@@ -84,6 +85,7 @@ export function useDashboardData() {
         name: data.name,
         email: data.email,
         avatarUrl: avatar,
+        isAdmin: data.is_admin,
       });
 
       if (data.username) setUsername(data.username);

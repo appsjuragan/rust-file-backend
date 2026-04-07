@@ -7,3 +7,4 @@ pub mod shares;
 pub mod upload;
 pub mod user_settings;
 pub mod users;
+pub mod admin_groups;

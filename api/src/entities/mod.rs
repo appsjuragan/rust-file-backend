@@ -19,3 +19,5 @@ pub mod magic_signatures;
 pub mod share_access_logs;
 pub mod share_links;
 pub mod upload_sessions;
+pub mod user_groups;
+pub mod user_group_members;

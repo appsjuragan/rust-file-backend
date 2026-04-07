@@ -8,19 +8,21 @@ import {
   Sun,
   Folder,
   File,
+  Users,
 } from "lucide-react";
 import { FileType } from "../../../../../lib/types";
 import { FileIcon, FolderPath, SvgIcon } from "../../../../../lib";
 import "./DashboardHeader.css";
 
 interface DashboardHeaderProps {
-  profile: { name?: string; email?: string; avatarUrl?: string };
+  profile: { name?: string; email?: string; avatarUrl?: string; isAdmin?: boolean };
   username: string;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   dropdownVisible: boolean;
   setDropdownVisible: (visible: boolean) => void;
   setProfileModalVisible: (visible: boolean) => void;
+  setAdminGroupsModalVisible?: (visible: boolean) => void;
   theme: string;
   toggleTheme: () => void;
   onLogout: () => void;
@@ -39,6 +41,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   dropdownVisible,
   setDropdownVisible,
   setProfileModalVisible,
+  setAdminGroupsModalVisible,
   theme,
   toggleTheme,
   onLogout,
@@ -219,6 +222,17 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 {theme === "dark" ? "Light Mode" : "Dark Mode"}
               </div>
               <div className="dropdown-divider" />
+              {profile.isAdmin && (
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    setAdminGroupsModalVisible?.(true);
+                    setDropdownVisible(false);
+                  }}
+                >
+                  <Users size={16} /> Manage Groups
+                </div>
+              )}
               <div
                 className="dropdown-item logout"
                 onClick={() => {

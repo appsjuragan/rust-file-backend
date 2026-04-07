@@ -2,7 +2,7 @@ use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
 use crate::services::audit::{AuditEventType, AuditService};
 use crate::services::share_service::ShareService;
-use crate::utils::auth::Claims;
+use crate::utils::auth::{Claims, validate_jwt};
 use axum::{
     Extension, Json,
     body::Body,
@@ -12,7 +12,7 @@ use axum::{
 };
 use chrono::Utc;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -23,6 +23,7 @@ pub struct CreateShareRequest {
     pub user_file_id: String,
     pub share_type: String, // "public" or "user"
     pub shared_with_user_id: Option<String>,
+    pub shared_with_group_id: Option<String>,
     pub password: Option<String>,
     pub permission: String,    // "view" or "download"
     pub expires_in_hours: i64, // Must be > 0
@@ -35,6 +36,7 @@ pub struct ShareResponse {
     pub share_token: String,
     pub share_type: String,
     pub shared_with_user_id: Option<String>,
+    pub shared_with_group_id: Option<String>,
     pub has_password: bool,
     pub permission: String,
     pub expires_at: chrono::DateTime<Utc>,
@@ -64,6 +66,8 @@ pub struct PublicShareInfoResponse {
     pub requires_password: bool,
     pub expires_at: chrono::DateTime<Utc>,
     pub has_thumbnail: bool,
+    pub share_type: String,
+    pub requires_auth: bool,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -90,6 +94,90 @@ pub struct PublicFileEntry {
 #[derive(Deserialize)]
 pub struct SharesForFileQuery {
     pub user_file_id: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct UserSearchResult {
+    pub id: String,
+    pub username: String,
+    pub name: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UserSearchQuery {
+    pub q: Option<String>,
+}
+
+/// Try to extract JWT claims from request headers or query (optional auth)
+fn try_extract_claims(headers: &HeaderMap, query_token: Option<&str>, jwt_secret: &str) -> Option<Claims> {
+    let mut token = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "));
+
+    if token.is_none() {
+        if let Some(q) = query_token {
+            token = Some(q);
+        }
+    }
+
+    if let Some(t) = token {
+        validate_jwt(t, jwt_secret).ok()
+    } else {
+        None
+    }
+}
+
+/// Check if the requesting user is authorized to access a non-public share.
+/// Returns Ok(()) if access is allowed, Err if denied.
+async fn check_share_access(
+    db: &sea_orm::DatabaseConnection,
+    share: &share_links::Model,
+    user_id: Option<&str>,
+) -> Result<(), AppError> {
+    match share.share_type.as_str() {
+        "public" => Ok(()),
+        "user" => {
+            let uid = user_id.ok_or_else(|| {
+                AppError::Forbidden("Authentication required to access this share".to_string())
+            })?;
+            // Allow if the user is the creator or the target user
+            if uid == share.created_by
+                || share.shared_with_user_id.as_deref() == Some(uid)
+            {
+                Ok(())
+            } else {
+                Err(AppError::Forbidden(
+                    "You are not authorized to access this share".to_string(),
+                ))
+            }
+        }
+        "group" => {
+            let uid = user_id.ok_or_else(|| {
+                AppError::Forbidden("Authentication required to access this share".to_string())
+            })?;
+            // Allow if the user is the creator
+            if uid == share.created_by {
+                return Ok(());
+            }
+            // Check group membership
+            if let Some(ref group_id) = share.shared_with_group_id {
+                let is_member = user_group_members::Entity::find()
+                    .filter(user_group_members::Column::UserId.eq(uid))
+                    .filter(user_group_members::Column::GroupId.eq(group_id))
+                    .one(db)
+                    .await?
+                    .is_some();
+                if is_member {
+                    return Ok(());
+                }
+            }
+            Err(AppError::Forbidden(
+                "You are not a member of the group this is shared with".to_string(),
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 // ── Authenticated Endpoints ───────────────────────────────────────────
@@ -121,9 +209,9 @@ pub async fn create_share(
             "Expiry cannot exceed 1 year".to_string(),
         ));
     }
-    if !["public", "user"].contains(&req.share_type.as_str()) {
+    if !["public", "user", "group"].contains(&req.share_type.as_str()) {
         return Err(AppError::BadRequest(
-            "share_type must be 'public' or 'user'".to_string(),
+            "share_type must be 'public', 'user', or 'group'".to_string(),
         ));
     }
     if !["view", "download"].contains(&req.permission.as_str()) {
@@ -136,6 +224,11 @@ pub async fn create_share(
             "shared_with_user_id required for user share".to_string(),
         ));
     }
+    if req.share_type == "group" && req.shared_with_group_id.is_none() {
+        return Err(AppError::BadRequest(
+            "shared_with_group_id required for group share".to_string(),
+        ));
+    }
 
     let expires_at = Utc::now() + chrono::Duration::hours(req.expires_in_hours);
 
@@ -146,6 +239,7 @@ pub async fn create_share(
             created_by: claims.sub,
             share_type: req.share_type,
             shared_with_user_id: req.shared_with_user_id,
+            shared_with_group_id: req.shared_with_group_id,
             password: req.password,
             permission: req.permission,
             expires_at,
@@ -186,6 +280,7 @@ pub async fn create_share(
             share_token: share.share_token,
             share_type: share.share_type,
             shared_with_user_id: share.shared_with_user_id,
+            shared_with_group_id: share.shared_with_group_id,
             has_password: share.password_hash.is_some(),
             permission: share.permission,
             expires_at: share.expires_at,
@@ -243,6 +338,7 @@ pub async fn list_shares(
                 share_token: share.share_token,
                 share_type: share.share_type,
                 shared_with_user_id: share.shared_with_user_id,
+                shared_with_group_id: share.shared_with_group_id,
                 has_password: share.password_hash.is_some(),
                 permission: share.permission,
                 expires_at: share.expires_at,
@@ -367,6 +463,15 @@ pub async fn get_public_share(
 ) -> Result<Json<PublicShareInfoResponse>, AppError> {
     let share = ShareService::get_share_by_token(&state.db, &token).await?;
 
+    let requires_auth = share.share_type != "public";
+
+    // Check access control for non-public shares
+    if requires_auth {
+        // Here we parse query manually since we didn't inject Query<AuthQuery>
+        let claims = try_extract_claims(&headers, None, &state.config.jwt_secret);
+        check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
+    }
+
     let user_file = UserFiles::find_by_id(&share.user_file_id)
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
@@ -409,13 +514,15 @@ pub async fn get_public_share(
         is_folder: user_file.is_folder,
         size: storage_file.as_ref().map(|s| s.size),
         mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
-        permission: share.permission,
+        permission: share.permission.clone(),
         requires_password: share.password_hash.is_some(),
         expires_at: share.expires_at,
         has_thumbnail: storage_file
             .as_ref()
             .map(|s| s.has_thumbnail)
             .unwrap_or(false),
+        share_type: share.share_type,
+        requires_auth,
     }))
 }
 
@@ -490,6 +597,7 @@ pub async fn verify_share_password(
 #[derive(Deserialize)]
 pub struct DownloadSharedFileQuery {
     pub file_id: Option<String>,
+    pub auth_token: Option<String>,
 }
 
 /// Download shared file (public)
@@ -514,6 +622,12 @@ pub async fn download_shared_file(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     let share = ShareService::get_share_by_token(&state.db, &token).await?;
+
+    // Check access control for non-public shares
+    if share.share_type != "public" {
+        let claims = try_extract_claims(&headers, query.auth_token.as_deref(), &state.config.jwt_secret);
+        check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
+    }
 
     // Password-protected shares are verified via /verify endpoint first.
     // The share token itself is the security gate; no password in URLs.
@@ -675,6 +789,12 @@ pub async fn list_shared_folder(
 ) -> Result<Json<Vec<PublicFileEntry>>, AppError> {
     let share = ShareService::get_share_by_token(&state.db, &token).await?;
 
+    // Check access control for non-public shares
+    if share.share_type != "public" {
+        let claims = try_extract_claims(&headers, None, &state.config.jwt_secret);
+        check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
+    }
+
     // Validate that it's a folder
     let user_file = UserFiles::find_by_id(&share.user_file_id)
         .one(&state.db)
@@ -754,8 +874,15 @@ pub async fn get_public_share_thumbnail(
     State(state): State<crate::AppState>,
     Path(token): Path<String>,
     Query(query): Query<DownloadSharedFileQuery>,
+    headers: HeaderMap,
 ) -> Result<Response, AppError> {
     let share = ShareService::get_share_by_token(&state.db, &token).await?;
+
+    // Check access control for non-public shares
+    if share.share_type != "public" {
+        let claims = try_extract_claims(&headers, query.auth_token.as_deref(), &state.config.jwt_secret);
+        check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
+    }
 
     let target_file_id = if let Some(ref fid) = query.file_id {
         if fid == &share.user_file_id {
@@ -813,4 +940,41 @@ pub async fn get_public_share_thumbnail(
         .header("Cache-Control", "public, max-age=3600")
         .body(Body::empty())
         .unwrap())
+}
+
+// ── User Search for Sharing ───────────────────────────────────────────
+
+/// Search users for sharing purposes (any authenticated user)
+pub async fn search_users_for_sharing(
+    State(state): State<crate::AppState>,
+    Extension(_claims): Extension<Claims>,
+    Query(query): Query<UserSearchQuery>,
+) -> Result<Json<Vec<UserSearchResult>>, AppError> {
+    let q = query.q.unwrap_or_default();
+
+    let mut db_query = Users::find();
+    if !q.is_empty() {
+        db_query = db_query.filter(
+            sea_orm::Condition::any()
+                .add(users::Column::Username.contains(&q))
+                .add(users::Column::Name.contains(&q)),
+        );
+    }
+
+    let users_list = db_query
+        .limit(20)
+        .all(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let result = users_list
+        .into_iter()
+        .map(|u| UserSearchResult {
+            id: u.id,
+            username: u.username,
+            name: u.name,
+        })
+        .collect();
+
+    Ok(Json(result))
 }

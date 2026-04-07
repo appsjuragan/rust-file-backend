@@ -136,8 +136,9 @@ export const fileService = {
   // ── Sharing ──────────────────────────────────────────
   createShare: (params: {
     user_file_id: string;
-    share_type: "public" | "user";
+    share_type: "public" | "user" | "group";
     shared_with_user_id?: string;
+    shared_with_group_id?: string;
     password?: string;
     permission: "view" | "download";
     expires_in_hours: number;
@@ -153,24 +154,53 @@ export const fileService = {
     return request(`/shares${q}`);
   },
 
+  searchUsersForSharing: (query: string) =>
+    request(`/shares/users/search?q=${encodeURIComponent(query)}`),
+
   revokeShare: (shareId: string) =>
     request(`/shares/${shareId}`, { method: "DELETE" }),
 
   getShareLogs: (shareId: string) => request(`/shares/${shareId}/logs`),
 
-  getPublicShare: (token: string) =>
-    fetch(`${BASE_URL}/share/${token}`).then((r) => r.json()),
+  getPublicShare: (token: string) => {
+    const jwt = localStorage.getItem("token");
+    const headers: Record<string, string> = {};
+    if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
+    return fetch(`${BASE_URL}/share/${token}`, { headers }).then((r) => r.json());
+  },
 
-  verifySharePassword: (token: string, password: string) =>
-    fetch(`${BASE_URL}/share/${token}/verify`, {
+  verifySharePassword: (token: string, password: string) => {
+    const jwt = localStorage.getItem("token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
+    return fetch(`${BASE_URL}/share/${token}/verify`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ password }),
-    }).then((r) => r.json()),
+    }).then((r) => r.json());
+  },
 
-  getShareDownloadUrl: (token: string) => `${BASE_URL}/share/${token}/download`,
-  listSharedFolder: (token: string) =>
-    fetch(`${BASE_URL}/share/${token}/list`).then((r) => r.json()),
+  getShareDownloadUrl: (token: string) => {
+    const jwt = localStorage.getItem("token");
+    return `${BASE_URL}/share/${token}/download${jwt ? `?auth_token=${jwt}` : ""}`;
+  },
+
+  getShareThumbnailUrl: (token: string, fileId?: string) => {
+    const jwt = localStorage.getItem("token");
+    let url = `${BASE_URL}/share/${token}/thumbnail`;
+    const params = new URLSearchParams();
+    if (fileId) params.append("file_id", fileId);
+    if (jwt) params.append("auth_token", jwt);
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
+  },
+
+  listSharedFolder: (token: string) => {
+    const jwt = localStorage.getItem("token");
+    const headers: Record<string, string> = {};
+    if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
+    return fetch(`${BASE_URL}/share/${token}/list`, { headers }).then((r) => r.json());
+  },
 
   // ── Bulk Download ───────────────────────────────────────
   bulkDownload: (itemIds: string[]) =>

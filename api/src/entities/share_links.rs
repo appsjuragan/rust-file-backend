@@ -12,6 +12,7 @@ pub struct Model {
     pub share_token: String,
     pub share_type: String, // "public" or "user"
     pub shared_with_user_id: Option<String>,
+    pub shared_with_group_id: Option<String>,
     pub password_hash: Option<String>,
     pub permission: String, // "view" or "download"
     pub expires_at: DateTimeUtc,

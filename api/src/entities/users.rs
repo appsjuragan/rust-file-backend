@@ -15,6 +15,8 @@ pub struct Model {
     pub name: Option<String>,
     pub avatar_url: Option<String>,
     pub created_at: Option<DateTimeUtc>,
+    #[sea_orm(default_value = false)]
+    pub is_admin: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -25,6 +27,8 @@ pub enum Relation {
     UserFiles,
     #[sea_orm(has_many = "super::audit_logs::Entity")]
     AuditLogs,
+    #[sea_orm(has_many = "super::user_group_members::Entity")]
+    UserGroupMembers,
 }
 
 impl Related<super::tokens::Entity> for Entity {
@@ -42,6 +46,12 @@ impl Related<super::user_files::Entity> for Entity {
 impl Related<super::audit_logs::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AuditLogs.def()
+    }
+}
+
+impl Related<super::user_group_members::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserGroupMembers.def()
     }
 }
 

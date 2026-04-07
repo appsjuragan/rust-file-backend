@@ -34,7 +34,7 @@ const MediaViewer: React.FC<{ info: any; token: string; fileId?: string }> = ({
 }) => {
   let downloadUrl = fileService.getShareDownloadUrl(token);
   if (fileId) {
-    downloadUrl += `?file_id=${encodeURIComponent(fileId)}`;
+    downloadUrl += (downloadUrl.includes("?") ? "&" : "?") + `file_id=${encodeURIComponent(fileId)}`;
   }
   const mime = info.mime_type;
   const [textContent, setTextContent] = useState<string | null>(null);
@@ -313,7 +313,7 @@ export const PublicSharePage: React.FC = () => {
   const handleDownload = (fileId?: string, filename?: string) => {
     let downloadUrl = fileService.getShareDownloadUrl(token);
     if (fileId) {
-      downloadUrl += `?file_id=${encodeURIComponent(fileId)}`;
+      downloadUrl += (downloadUrl.includes("?") ? "&" : "?") + `file_id=${encodeURIComponent(fileId)}`;
     }
     window.location.href = downloadUrl;
   };
@@ -511,7 +511,7 @@ export const PublicSharePage: React.FC = () => {
                               />
                             ) : item.has_thumbnail ? (
                               <img
-                                src={`/api/share/${token}/thumbnail?file_id=${item.id}`}
+                                src={fileService.getShareThumbnailUrl(token, item.id)}
                                 alt={item.filename}
                                 className="rfm-share-file-thumbnail-img"
                                 loading="lazy"

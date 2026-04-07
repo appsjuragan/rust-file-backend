@@ -103,8 +103,9 @@ export interface ShareLink {
   id: string;
   user_file_id: string;
   share_token: string;
-  share_type: "public" | "user";
+  share_type: "public" | "user" | "group";
   shared_with_user_id?: string;
+  shared_with_group_id?: string;
   has_password: boolean;
   permission: "view" | "download";
   expires_at: string;

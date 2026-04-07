@@ -10,6 +10,7 @@ import "./Dashboard.css";
 import { DashboardHeader } from "./components/Header/DashboardHeader";
 import { ProfileModal } from "./components/Modals/ProfileModal";
 import { OverwriteConfirmModal } from "./components/Modals/OverwriteConfirmModal";
+import { AdminGroupsModal } from "./components/Modals/AdminGroupsModal";
 
 // Hooks
 import { useFileUpload } from "./hooks/useFileUpload";
@@ -72,6 +73,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [adminGroupsModalVisible, setAdminGroupsModalVisible] = useState(false);
   const [cropModalVisible, setCropModalVisible] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
 
@@ -194,6 +196,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         dropdownVisible={dropdownVisible}
         setDropdownVisible={setDropdownVisible}
         setProfileModalVisible={setProfileModalVisible}
+        setAdminGroupsModalVisible={setAdminGroupsModalVisible}
         sidebarVisible={sidebarVisible}
         setSidebarVisible={setSidebarVisible}
         theme={theme}
@@ -316,6 +319,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         setEditPassword={setEditPassword}
         onSave={handleSaveProfile}
         onAvatarChange={handleAvatarChange}
+      />
+
+      <AdminGroupsModal
+        isVisible={adminGroupsModalVisible}
+        onClose={() => setAdminGroupsModalVisible(false)}
       />
 
       {overwriteConfirm && (

@@ -5,43 +5,45 @@ interface ISvgIconProps extends Omit<
   "size"
 > {
   svgType:
-    | "file"
-    | "folder"
-    | "arrow-up"
-    | "arrow-down"
-    | "arrow-right"
-    | "close"
-    | "list"
-    | "icons"
-    | "download"
-    | "info"
-    | "eye"
-    | "scissors"
-    | "trash"
-    | "clipboard"
-    | "edit"
-    | "plus"
-    | "upload"
-    | "check"
-    | "home"
-    | "loading"
-    | "cog"
-    | "alert-triangle"
-    | "minus"
-    | "square"
-    | "copy"
-    | "menu"
-    | "camera"
-    | "dots"
-    | "shield"
-    | "rocket"
-    | "size-small"
-    | "size-medium"
-    | "size-large"
-    | "size-xlarge"
-    | "star"
-    | "share"
-    | "log";
+  | "file"
+  | "folder"
+  | "arrow-up"
+  | "arrow-down"
+  | "arrow-right"
+  | "close"
+  | "list"
+  | "icons"
+  | "download"
+  | "info"
+  | "eye"
+  | "scissors"
+  | "trash"
+  | "clipboard"
+  | "edit"
+  | "plus"
+  | "upload"
+  | "check"
+  | "home"
+  | "loading"
+  | "cog"
+  | "alert-triangle"
+  | "minus"
+  | "square"
+  | "copy"
+  | "menu"
+  | "camera"
+  | "dots"
+  | "shield"
+  | "rocket"
+  | "size-small"
+  | "size-medium"
+  | "size-large"
+  | "size-xlarge"
+  | "star"
+  | "share"
+  | "user"
+  | "search"
+  | "log";
   size?: number | string;
 }
 
@@ -625,6 +627,40 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
           </svg>
         );
       }
+      case "user": {
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        );
+      }
+      case "search": {
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        );
+      }
       default: {
         return "";
       }
@@ -636,9 +672,8 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
       {...props}
       data-type={svgType}
       style={{ ...sizeStyle, ...props.style }}
-      className={`flex items-center justify-center flex-shrink-0 overflow-hidden ${
-        !size && !hasSizingClass ? "w-[1em] h-[1em]" : ""
-      } ${props.className || ""}`}
+      className={`flex items-center justify-center flex-shrink-0 overflow-hidden ${!size && !hasSizingClass ? "w-[1em] h-[1em]" : ""
+        } ${props.className || ""}`}
     >
       {svgContent()}
     </div>

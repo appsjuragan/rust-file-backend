@@ -24,6 +24,7 @@ pub struct UserProfileResponse {
     pub email: Option<String>,
     pub name: Option<String>,
     pub avatar_url: Option<String>,
+    pub is_admin: bool,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
@@ -76,6 +77,7 @@ pub async fn get_profile(
         email: user.email,
         name: user.name,
         avatar_url,
+        is_admin: user.is_admin,
     }))
 }
 
@@ -146,6 +148,7 @@ pub async fn update_profile(
         email: updated.email,
         name: updated.name,
         avatar_url,
+        is_admin: updated.is_admin,
     }))
 }
 
@@ -277,4 +280,45 @@ pub async fn get_user_facts(
     } else {
         Ok(Json(facts.unwrap()))
     }
+}
+
+pub async fn list_my_groups(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+) -> Result<Json<Vec<crate::api::handlers::admin_groups::GroupResponse>>, AppError> {
+    use crate::entities::{user_group_members, user_groups, users};
+    use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+
+    // Check if user is admin
+    let user = Users::find_by_id(&claims.sub)
+        .one(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+    let groups = if user.is_admin {
+        // Admins can see and share to any group
+        user_groups::Entity::find()
+            .all(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    } else {
+        // Regular users only see groups they are members of
+        let members = user_group_members::Entity::find()
+            .filter(user_group_members::Column::UserId.eq(&claims.sub))
+            .find_also_related(user_groups::Entity)
+            .all(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        members.into_iter().filter_map(|(_m, g)| g).collect()
+    };
+
+    let res = groups.into_iter().map(|group| crate::api::handlers::admin_groups::GroupResponse {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+    }).collect();
+
+    Ok(Json(res))
 }
