@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -62,6 +62,8 @@
 - **Public Share Exposure:** View and copy active public share links directly from the sync window.
 - **Icon Indicators:** Visual status icons for Shared Items and Favorites (green check, blue share, yellow star).
 - **Background Sync:** Reliable periodic synchronization with configurable intervals.
+- **Group Sharing:** Direct file and folder sharing with user groups for simplified collaboration.
+- **Maintenance Tools:** Integrated diagnostic scripts for storage health and orphaned file detection.
 
 ### 🖼️ Automatic Thumbnail Generation
 - **WebP Format:** Optimized thumbnails (256px / 128px) for minimal bandwidth
@@ -69,6 +71,7 @@
 - **Encrypted File Detection:** Skips password-protected PDFs gracefully with robust detection
 - **Dedicated Worker:** Separate `thumbnail-worker` process for asynchronous generation
 - **Lazy Loading:** Frontend loads thumbnails asynchronously with smooth animations
+- **Automated Lifecycle:** Thumbnails are automatically purged when their parent storage file is deleted.
 
 ### 📋 Advanced File Operations
 - **Copy/Paste:** Recursive folder duplication with deduplication
@@ -410,9 +413,13 @@ All code follows:
 
 ---
 
-## 🔧 Infrastructure & Migrations
-The database schema is managed via **SQLx Migrations**. We maintain a consolidated, single-file migration for fresh installations:
+The database schema is managed via **SQLx Migrations**. We maintain a clean, single-file migration for fresh installations:
 - `api/migrations/20260203000000_initial_schema.sql` (Consolidated)
+
+### 🧹 Storage Maintenance
+Regular maintenance is performed automatically, but can be manually triggered:
+- **Automatic:** Aborts stale multipart uploads after 24 hours.
+- **Manual:** Use `node api/scripts/detect_orphans.js` to cross-reference DB vs S3 storage.
 
 To reset the database (SQLx CLI required):
 ```bash

@@ -50,6 +50,22 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<dyn StorageS
             }
         }
 
+        // Clean up expired upload sessions
+        let expired_sessions = UploadSessions::find()
+            .filter(upload_sessions::Column::ExpiresAt.lt(Utc::now()))
+            .all(&db)
+            .await;
+
+        if let Ok(sessions) = expired_sessions {
+            for session in sessions {
+                tracing::info!("Expiring upload session: {}", session.id);
+                // Abort multipart in S3 to clean up uncompleted chunks
+                let _ = storage.abort_multipart_upload(&session.s3_key, &session.upload_id).await;
+                // Delete from DB
+                let _ = UploadSessions::delete_by_id(&session.id).exec(&db).await;
+            }
+        }
+
         sleep(Duration::from_secs(3600)).await; // Run every hour
     }
 }

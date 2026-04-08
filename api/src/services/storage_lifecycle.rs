@@ -41,6 +41,14 @@ impl StorageLifecycleService {
             // Delete from S3
             storage.delete_file(&updated.s3_key).await?;
 
+            // Delete thumbnail if exists
+            if updated.has_thumbnail {
+                let thumbnail_key = format!("thumbnails/{}.webp", updated.id);
+                if let Err(e) = storage.delete_file(&thumbnail_key).await {
+                    tracing::warn!("Failed to delete thumbnail for {}: {}", updated.id, e);
+                }
+            }
+
             // Delete from database
             updated.delete(db).await?;
 
@@ -179,6 +187,14 @@ impl StorageLifecycleService {
 
         // 1. Delete from S3
         storage.delete_file(&storage_file.s3_key).await?;
+
+        // 1.5 Delete associated thumbnail if exists
+        if storage_file.has_thumbnail {
+            let thumbnail_key = format!("thumbnails/{}.webp", storage_file.id);
+            if let Err(e) = storage.delete_file(&thumbnail_key).await {
+                tracing::warn!("Failed to delete thumbnail for {}: {}", storage_file.id, e);
+            }
+        }
 
         // 2. Delete all associated UserFiles (and their metadata/tags)
         // Note: In a real app, we might want to soft-delete them first or notify users

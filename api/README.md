@@ -1,4 +1,4 @@
-# 🦀 Rust File Backend API (v1.3.0)
+# 🦀 Rust File Backend API (v1.4.0)
 
 The backend API is a high-performance Rust service built with **Axum**, **SeaORM**, and **Tokio**. It provides secure file management with deduplication, chunked uploads, virus scanning, file sharing, thumbnail generation, and S3-compatible storage.
 
@@ -40,7 +40,8 @@ Processes background tasks:
 - File expiration and cleanup
 - User storage facts recalculation
 - Staging file cleanup
-- Storage lifecycle management
+- Storage lifecycle management (Ref-counted file deletion + automated thumbnail purging)
+- Stale multipart upload termination (automatic abort after 24h)
 
 #### 3. **Thumbnail Worker Mode** (`--mode thumbnail-worker`)
 Generates WebP thumbnails:

@@ -10,7 +10,25 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     name TEXT,
     avatar_url TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_groups (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_group_members (
+    user_id TEXT NOT NULL,
+    group_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, group_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (group_id) REFERENCES user_groups(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tokens (
@@ -140,13 +158,15 @@ CREATE TABLE IF NOT EXISTS share_links (
     share_token TEXT UNIQUE NOT NULL,
     share_type TEXT NOT NULL DEFAULT 'public',
     shared_with_user_id TEXT,
+    shared_with_group_id TEXT,
     password_hash TEXT,
     permission TEXT NOT NULL DEFAULT 'view',
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_file_id) REFERENCES user_files(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (shared_with_group_id) REFERENCES user_groups(id) ON DELETE SET NULL
 );
 
 -- 7. Logging & Auditing
@@ -219,6 +239,8 @@ CREATE INDEX IF NOT EXISTS idx_share_access_logs_accessed_at ON share_access_log
 CREATE INDEX IF NOT EXISTS idx_download_archives_user_id ON download_archives(user_id);
 CREATE INDEX IF NOT EXISTS idx_download_archives_status ON download_archives(status);
 CREATE INDEX IF NOT EXISTS idx_download_archives_expires_at ON download_archives(expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_groups_name ON user_groups(name);
+CREATE INDEX IF NOT EXISTS idx_user_group_members_group_id ON user_group_members(group_id);
 
 -- 10. Initial Data
 INSERT INTO allowed_mimes (mime_type, category) VALUES
@@ -314,3 +336,6 @@ INSERT INTO blocked_extensions (extension) VALUES
 ('iso'), ('img'), ('vmdk'), ('vhd'), ('ova'), ('ovf'),
 ('docm'), ('xlsm'), ('pptm'), ('dotm'), ('xltm'), ('potm')
 ON CONFLICT (extension) DO NOTHING;
+
+-- 11. Maintenance
+UPDATE users SET is_admin = TRUE WHERE username = 'admin';
