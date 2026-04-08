@@ -1,3 +1,5 @@
+pub mod admin_cache_settings;
+pub mod admin_groups;
 pub mod auth;
 pub mod captcha;
 pub mod device_auth;
@@ -7,4 +9,3 @@ pub mod shares;
 pub mod upload;
 pub mod user_settings;
 pub mod users;
-pub mod admin_groups;

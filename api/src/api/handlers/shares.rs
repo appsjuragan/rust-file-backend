@@ -114,7 +114,11 @@ pub struct UserSearchQuery {
 }
 
 /// Try to extract JWT claims from request headers or query (optional auth)
-fn try_extract_claims(headers: &HeaderMap, query_token: Option<&str>, jwt_secret: &str) -> Option<Claims> {
+fn try_extract_claims(
+    headers: &HeaderMap,
+    query_token: Option<&str>,
+    jwt_secret: &str,
+) -> Option<Claims> {
     let mut token = headers
         .get("Authorization")
         .and_then(|h| h.to_str().ok())
@@ -147,9 +151,7 @@ async fn check_share_access(
                 AppError::Forbidden("Authentication required to access this share".to_string())
             })?;
             // Allow if the user is the creator or the target user
-            if uid == share.created_by
-                || share.shared_with_user_id.as_deref() == Some(uid)
-            {
+            if uid == share.created_by || share.shared_with_user_id.as_deref() == Some(uid) {
                 Ok(())
             } else {
                 Err(AppError::Forbidden(
@@ -765,7 +767,11 @@ pub async fn download_shared_file(
 
     // Check access control for non-public shares
     if share.share_type != "public" {
-        let claims = try_extract_claims(&headers, query.auth_token.as_deref(), &state.config.jwt_secret);
+        let claims = try_extract_claims(
+            &headers,
+            query.auth_token.as_deref(),
+            &state.config.jwt_secret,
+        );
         check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
     }
 
@@ -1021,7 +1027,11 @@ pub async fn get_public_share_thumbnail(
 
     // Check access control for non-public shares
     if share.share_type != "public" {
-        let claims = try_extract_claims(&headers, query.auth_token.as_deref(), &state.config.jwt_secret);
+        let claims = try_extract_claims(
+            &headers,
+            query.auth_token.as_deref(),
+            &state.config.jwt_secret,
+        );
         check_share_access(&state.db, &share, claims.as_ref().map(|c| c.sub.as_str())).await?;
     }
 

@@ -311,7 +311,10 @@ pub fn create_app(state: AppState) -> Router {
             post(api::handlers::users::upload_avatar),
         )
         .route("/users/me/facts", get(api::handlers::users::get_user_facts))
-        .route("/users/me/groups", get(api::handlers::users::list_my_groups))
+        .route(
+            "/users/me/groups",
+            get(api::handlers::users::list_my_groups),
+        )
         .route(
             "/shares",
             get(api::handlers::shares::list_shares).post(api::handlers::shares::create_share),
@@ -337,11 +340,38 @@ pub fn create_app(state: AppState) -> Router {
             "/auth/device/confirm",
             post(api::handlers::device_auth::confirm_device_auth),
         )
-        .route("/admin/groups", get(api::handlers::admin_groups::list_groups).post(api::handlers::admin_groups::create_group))
-        .route("/admin/groups/:id", axum::routing::delete(api::handlers::admin_groups::delete_group))
-        .route("/admin/groups/:group_id/users/:user_id", post(api::handlers::admin_groups::add_user_to_group).delete(api::handlers::admin_groups::remove_user_from_group))
-        .route("/admin/groups/:id/users", get(api::handlers::admin_groups::list_group_members))
-        .route("/admin/users/search", get(api::handlers::admin_groups::search_users))
+        .route(
+            "/admin/groups",
+            get(api::handlers::admin_groups::list_groups)
+                .post(api::handlers::admin_groups::create_group),
+        )
+        .route(
+            "/admin/groups/:id",
+            axum::routing::delete(api::handlers::admin_groups::delete_group),
+        )
+        .route(
+            "/admin/groups/:group_id/users/:user_id",
+            post(api::handlers::admin_groups::add_user_to_group)
+                .delete(api::handlers::admin_groups::remove_user_from_group),
+        )
+        .route(
+            "/admin/groups/:id/users",
+            get(api::handlers::admin_groups::list_group_members),
+        )
+        .route(
+            "/admin/users/search",
+            get(api::handlers::admin_groups::search_users),
+        )
+        .route(
+            "/admin/cache-settings",
+            get(api::handlers::admin_cache_settings::get_cache_settings)
+                .put(api::handlers::admin_cache_settings::update_global_cache_ttl),
+        )
+        .route(
+            "/admin/cache-settings/groups/:group_id",
+            axum::routing::put(api::handlers::admin_cache_settings::set_group_cache_ttl)
+                .delete(api::handlers::admin_cache_settings::delete_group_cache_override),
+        )
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

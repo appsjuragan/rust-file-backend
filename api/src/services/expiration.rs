@@ -60,7 +60,9 @@ pub async fn expiration_worker(db: DatabaseConnection, storage: Arc<dyn StorageS
             for session in sessions {
                 tracing::info!("Expiring upload session: {}", session.id);
                 // Abort multipart in S3 to clean up uncompleted chunks
-                let _ = storage.abort_multipart_upload(&session.s3_key, &session.upload_id).await;
+                let _ = storage
+                    .abort_multipart_upload(&session.s3_key, &session.upload_id)
+                    .await;
                 // Delete from DB
                 let _ = UploadSessions::delete_by_id(&session.id).exec(&db).await;
             }

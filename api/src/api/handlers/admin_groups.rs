@@ -1,11 +1,11 @@
 use crate::api::error::AppError;
-use crate::entities::{prelude::*, users, user_groups, user_group_members};
+use crate::entities::{prelude::*, user_group_members, user_groups, users};
 use crate::utils::auth::Claims;
 use axum::{
     Extension, Json,
     extract::{Path, State},
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, QuerySelect};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -28,7 +28,7 @@ pub async fn check_admin(state: &crate::AppState, claims: &Claims) -> Result<(),
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
-        
+
     if !user.is_admin {
         return Err(AppError::Forbidden("Admin access required".to_string()));
     }
@@ -46,11 +46,14 @@ pub async fn list_groups(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let res = groups.into_iter().map(|g| GroupResponse {
-        id: g.id,
-        name: g.name,
-        description: g.description,
-    }).collect();
+    let res = groups
+        .into_iter()
+        .map(|g| GroupResponse {
+            id: g.id,
+            name: g.name,
+            description: g.description,
+        })
+        .collect();
 
     Ok(Json(res))
 }
@@ -69,7 +72,9 @@ pub async fn create_group(
         ..Default::default()
     };
 
-    let inserted = new_group.insert(&state.db).await
+    let inserted = new_group
+        .insert(&state.db)
+        .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     // Add creator to group automatically
@@ -78,7 +83,9 @@ pub async fn create_group(
         group_id: Set(inserted.id.clone()),
         ..Default::default()
     };
-    creator_member.insert(&state.db).await
+    creator_member
+        .insert(&state.db)
+        .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(GroupResponse {
@@ -116,7 +123,9 @@ pub async fn add_user_to_group(
         ..Default::default()
     };
 
-    member.insert(&state.db).await
+    member
+        .insert(&state.db)
+        .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(()))
@@ -151,14 +160,17 @@ pub async fn list_group_members(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let res = members.into_iter().filter_map(|(_m, u)| {
-        u.map(|user| UserSearchResponse {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            name: user.name,
+    let res = members
+        .into_iter()
+        .filter_map(|(_m, u)| {
+            u.map(|user| UserSearchResponse {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                name: user.name,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(res))
 }
@@ -178,26 +190,32 @@ pub async fn search_users(
 ) -> Result<Json<Vec<UserSearchResponse>>, AppError> {
     check_admin(&state, &claims).await?;
     let q = params.get("q").cloned().unwrap_or_default();
-    
+
     let mut query = Users::find();
     if !q.is_empty() {
         query = query.filter(
             sea_orm::Condition::any()
                 .add(users::Column::Username.contains(&q))
                 .add(users::Column::Email.contains(&q))
-                .add(users::Column::Name.contains(&q))
+                .add(users::Column::Name.contains(&q)),
         );
     }
-        
-    let users = query.limit(20).all(&state.db).await
+
+    let users = query
+        .limit(20)
+        .all(&state.db)
+        .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
-        
-    let res = users.into_iter().map(|u| UserSearchResponse {
-        id: u.id,
-        username: u.username,
-        email: u.email,
-        name: u.name,
-    }).collect();
-    
+
+    let res = users
+        .into_iter()
+        .map(|u| UserSearchResponse {
+            id: u.id,
+            username: u.username,
+            email: u.email,
+            name: u.name,
+        })
+        .collect();
+
     Ok(Json(res))
 }

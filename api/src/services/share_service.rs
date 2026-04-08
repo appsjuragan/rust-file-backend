@@ -268,10 +268,11 @@ impl ShareService {
         }
 
         let shares = ShareLinks::find()
-            .filter(Condition::all()
-                .add(condition)
-                .add(share_links::Column::ExpiresAt.gt(Utc::now()))
-                .add(share_links::Column::CreatedBy.ne(user_id))
+            .filter(
+                Condition::all()
+                    .add(condition)
+                    .add(share_links::Column::ExpiresAt.gt(Utc::now()))
+                    .add(share_links::Column::CreatedBy.ne(user_id)),
             )
             .find_also_related(UserFiles)
             .order_by_desc(share_links::Column::CreatedAt)
@@ -308,7 +309,9 @@ impl ShareService {
         let max_depth = 20;
 
         loop {
-            if depth >= max_depth { break; }
+            if depth >= max_depth {
+                break;
+            }
 
             let level_shares = ShareLinks::find()
                 .filter(
@@ -319,20 +322,18 @@ impl ShareService {
                 )
                 .all(db)
                 .await?;
-            
+
             all_shares.extend(level_shares);
 
             let file = UserFiles::find_by_id(&current_id).one(db).await?;
             match file {
-                Some(f) => {
-                    match f.parent_id {
-                        Some(pid) if !pid.is_empty() => {
-                            current_id = pid;
-                            depth += 1;
-                        }
-                        _ => break,
+                Some(f) => match f.parent_id {
+                    Some(pid) if !pid.is_empty() => {
+                        current_id = pid;
+                        depth += 1;
                     }
-                }
+                    _ => break,
+                },
                 None => break,
             }
         }

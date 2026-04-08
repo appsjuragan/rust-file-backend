@@ -9,6 +9,7 @@ import {
   Folder,
   File,
   Users,
+  Settings,
 } from "lucide-react";
 import { FileType } from "../../../../../lib/types";
 import { FileIcon, FolderPath, SvgIcon } from "../../../../../lib";
@@ -23,6 +24,7 @@ interface DashboardHeaderProps {
   setDropdownVisible: (visible: boolean) => void;
   setProfileModalVisible: (visible: boolean) => void;
   setAdminGroupsModalVisible?: (visible: boolean) => void;
+  setAdminCacheSettingsModalVisible?: (visible: boolean) => void;
   theme: string;
   toggleTheme: () => void;
   onLogout: () => void;
@@ -42,6 +44,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setDropdownVisible,
   setProfileModalVisible,
   setAdminGroupsModalVisible,
+  setAdminCacheSettingsModalVisible,
   theme,
   toggleTheme,
   onLogout,
@@ -223,15 +226,26 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </div>
               <div className="dropdown-divider" />
               {profile.isAdmin && (
-                <div
-                  className="dropdown-item"
-                  onClick={() => {
-                    setAdminGroupsModalVisible?.(true);
-                    setDropdownVisible(false);
-                  }}
-                >
-                  <Users size={16} /> Manage Groups
-                </div>
+                <>
+                  <div
+                    className="dropdown-item"
+                    onClick={() => {
+                      setAdminGroupsModalVisible?.(true);
+                      setDropdownVisible(false);
+                    }}
+                  >
+                    <Users size={16} /> Manage Groups
+                  </div>
+                  <div
+                    className="dropdown-item"
+                    onClick={() => {
+                      setAdminCacheSettingsModalVisible?.(true);
+                      setDropdownVisible(false);
+                    }}
+                  >
+                    <Settings size={16} /> Cache Settings
+                  </div>
+                </>
               )}
               <div
                 className="dropdown-item logout"

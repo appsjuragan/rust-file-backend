@@ -287,7 +287,7 @@ pub async fn list_my_groups(
     Extension(claims): Extension<Claims>,
 ) -> Result<Json<Vec<crate::api::handlers::admin_groups::GroupResponse>>, AppError> {
     use crate::entities::{user_group_members, user_groups, users};
-    use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     // Check if user is admin
     let user = Users::find_by_id(&claims.sub)
@@ -314,11 +314,14 @@ pub async fn list_my_groups(
         members.into_iter().filter_map(|(_m, g)| g).collect()
     };
 
-    let res = groups.into_iter().map(|group| crate::api::handlers::admin_groups::GroupResponse {
-        id: group.id,
-        name: group.name,
-        description: group.description,
-    }).collect();
+    let res = groups
+        .into_iter()
+        .map(|group| crate::api::handlers::admin_groups::GroupResponse {
+            id: group.id,
+            name: group.name,
+            description: group.description,
+        })
+        .collect();
 
     Ok(Json(res))
 }

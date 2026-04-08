@@ -40,5 +40,27 @@ export const adminService = {
     },
     async listMyGroups(): Promise<GroupItem[]> {
         return request(`/users/me/groups`);
+    },
+    async getCacheSettings(): Promise<{ default_cache_ttl_seconds: number, group_overrides: { group_id: string, group_name: string, cache_ttl_seconds: number }[] }> {
+        return request('/admin/cache-settings');
+    },
+    async updateGlobalCacheTtl(cache_ttl_seconds: number): Promise<any> {
+        return request('/admin/cache-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cache_ttl_seconds })
+        });
+    },
+    async setGroupCacheTtl(groupId: string, cache_ttl_seconds: number): Promise<any> {
+        return request(`/admin/cache-settings/groups/${groupId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cache_ttl_seconds })
+        });
+    },
+    async deleteGroupCacheOverride(groupId: string): Promise<any> {
+        return request(`/admin/cache-settings/groups/${groupId}`, {
+            method: 'DELETE'
+        });
     }
 };

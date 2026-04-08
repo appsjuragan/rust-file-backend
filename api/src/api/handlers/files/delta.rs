@@ -9,8 +9,8 @@ use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::Deserialize;
 
-use super::types::FileMetadataResponse;
 use super::manage::return_file_metadata;
+use super::types::FileMetadataResponse;
 
 #[derive(Deserialize)]
 pub struct DeltaQuery {
@@ -43,7 +43,7 @@ pub async fn get_delta(
         .filter(
             sea_orm::Condition::any()
                 .add(user_files::Column::UpdatedAt.gt(query.since))
-                .add(user_files::Column::DeletedAt.gt(query.since))
+                .add(user_files::Column::DeletedAt.gt(query.since)),
         )
         .order_by_asc(user_files::Column::UpdatedAt)
         .all(&state.db)

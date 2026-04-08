@@ -1,4 +1,6 @@
+@import "/fonts/amarna.css";
 @import url("https://fonts.googleapis.com/css2?family=Amarna:ital,wght@0,100..700;1,100..700&display=swap");
+
 
 /* Modularized CSS Imports must be at the top */
 @import "./components/Modals/CommonModal.css";

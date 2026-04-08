@@ -146,6 +146,15 @@ pub async fn download_file(
         claims.sub
     );
 
+    // Resolve effective cache TTL for this user (admin-configurable, per-group)
+    let cache_ttl =
+        crate::api::handlers::admin_cache_settings::resolve_cache_ttl(&state.db, &claims.sub).await;
+    let cache_control = if cache_ttl == 0 {
+        "private, no-store".to_string()
+    } else {
+        format!("private, max-age={}", cache_ttl)
+    };
+
     Ok(Response::builder()
         .status(StatusCode::OK)
         // Nginx internal redirect
@@ -153,7 +162,7 @@ pub async fn download_file(
         // Content headers for the client
         .header(header::CONTENT_TYPE, content_type)
         .header(header::CONTENT_DISPOSITION, content_disposition)
-        .header(header::CACHE_CONTROL, "private, max-age=31536000") // 1 year cache since it's immutable
+        .header(header::CACHE_CONTROL, cache_control)
         .body(Body::empty())
         .unwrap())
 }
@@ -256,11 +265,20 @@ pub async fn get_thumbnail(
     let query = url.query().unwrap_or("");
     let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
 
+    // Resolve effective cache TTL for this user (admin-configurable, per-group)
+    let cache_ttl =
+        crate::api::handlers::admin_cache_settings::resolve_cache_ttl(&state.db, &claims.sub).await;
+    let cache_control = if cache_ttl == 0 {
+        "private, no-store".to_string()
+    } else {
+        format!("public, max-age={}", cache_ttl)
+    };
+
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("X-Accel-Redirect", internal_redirect_uri)
         .header(axum::http::header::CONTENT_TYPE, "image/webp")
-        .header(axum::http::header::CACHE_CONTROL, "public, max-age=3600")
+        .header(axum::http::header::CACHE_CONTROL, cache_control)
         .body(Body::empty())
         .unwrap())
 }
@@ -310,7 +328,9 @@ pub async fn generate_download_ticket(
                 .await?
                 .ok_or(AppError::NotFound("File not found".to_string()))?
         } else {
-            return Err(AppError::NotFound("File not found or access denied".to_string()));
+            return Err(AppError::NotFound(
+                "File not found or access denied".to_string(),
+            ));
         }
     };
 
