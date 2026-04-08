@@ -1,8 +1,8 @@
 {
 	"info": {
 		"name": "Rust File Backend API",
-		"description": "Enterprise File Storage API - v1.1.0",
-		"version": "1.1.0",
+		"description": "Enterprise File Storage API - v1.3.0",
+		"version": "1.3.0",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -1053,7 +1053,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"item_id\": \"file-or-folder-id\",\n  \"is_public\": true,\n  \"password\": \"optional-password\",\n  \"expires_at\": \"2026-12-31T23:59:59Z\",\n  \"allow_download\": true,\n  \"allow_upload\": false\n}"
+							"raw": "{\n  \"user_file_id\": \"file-or-folder-id\",\n  \"share_type\": \"public\",\n  \"shared_with_user_id\": null,\n  \"shared_with_group_id\": null,\n  \"password\": \"optional-password\",\n  \"permission\": \"view\",\n  \"expires_in_hours\": 24\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/shares",
@@ -1085,6 +1085,29 @@
 								"shares"
 							]
 						}
+					}
+				},
+				{
+					"name": "List Incoming Shares",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/shares/incoming",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"shares",
+								"incoming"
+							]
+						},
+						"description": "List all items shared with the current user (directly or via group membership)."
 					}
 				},
 				{

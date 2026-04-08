@@ -317,6 +317,10 @@ pub fn create_app(state: AppState) -> Router {
             get(api::handlers::shares::list_shares).post(api::handlers::shares::create_share),
         )
         .route(
+            "/shares/incoming",
+            get(api::handlers::shares::list_incoming_shares),
+        )
+        .route(
             "/shares/users/search",
             get(api::handlers::shares::search_users_for_sharing),
         )

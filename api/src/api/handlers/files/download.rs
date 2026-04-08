@@ -35,14 +35,35 @@ pub async fn download_file(
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
-    let user_file = UserFiles::find_by_id(file_id.clone())
+    let user_file_result = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
-        .await?
-        .ok_or(AppError::NotFound(
-            "File not found, access denied, or already deleted".to_string(),
-        ))?;
+        .await?;
+
+    let user_file = if let Some(uf) = user_file_result {
+        uf
+    } else {
+        // Not owner. Check if it's shared with this user.
+        let is_shared = crate::services::share_service::ShareService::check_file_access(
+            &state.db,
+            &file_id,
+            &claims.sub,
+        )
+        .await?;
+
+        if is_shared {
+            UserFiles::find_by_id(file_id.clone())
+                .filter(user_files::Column::DeletedAt.is_null())
+                .one(&state.db)
+                .await?
+                .ok_or(AppError::NotFound("File not found".to_string()))?
+        } else {
+            return Err(AppError::NotFound(
+                "File not found, access denied, or already deleted".to_string(),
+            ));
+        }
+    };
 
     if user_file.is_folder {
         return Err(AppError::BadRequest("Cannot download a folder".to_string()));
@@ -153,14 +174,35 @@ pub async fn get_thumbnail(
     Path(file_id): Path<String>,
 ) -> Result<Response, AppError> {
     // 1. Verify file ownership and existence
-    let user_file = UserFiles::find_by_id(file_id.clone())
+    let user_file_result = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
-        .await?
-        .ok_or(AppError::NotFound(
-            "File not found or access denied".to_string(),
-        ))?;
+        .await?;
+
+    let user_file = if let Some(uf) = user_file_result {
+        uf
+    } else {
+        // Not owner. Check if it's shared with this user.
+        let is_shared = crate::services::share_service::ShareService::check_file_access(
+            &state.db,
+            &file_id,
+            &claims.sub,
+        )
+        .await?;
+
+        if is_shared {
+            UserFiles::find_by_id(file_id.clone())
+                .filter(user_files::Column::DeletedAt.is_null())
+                .one(&state.db)
+                .await?
+                .ok_or(AppError::NotFound("File not found".to_string()))?
+        } else {
+            return Err(AppError::NotFound(
+                "File not found or access denied".to_string(),
+            ));
+        }
+    };
 
     if user_file.is_folder {
         return Err(AppError::BadRequest(
@@ -238,12 +280,34 @@ pub async fn generate_download_ticket(
     Extension(claims): Extension<Claims>,
     Path(file_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_file = UserFiles::find_by_id(file_id.clone())
+    // 1. Verify file ownership or share access
+    let user_file_result = UserFiles::find_by_id(file_id.clone())
         .filter(user_files::Column::UserId.eq(&claims.sub))
         .filter(user_files::Column::DeletedAt.is_null())
         .one(&state.db)
-        .await?
-        .ok_or(AppError::NotFound("File not found".to_string()))?;
+        .await?;
+
+    let user_file = if let Some(uf) = user_file_result {
+        uf
+    } else {
+        // Not owner. Check if it's shared with this user.
+        let is_shared = crate::services::share_service::ShareService::check_file_access(
+            &state.db,
+            &file_id,
+            &claims.sub,
+        )
+        .await?;
+
+        if is_shared {
+            UserFiles::find_by_id(file_id.clone())
+                .filter(user_files::Column::DeletedAt.is_null())
+                .one(&state.db)
+                .await?
+                .ok_or(AppError::NotFound("File not found".to_string()))?
+        } else {
+            return Err(AppError::NotFound("File not found or access denied".to_string()));
+        }
+    };
 
     // Generate ticket for backward compat
     let ticket = Uuid::new_v4().to_string();

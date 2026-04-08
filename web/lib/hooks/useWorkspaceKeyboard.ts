@@ -14,6 +14,7 @@ interface UseWorkspaceKeyboardOptions {
   onBulkDelete?: (ids: string[]) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   handlePaste: () => void;
+  fs: FileType[];
 }
 
 export function useWorkspaceKeyboard({
@@ -29,7 +30,19 @@ export function useWorkspaceKeyboard({
   onBulkDelete,
   onDelete,
   handlePaste,
+  fs,
 }: UseWorkspaceKeyboardOptions) {
+  const isSharedReadOnly =
+    currentFolder === "shared-for-you" ||
+    fs.some((f) => selectedIds.includes(f.id) && f.isShared) ||
+    fs.find((f) => f.id === currentFolder)?.isShared === true;
+
+  const targetFiles = fs.filter((f) => selectedIds.includes(f.id));
+  const isViewOnly =
+    isSharedReadOnly &&
+    (targetFiles.some((f) => f.permission === "view") ||
+      fs.find((f) => f.id === currentFolder)?.permission === "view");
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (
@@ -49,7 +62,7 @@ export function useWorkspaceKeyboard({
       }
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedIds.length > 0) {
+        if (!isSharedReadOnly && selectedIds.length > 0) {
           setDialogState({
             isVisible: true,
             title: "Confirm Delete",
@@ -70,6 +83,7 @@ export function useWorkspaceKeyboard({
       }
 
       if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
+        if (isViewOnly) return;
         if (selectedIds.length > 0) {
           setClipboardIds(selectedIds);
           setIsCut(false);
@@ -77,8 +91,12 @@ export function useWorkspaceKeyboard({
         }
       }
 
+      if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+        if (isViewOnly) e.preventDefault();
+      }
+
       if (e.key === "x" && (e.ctrlKey || e.metaKey)) {
-        if (selectedIds.length > 0) {
+        if (!isSharedReadOnly && selectedIds.length > 0) {
           setClipboardIds(selectedIds);
           setIsCut(true);
           setClipboardSourceFolder(currentFolder);
@@ -86,7 +104,9 @@ export function useWorkspaceKeyboard({
       }
 
       if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
-        handlePaste();
+        if (!isSharedReadOnly) {
+          handlePaste();
+        }
       }
     },
     [
@@ -102,6 +122,7 @@ export function useWorkspaceKeyboard({
       currentFolder,
       setClipboardSourceFolder,
       handlePaste,
+      isSharedReadOnly,
     ],
   );
 

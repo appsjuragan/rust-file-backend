@@ -248,4 +248,107 @@ impl ShareService {
 
         Ok(shares)
     }
+
+    /// List all shares shared WITH the user (directly or via group)
+    pub async fn list_incoming_shares(
+        db: &sea_orm::DatabaseConnection,
+        user_id: &str,
+    ) -> Result<Vec<(share_links::Model, Option<user_files::Model>)>, AppError> {
+        // 1. Get user groups
+        let groups = UserGroupMembers::find()
+            .filter(user_group_members::Column::UserId.eq(user_id))
+            .all(db)
+            .await?;
+        let group_ids: Vec<String> = groups.into_iter().map(|m| m.group_id).collect();
+
+        // 2. Find shares targeting this user or their groups
+        let mut condition = Condition::any().add(share_links::Column::SharedWithUserId.eq(user_id));
+        if !group_ids.is_empty() {
+            condition = condition.add(share_links::Column::SharedWithGroupId.is_in(group_ids));
+        }
+
+        let shares = ShareLinks::find()
+            .filter(Condition::all()
+                .add(condition)
+                .add(share_links::Column::ExpiresAt.gt(Utc::now()))
+            )
+            .find_also_related(UserFiles)
+            .order_by_desc(share_links::Column::CreatedAt)
+            .all(db)
+            .await?;
+
+        Ok(shares)
+    }
+
+    /// Check if a user has access to a file via ANY active share.
+    /// This checks the file itself AND walks up parent folders to find
+    /// if any ancestor folder has been shared with the user.
+    pub async fn check_file_access(
+        db: &sea_orm::DatabaseConnection,
+        file_id: &str,
+        user_id: &str,
+    ) -> Result<bool, AppError> {
+        // 1. Get user groups
+        let groups = UserGroupMembers::find()
+            .filter(user_group_members::Column::UserId.eq(user_id))
+            .all(db)
+            .await?;
+        let group_ids: Vec<String> = groups.into_iter().map(|m| m.group_id).collect();
+
+        // 2. Build the user/group condition once
+        let build_user_condition = |gids: &[String]| {
+            let mut cond = Condition::any().add(share_links::Column::SharedWithUserId.eq(user_id));
+            if !gids.is_empty() {
+                cond = cond.add(share_links::Column::SharedWithGroupId.is_in(gids.to_vec()));
+            }
+            cond
+        };
+
+        // 3. Walk up the folder tree starting from the file itself
+        let mut current_id = file_id.to_string();
+        let mut depth = 0;
+        let max_depth = 20; // prevent infinite loop
+
+        loop {
+            if depth >= max_depth {
+                break;
+            }
+
+            // Check if there's an active share for current_id targeting this user
+            let user_cond = build_user_condition(&group_ids);
+            let count = ShareLinks::find()
+                .filter(
+                    Condition::all()
+                        .add(share_links::Column::UserFileId.eq(&current_id))
+                        .add(user_cond)
+                        .add(share_links::Column::ExpiresAt.gt(Utc::now())),
+                )
+                .count(db)
+                .await?;
+
+            if count > 0 {
+                return Ok(true);
+            }
+
+            // Look up the parent of current_id
+            let file = UserFiles::find_by_id(&current_id)
+                .one(db)
+                .await?;
+
+            match file {
+                Some(f) => {
+                    match f.parent_id {
+                        Some(pid) if !pid.is_empty() => {
+                            current_id = pid;
+                            depth += 1;
+                        }
+                        _ => break, // reached root
+                    }
+                }
+                None => break, // file not found
+            }
+        }
+
+        Ok(false)
+    }
 }

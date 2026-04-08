@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -37,9 +37,11 @@
 
 ### 🔗 File Sharing System
 - **Public Share Links:** Time-limited, token-based sharing with unique URLs
-- **Password Protection:** Argon2-hashed passwords for sensitive shares
-- **Granular Permissions:** `view` (inline preview) or `download` (attachment) modes
-- **Folder Sharing:** Share entire folders with browsable file listings
+- **Password Protection:** Argon2-hashed passwords for sensitive shares (including folder-level protection)
+- **Granular Permissions:** `view` (no download/copy) or `download` (full access) modes
+- **View-Only Enforcement:** Strict UI and shortcut blocking (Copy/Download) for restricted items
+- **Folder Sharing:** Share entire folders with browsable file listings and password gates
+- **Enhanced Metadata:** Real-time visibility of who shared an item, its ACL, and time until expiration
 - **Access Logging:** Track views, downloads, and password attempts with IP/User-Agent
 - **Public Share Page:** Beautiful, responsive frontend for recipients
 - **Media Preview:** Inline image, video, audio, PDF, and **HEIC** preview on shared links
@@ -319,8 +321,9 @@ docker compose up -d
 - `GET /files/:id/path` — Get folder breadcrumb path
 
 ### Sharing
-- `POST /shares` — Create a share link (public/user, password, permissions)
-- `GET /shares` — List user's shares (optionally filter by file)
+- `POST /shares` — Create a share link (public/user/group, password, permissions)
+- `GET /shares` — List user's outgoing shares (optionally filter by file)
+- `GET /shares/incoming` — List all items shared with the current user
 - `DELETE /shares/:id` — Revoke a share link
 - `GET /shares/:id/logs` — Get share access logs
 

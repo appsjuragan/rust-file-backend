@@ -154,6 +154,8 @@ export const fileService = {
     return request(`/shares${q}`);
   },
 
+  listIncomingShares: () => request("/shares/incoming"),
+
   searchUsersForSharing: (query: string) =>
     request(`/shares/users/search?q=${encodeURIComponent(query)}`),
 

@@ -61,6 +61,8 @@ interface IFileIcon {
   isEncrypted?: boolean;
   isShared?: boolean;
   isSystem?: boolean;
+  hasPassword?: boolean;
+  permission?: "view" | "download";
 }
 
 const FileIcon = (props: IFileIcon) => {
@@ -357,6 +359,22 @@ const FileIcon = (props: IFileIcon) => {
             <SvgIcon
               svgType="share"
               className="w-full h-full text-blue-500 fill-current shadow-sm"
+            />
+          </div>
+        )}
+        {props.hasPassword && (
+          <div className="rfm-file-icon-password-badge z-10">
+            <SvgIcon
+              svgType="lock"
+              className="w-full h-full text-emerald-500 fill-current shadow-sm"
+            />
+          </div>
+        )}
+        {props.permission === "view" && (
+          <div className="rfm-file-icon-view-only-badge z-10">
+            <SvgIcon
+              svgType="eye"
+              className="w-full h-full text-amber-500 fill-current shadow-sm"
             />
           </div>
         )}

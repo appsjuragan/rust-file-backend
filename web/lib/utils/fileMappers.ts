@@ -30,5 +30,6 @@ export const mapApiFileToFileType = (item: BackendFile): FileType => {
     isEncrypted: item.is_encrypted ?? item.isEncrypted ?? false,
     extraMetadata: item.extra_metadata || item.extraMetadata,
     isSystem: item.is_system ?? item.isSystem ?? false,
+    hasPassword: item.has_password,
   };
 };

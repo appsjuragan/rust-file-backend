@@ -74,6 +74,12 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   ];
 
   const goUp = () => {
+    // Handle virtual shared-for-you folder
+    if (currentFolder === "shared-for-you") {
+      setCurrentFolder("0");
+      return;
+    }
+
     const currentFolderInfo =
       fs.find((f: FileType) => f.id === currentFolder) ||
       folderTree.find((f) => f.id === currentFolder);
@@ -91,11 +97,13 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   };
 
   // Map internal system folder names to user-friendly display names
-  const getDisplayName = (name: string) => {
+  const getDisplayName = (name: string, id?: string) => {
+    if (id === "shared-for-you") return "Shared for You";
     const systemNames: Record<string, string> = {
       ".Trash": "Trash",
       ".trash": "Trash",
       "Trash": "Trash",
+      "shared-for-you": "Shared for You",
     };
     return systemNames[name] ?? name;
   };
@@ -105,20 +113,39 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
     let currentId = currentFolder;
 
     while (currentId !== "0" && currentId) {
+      // Handle the virtual "shared-for-you" folder
+      if (currentId === "shared-for-you") {
+        crumbs.unshift({
+          id: "shared-for-you",
+          name: "Shared for You",
+          parentId: "0",
+        });
+        break;
+      }
+
       const folder = fs.find((f: FileType) => f.id === currentId);
       if (folder) {
         crumbs.unshift({
           id: folder.id,
-          name: getDisplayName(folder.name),
+          name: getDisplayName(folder.name, folder.id),
           parentId: folder.parentId || "0",
         });
         currentId = folder.parentId || "0";
+        // If parent is the shared-for-you virtual folder, add it too
+        if (currentId === "shared-for-you") {
+          crumbs.unshift({
+            id: "shared-for-you",
+            name: "Shared for You",
+            parentId: "0",
+          });
+          break;
+        }
       } else {
         const treeFolder = folderTree.find((f) => f.id === currentId);
         if (treeFolder) {
           crumbs.unshift({
             id: treeFolder.id,
-            name: getDisplayName(treeFolder.filename),
+            name: getDisplayName(treeFolder.filename, treeFolder.id),
             parentId: treeFolder.parent_id || "0",
           });
           currentId = treeFolder.parent_id || "0";
@@ -136,6 +163,9 @@ const FolderPath = ({ visible = true }: { visible?: boolean }) => {
   };
 
   const itemCount = useMemo(() => {
+    if (currentFolder === "shared-for-you") {
+      return fs.filter((f: FileType) => f.parentId === "shared-for-you").length;
+    }
     return fs.filter(
       (f: FileType) => (f.parentId || "0") === currentFolder && f.name !== "/",
     ).length;

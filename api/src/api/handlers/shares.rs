@@ -41,8 +41,11 @@ pub struct ShareResponse {
     pub permission: String,
     pub expires_at: chrono::DateTime<Utc>,
     pub created_at: chrono::DateTime<Utc>,
+    pub shared_by: Option<String>,
     pub filename: Option<String>,
     pub is_folder: Option<bool>,
+    pub size: Option<i64>,
+    pub mime_type: Option<String>,
     pub parent_id: Option<String>,
 }
 
@@ -68,6 +71,7 @@ pub struct PublicShareInfoResponse {
     pub has_thumbnail: bool,
     pub share_type: String,
     pub requires_auth: bool,
+    pub shared_by: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -89,6 +93,7 @@ pub struct PublicFileEntry {
     pub mime_type: Option<String>,
     pub created_at: chrono::DateTime<Utc>,
     pub has_thumbnail: bool,
+    pub parent_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -272,6 +277,9 @@ pub async fn create_share(
         .one(&state.db)
         .await?;
 
+    let share_creator = Users::find_by_id(&share.created_by).one(&state.db).await?;
+    let creator_name = share_creator.and_then(|u| u.name.clone().or(u.email.clone()));
+
     Ok((
         StatusCode::CREATED,
         Json(ShareResponse {
@@ -285,8 +293,11 @@ pub async fn create_share(
             permission: share.permission,
             expires_at: share.expires_at,
             created_at: share.created_at.unwrap_or_else(Utc::now),
+            shared_by: creator_name,
             filename: user_file.as_ref().map(|f| f.filename.clone()),
             is_folder: user_file.as_ref().map(|f| f.is_folder),
+            size: None,
+            mime_type: None,
             parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
         }),
     ))
@@ -328,6 +339,9 @@ pub async fn list_shares(
         None
     };
 
+    let share_creator = Users::find_by_id(&claims.sub).one(&state.db).await?;
+    let creator_name = share_creator.and_then(|u| u.name.clone().or(u.email.clone()));
+
     let result: Vec<ShareResponse> = shares
         .into_iter()
         .map(|(share, user_file)| {
@@ -343,12 +357,69 @@ pub async fn list_shares(
                 permission: share.permission,
                 expires_at: share.expires_at,
                 created_at: share.created_at.unwrap_or_else(Utc::now),
+                shared_by: creator_name.clone(),
                 filename: uf.map(|f| f.filename.clone()),
                 is_folder: uf.map(|f| f.is_folder),
+                size: None,
+                mime_type: None,
                 parent_id: uf.and_then(|f| f.parent_id.clone()),
             }
         })
         .collect();
+
+    Ok(Json(result))
+}
+
+/// List all shares shared WITH the current user (directly or via group)
+#[utoipa::path(
+    get,
+    path = "/shares/incoming",
+    responses(
+        (status = 200, description = "List of shared items", body = Vec<ShareResponse>),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("jwt" = []))
+)]
+pub async fn list_incoming_shares(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+) -> Result<Json<Vec<ShareResponse>>, AppError> {
+    let shares = ShareService::list_incoming_shares(&state.db, &claims.sub).await?;
+
+    let mut result = Vec::new();
+    for (share, user_file) in shares {
+        // Fetch storage file info for size/mime_type
+        let storage_file = if let Some(ref uf) = user_file {
+            if let Some(ref sf_id) = uf.storage_file_id {
+                StorageFiles::find_by_id(sf_id).one(&state.db).await?
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let creator = Users::find_by_id(&share.created_by).one(&state.db).await?;
+
+        result.push(ShareResponse {
+            id: share.id,
+            user_file_id: share.user_file_id,
+            share_token: share.share_token,
+            share_type: share.share_type,
+            shared_with_user_id: share.shared_with_user_id,
+            shared_with_group_id: share.shared_with_group_id,
+            has_password: share.password_hash.is_some(),
+            permission: share.permission,
+            expires_at: share.expires_at,
+            created_at: share.created_at.unwrap_or_else(Utc::now),
+            shared_by: creator.and_then(|u| u.name.clone().or(u.email.clone())),
+            filename: user_file.as_ref().map(|f| f.filename.clone()),
+            is_folder: user_file.as_ref().map(|f| f.is_folder),
+            size: storage_file.as_ref().map(|s| s.size),
+            mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
+            parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
+        });
+    }
 
     Ok(Json(result))
 }
@@ -509,6 +580,8 @@ pub async fn get_public_share(
         )
         .await;
 
+    let creator = Users::find_by_id(&share.created_by).one(&state.db).await?;
+
     Ok(Json(PublicShareInfoResponse {
         filename: user_file.filename,
         is_folder: user_file.is_folder,
@@ -523,6 +596,7 @@ pub async fn get_public_share(
             .unwrap_or(false),
         share_type: share.share_type,
         requires_auth,
+        shared_by: creator.and_then(|u| u.name.clone().or(u.email.clone())),
     }))
 }
 
@@ -828,6 +902,7 @@ pub async fn list_shared_folder(
             mime_type: storage.as_ref().and_then(|s| s.mime_type.clone()),
             created_at: child.created_at.unwrap_or_else(Utc::now),
             has_thumbnail: storage.as_ref().map(|s| s.has_thumbnail).unwrap_or(false),
+            parent_id: child.parent_id,
         })
         .collect();
 

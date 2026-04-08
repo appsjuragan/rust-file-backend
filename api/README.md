@@ -1,4 +1,4 @@
-# 🦀 Rust File Backend API (v1.2.0)
+# 🦀 Rust File Backend API (v1.3.0)
 
 The backend API is a high-performance Rust service built with **Axum**, **SeaORM**, and **Tokio**. It provides secure file management with deduplication, chunked uploads, virus scanning, file sharing, thumbnail generation, and S3-compatible storage.
 
@@ -148,6 +148,8 @@ api/
 - Argon2id password hashing with random salts
 - Server-side expiration enforcement
 - Content-Disposition control (view=inline, download=attachment)
+- **View-Only Enforcement:** Strict server-side and UI blocking of downloads/copies for restricted shares
+- **Metadata Visibility:** Detailed responses including sharer identity and granular ACLs
 - Access logging with IP and User-Agent tracking
 
 ### 6. **Rate Limiting & Abuse Prevention**
@@ -311,8 +313,9 @@ PORT=3000
 - `GET /files/:id/path` — Get breadcrumb path
 
 ### Sharing (Authenticated)
-- `POST /shares` — Create a share link
-- `GET /shares` — List shares (optionally filter by `user_file_id`)
+- `POST /shares` — Create a share link (public/user/group, password, permissions)
+- `GET /shares` — List user's outgoing shares (optionally filter by `user_file_id`)
+- `GET /shares/incoming` — List all items shared with the current user
 - `DELETE /shares/:id` — Revoke a share link
 - `GET /shares/:id/logs` — Get share access logs
 

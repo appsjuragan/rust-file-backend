@@ -187,6 +187,66 @@
   padding: 2px;
 }
 
+.rfm-file-icon-password-badge {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  padding: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rfm-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dark .rfm-file-icon-password-badge {
+  background-color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.rfm-list-icon .rfm-file-icon-password-badge {
+  width: 12px;
+  height: 12px;
+  top: -1px;
+  left: -1px;
+  padding: 2px;
+}
+
+.rfm-file-icon-view-only-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  padding: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rfm-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dark .rfm-file-icon-view-only-badge {
+  background-color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.rfm-list-icon .rfm-file-icon-view-only-badge {
+  width: 12px;
+  height: 12px;
+  top: -1px;
+  right: -1px;
+  padding: 2px;
+}
+
 .rfm-file-item:hover .rfm-file-icon-wrapper {
   transform: scale(1.05);
 }
@@ -221,69 +281,47 @@
 }
 
 /* Category Colors */
-.rfm-file-icon-container[data-color="image"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="image"] .rfm-file-icon-svg polygon:first-child {
   fill: #81c784;
 }
 
-.rfm-file-icon-container[data-color="video"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="video"] .rfm-file-icon-svg polygon:first-child {
   fill: #ba68c8;
 }
 
-.rfm-file-icon-container[data-color="pdf"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="pdf"] .rfm-file-icon-svg polygon:first-child {
   fill: #e57373;
 }
 
-.rfm-file-icon-container[data-color="word"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="word"] .rfm-file-icon-svg polygon:first-child {
   fill: #64b5f6;
 }
 
-.rfm-file-icon-container[data-color="excel"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="excel"] .rfm-file-icon-svg polygon:first-child {
   fill: #4db6ac;
 }
 
-.rfm-file-icon-container[data-color="powerpoint"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="powerpoint"] .rfm-file-icon-svg polygon:first-child {
   fill: #ffb74d;
 }
 
-.rfm-file-icon-container[data-color="archive"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="archive"] .rfm-file-icon-svg polygon:first-child {
   fill: #ffd54f;
 }
 
-.rfm-file-icon-container[data-color="text"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="text"] .rfm-file-icon-svg polygon:first-child {
   fill: #90a4ae;
 }
 
-.rfm-file-icon-container[data-color="audio"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="audio"] .rfm-file-icon-svg polygon:first-child {
   fill: #ff8a65;
 }
 
-.rfm-file-icon-container[data-color="code"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="code"] .rfm-file-icon-svg polygon:first-child {
   fill: #7986cb;
 }
 
-.rfm-file-icon-container[data-color="default"]
-  .rfm-file-icon-svg
-  polygon:first-child {
+.rfm-file-icon-container[data-color="default"] .rfm-file-icon-svg polygon:first-child {
   fill: #90caf9;
 }
 
@@ -352,23 +390,19 @@
   z-index: 0;
   border-radius: inherit;
   overflow: hidden;
-  background: linear-gradient(
-    110deg,
-    rgba(0, 0, 0, 0.04) 30%,
-    rgba(0, 0, 0, 0.08) 50%,
-    rgba(0, 0, 0, 0.04) 70%
-  );
+  background: linear-gradient(110deg,
+      rgba(0, 0, 0, 0.04) 30%,
+      rgba(0, 0, 0, 0.08) 50%,
+      rgba(0, 0, 0, 0.04) 70%);
   background-size: 200% 100%;
   animation: rfm-shimmer 1.5s ease-in-out infinite;
 }
 
 .dark .rfm-thumb-shimmer {
-  background: linear-gradient(
-    110deg,
-    rgba(255, 255, 255, 0.03) 30%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.03) 70%
-  );
+  background: linear-gradient(110deg,
+      rgba(255, 255, 255, 0.03) 30%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 70%);
   background-size: 200% 100%;
 }
 

@@ -37,6 +37,8 @@ export const getColumns = () => [
               isEncrypted={info.row.original.isEncrypted}
               scanStatus={info.row.original.scanStatus}
               isSystem={info.row.original.isSystem}
+              hasPassword={info.row.original.hasPassword}
+              permission={info.row.original.permission}
               hideName={true}
               className="rfm-list-icon opacity-70"
             />
@@ -64,6 +66,8 @@ export const getColumns = () => [
             isEncrypted={info.row.original.isEncrypted}
             scanStatus={info.row.original.scanStatus}
             isSystem={info.row.original.isSystem}
+            hasPassword={info.row.original.hasPassword}
+            permission={info.row.original.permission}
             hideName={true}
             className="rfm-list-icon"
           />

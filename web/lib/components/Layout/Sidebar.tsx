@@ -165,9 +165,8 @@ const Sidebar = () => {
       </div>
       <div className="rfm-sidebar-list">
         <div
-          className={`rfm-sidebar-item ${
-            currentFolder === "0" ? "active" : ""
-          } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
+          className={`rfm-sidebar-item ${currentFolder === "0" ? "active" : ""
+            } ${isDragOverRoot ? "rfm-drag-over" : ""}`}
           onClick={handleRootClick}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -185,17 +184,51 @@ const Sidebar = () => {
           </span>
         </div>
         <div className="rfm-sidebar-indent">
-          {rootFolders.map((node) => (
-            <FolderTreeItem
-              key={node.id}
-              node={node}
-              childrenMap={childrenMap}
-              level={1}
-              expandedIds={expandedIds}
-              onToggle={handleToggle}
-              idToNodeMap={idToNodeMap}
-            />
-          ))}
+          {rootFolders
+            .filter((n) => !(n.is_system && n.filename === ".Trash"))
+            .map((node) => (
+              <FolderTreeItem
+                key={node.id}
+                node={node}
+                childrenMap={childrenMap}
+                level={1}
+                expandedIds={expandedIds}
+                onToggle={handleToggle}
+                idToNodeMap={idToNodeMap}
+              />
+            ))}
+
+          {/* Shared for You virtual folder */}
+          <div
+            className={`rfm-sidebar-item ${currentFolder === "shared-for-you" ? "active" : ""
+              }`}
+            onClick={() => {
+              setCurrentFolder("shared-for-you");
+              if (isMobile && setSidebarVisible) {
+                setSidebarVisible(false);
+              }
+            }}
+          >
+            <SvgIcon svgType="share" className="rfm-sidebar-icon" />
+            <span className="rfm-sidebar-item-text" data-text="Shared for You">
+              Shared for You
+            </span>
+          </div>
+
+          {/* Trash folder (system item) */}
+          {rootFolders
+            .filter((n) => n.is_system && n.filename === ".Trash")
+            .map((node) => (
+              <FolderTreeItem
+                key={node.id}
+                node={node}
+                childrenMap={childrenMap}
+                level={1}
+                expandedIds={expandedIds}
+                onToggle={handleToggle}
+                idToNodeMap={idToNodeMap}
+              />
+            ))}
         </div>
       </div>
 
@@ -249,7 +282,7 @@ const Sidebar = () => {
           if (share.is_folder) {
             setCurrentFolder(share.user_file_id);
             if (onRefresh) {
-              onRefresh(share.user_file_id).catch(() => {});
+              onRefresh(share.user_file_id).catch(() => { });
             }
             if (isMobile && setSidebarVisible) {
               setSidebarVisible(false);
@@ -258,7 +291,7 @@ const Sidebar = () => {
             const pid = share.parent_id || "0";
             setCurrentFolder(pid);
             if (onRefresh) {
-              onRefresh(pid).catch(() => {});
+              onRefresh(pid).catch(() => { });
             }
             setTimeout(() => {
               if (setHighlightedId) {

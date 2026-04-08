@@ -255,6 +255,15 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
     onClose();
   };
 
+  const handleCopyUrlLink = () => {
+    if (file?.shareToken) {
+      const shareUrl = `${window.location.origin}/s/${file.shareToken}`;
+      navigator.clipboard.writeText(shareUrl);
+      if (navigator.vibrate) navigator.vibrate(50);
+      onClose();
+    }
+  };
+
   const handleCut = () => {
     if (selectedIds.length > 0) {
       hookHandleCut();
@@ -302,6 +311,19 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
         currentFolderItem?.name === ".Trash")) ||
     (currentFolderTreeNode?.is_system &&
       currentFolderTreeNode?.filename === ".Trash");
+
+  // Read-only mode: user is viewing a file/folder shared with them (not their own)
+  const isSharedReadOnly =
+    currentFolder === "shared-for-you" ||
+    !!file?.isShared ||
+    fs.find((f) => f.id === currentFolder)?.isShared === true;
+
+  const targetFiles = fs.filter((f) => selectedIds.includes(f.id));
+  const isViewOnly =
+    isSharedReadOnly &&
+    (targetFiles.some((f) => f.permission === "view") ||
+      file?.permission === "view" ||
+      fs.find((f) => f.id === currentFolder)?.permission === "view");
 
   return (
     <>
@@ -403,8 +425,9 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           Open (Preview)
                         </div>
 
-                        {/* Edit - Only for editable text files */}
-                        {targetFile &&
+                        {/* Edit - Only for editable text files, NOT in shared read-only mode */}
+                        {!isSharedReadOnly &&
+                          targetFile &&
                           !targetFile.isDir &&
                           isEditableTextFile(
                             targetFile.name,
@@ -468,8 +491,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       <>
                         <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
-                        {/* Rename - Only for single file */}
-                        {targetFile && (
+                        {/* Rename - Only for single file, NOT shared read-only */}
+                        {targetFile && !isSharedReadOnly && (
                           <div
                             className={`rfm-context-menu-item ${isScanBusy
                               ? "disabled opacity-50 cursor-not-allowed"
@@ -485,22 +508,25 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           </div>
                         )}
 
-                        {/* Cut & Paste & Copy */}
-                        <div
-                          className="rfm-context-menu-item"
-                          onClick={handleCut}
-                        >
-                          <SvgIcon
-                            svgType="scissors"
-                            className="rfm-context-menu-icon"
-                          />
-                          Cut{" "}
-                          {selectedIds.length > 1
-                            ? `(${selectedIds.length} items)`
-                            : ""}
-                        </div>
+                        {/* Cut & Paste & Copy - Cut hidden for shared read-only */}
+                        {!isSharedReadOnly && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={handleCut}
+                          >
+                            <SvgIcon
+                              svgType="scissors"
+                              className="rfm-context-menu-icon"
+                            />
+                            Cut{" "}
+                            {selectedIds.length > 1
+                              ? `(${selectedIds.length} items)`
+                              : ""}
+                          </div>
+                        )}
 
-                        {clipboardIds.length > 0 &&
+                        {!isSharedReadOnly &&
+                          clipboardIds.length > 0 &&
                           clipboardSourceFolder !== currentFolder && (
                             <div
                               className="rfm-context-menu-item"
@@ -515,23 +541,38 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                             </div>
                           )}
 
-                        <div
-                          className="rfm-context-menu-item"
-                          onClick={handleCopy}
-                        >
-                          <SvgIcon
-                            svgType="clipboard"
-                            className="rfm-context-menu-icon"
-                          />
-                          Copy{" "}
-                          {selectedIds.length > 1
-                            ? `(${selectedIds.length} items)`
-                            : ""}
-                        </div>
+                        {!isViewOnly && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={handleCopy}
+                          >
+                            <SvgIcon
+                              svgType="clipboard"
+                              className="rfm-context-menu-icon"
+                            />
+                            Copy{" "}
+                            {selectedIds.length > 1
+                              ? `(${selectedIds.length} items)`
+                              : ""}
+                          </div>
+                        )}
+
+                        {file?.shareToken && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={handleCopyUrlLink}
+                          >
+                            <SvgIcon
+                              svgType="share"
+                              className="rfm-context-menu-icon"
+                            />
+                            Copy URL Link
+                          </div>
+                        )}
                         <div className="my-1 h-px bg-stone-200 dark:bg-slate-800" />
 
-                        {/* Favorites Toggle - For single or multiple selection */}
-                        {targetFiles.length > 0 && (
+                        {/* Favorites Toggle - hidden for shared read-only */}
+                        {!isSharedReadOnly && targetFiles.length > 0 && (
                           <div
                             className="rfm-context-menu-item"
                             onClick={() => {
@@ -563,8 +604,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           </div>
                         )}
 
-                        {/* Share */}
-                        {targetFile && onShare && (
+                        {/* Share - hidden for shared read-only */}
+                        {!isSharedReadOnly && targetFile && onShare && (
                           <div
                             className="rfm-context-menu-item"
                             onClick={() =>
@@ -579,8 +620,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           </div>
                         )}
 
-                        {/* Access Log */}
-                        {targetFile && targetFile.isShared && onViewAccessLog && (
+                        {/* Access Log - only own shared items */}
+                        {!isSharedReadOnly && targetFile && targetFile.isShared && onViewAccessLog && (
                           <div
                             className="rfm-context-menu-item"
                             onClick={() =>
@@ -595,8 +636,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                           </div>
                         )}
 
-                        {/* Download - Allowed for files and folders */}
-                        {targetFiles.length > 0 && (
+                        {/* Download - Allowed for files and folders unless view-only */}
+                        {!isViewOnly && targetFiles.length > 0 && (
                           <>
                             <div
                               className={`rfm-context-menu-item ${isScanBusy
@@ -617,20 +658,22 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                       </>
                     )}
 
-                    {/* Delete (Common but specialized in Trash to mean Permanent) */}
-                    <div
-                      className="rfm-context-menu-item text-rose-500"
-                      onClick={handleDelete}
-                    >
-                      <SvgIcon
-                        svgType="trash"
-                        className="rfm-context-menu-icon !fill-rose-500"
-                      />
-                      {isInTrash ? "Delete Permanently" : "Delete"}{" "}
-                      {selectedIds.length > 1
-                        ? `(${selectedIds.length} items)`
-                        : ""}
-                    </div>
+                    {/* Delete - hidden for shared read-only */}
+                    {!isSharedReadOnly && (
+                      <div
+                        className="rfm-context-menu-item text-rose-500"
+                        onClick={handleDelete}
+                      >
+                        <SvgIcon
+                          svgType="trash"
+                          className="rfm-context-menu-icon !fill-rose-500"
+                        />
+                        {isInTrash ? "Delete Permanently" : "Delete"}{" "}
+                        {selectedIds.length > 1
+                          ? `(${selectedIds.length} items)`
+                          : ""}
+                      </div>
+                    )}
                   </>
                 );
               })()}
@@ -717,7 +760,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
             </div>
           )}
 
-          {!isInTrash && !isTargetTrash && (!file || (file && file.isDir)) && (
+          {/* New Folder / Text File / Upload - hidden for shared read-only */}
+          {!isInTrash && !isTargetTrash && !isSharedReadOnly && (!file || (file && file.isDir)) && (
             <>
               <div className="rfm-border-t my-1 border-stone-200 dark:border-slate-800" />
               <div
@@ -746,6 +790,7 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
 
           {!isInTrash &&
             !isTargetTrash &&
+            !isSharedReadOnly &&
             clipboardIds.length > 0 &&
             clipboardSourceFolder !== currentFolder && (
               <div className="rfm-context-menu-item" onClick={handlePaste}>

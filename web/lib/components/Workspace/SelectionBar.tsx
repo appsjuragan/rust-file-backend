@@ -34,6 +34,18 @@ const SelectionBar = ({
   const { handleBulkDownload } = useFileActions();
   if (selectedIds.length === 0) return null;
 
+  // Read-only mode: user is viewing a file/folder shared with them (not their own)
+  const isSharedReadOnly =
+    currentFolder === "shared-for-you" ||
+    fs.some((f) => selectedIds.includes(f.id) && f.isShared) ||
+    fs.find((f) => f.id === currentFolder)?.isShared === true;
+
+  const targetFiles = fs.filter((f) => selectedIds.includes(f.id));
+  const isViewOnly =
+    isSharedReadOnly &&
+    (targetFiles.some((f) => f.permission === "view") ||
+      fs.find((f) => f.id === currentFolder)?.permission === "view");
+
   return (
     <div className="rfm-selection-bar">
       <div
@@ -75,37 +87,41 @@ const SelectionBar = ({
         </div>
       </div>
 
-      <div
-        className="rfm-selection-action-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          setClipboardIds(selectedIds);
-          setIsCut(false);
-          setClipboardSourceFolder(currentFolder);
-          setSelectedIds([]);
-          if (navigator.vibrate) navigator.vibrate(50);
-        }}
-        title="Copy"
-      >
-        <SvgIcon svgType="copy" />
-      </div>
+      {!isViewOnly && (
+        <div
+          className="rfm-selection-action-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setClipboardIds(selectedIds);
+            setIsCut(false);
+            setClipboardSourceFolder(currentFolder);
+            setSelectedIds([]);
+            if (navigator.vibrate) navigator.vibrate(50);
+          }}
+          title="Copy"
+        >
+          <SvgIcon svgType="copy" />
+        </div>
+      )}
 
-      <div
-        className="rfm-selection-action-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          setClipboardIds(selectedIds);
-          setIsCut(true);
-          setClipboardSourceFolder(currentFolder);
-          setSelectedIds([]);
-          if (navigator.vibrate) navigator.vibrate(50);
-        }}
-        title="Move"
-      >
-        <SvgIcon svgType="scissors" />
-      </div>
+      {!isSharedReadOnly && (
+        <div
+          className="rfm-selection-action-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setClipboardIds(selectedIds);
+            setIsCut(true);
+            setClipboardSourceFolder(currentFolder);
+            setSelectedIds([]);
+            if (navigator.vibrate) navigator.vibrate(50);
+          }}
+          title="Move"
+        >
+          <SvgIcon svgType="scissors" />
+        </div>
+      )}
 
-      {selectedIds.length === 1 && (
+      {!isSharedReadOnly && selectedIds.length === 1 && (
         <div
           className="rfm-selection-action-btn"
           onClick={(e) => {
@@ -122,36 +138,41 @@ const SelectionBar = ({
       )}
 
       {/* Bulk Download Button */}
-      <div
-        className="rfm-selection-action-btn"
-        onClick={async (e) => {
-          e.stopPropagation();
-          // Single non-folder file → direct download
-          if (selectedIds.length === 1) {
-            const singleFile = currentFolderFiles.find((f) => f.id === selectedIds[0])
-              || fs.find((f) => f.id === selectedIds[0]);
-            if (singleFile && !singleFile.isDir) {
-              try {
-                const res = await fileService.getDownloadTicket(singleFile.id);
-                const link = document.createElement("a");
-                link.href = res.url.includes("?") ? `${res.url}&download=1` : `${res.url}?download=1`;
-                link.download = singleFile.name;
-                link.style.display = "none";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              } catch (err) {
-                console.error("Download failed:", err);
+      {!isViewOnly && (
+        <div
+          className="rfm-selection-action-btn"
+          onClick={async (e) => {
+            e.stopPropagation();
+            // Single non-folder file → direct download
+            if (selectedIds.length === 1) {
+              const singleFile =
+                currentFolderFiles.find((f) => f.id === selectedIds[0]) ||
+                fs.find((f) => f.id === selectedIds[0]);
+              if (singleFile && !singleFile.isDir) {
+                try {
+                  const res = await fileService.getDownloadTicket(singleFile.id);
+                  const link = document.createElement("a");
+                  link.href = res.url.includes("?")
+                    ? `${res.url}&download=1`
+                    : `${res.url}?download=1`;
+                  link.download = singleFile.name;
+                  link.style.display = "none";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                } catch (err) {
+                  console.error("Download failed:", err);
+                }
+                return;
               }
-              return;
             }
-          }
-          handleBulkDownload();
-        }}
-        title="Download"
-      >
-        <SvgIcon svgType="download" />
-      </div>
+            handleBulkDownload();
+          }}
+          title="Download"
+        >
+          <SvgIcon svgType="download" />
+        </div>
+      )}
 
       <div
         className="rfm-selection-action-btn ml-auto"

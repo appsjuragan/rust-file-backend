@@ -54,6 +54,7 @@ export interface BackendFile {
   isShared?: boolean;
   is_system?: boolean;
   isSystem?: boolean;
+  has_password?: boolean;
 }
 
 // Be careful: even a folder is a file!
@@ -80,7 +81,12 @@ export type FileType = {
   hasThumbnail?: boolean;
   isEncrypted?: boolean;
   isShared?: boolean;
+  shareToken?: string;
   isSystem?: boolean;
+  hasPassword?: boolean;
+  permission?: "view" | "download";
+  sharedBy?: string;
+  sharedAt?: string;
 };
 
 export type FileSystemType = FileType[];

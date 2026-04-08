@@ -26,6 +26,7 @@ import { useMarqueeSelection } from "../../hooks/useMarqueeSelection";
 
 // Modals
 // import NewTextFileModal from "../Modals/NewTextFileModal";
+import VerifyPasswordModal from "../Modals/VerifyPasswordModal";
 
 import {
   flexRender,
@@ -95,6 +96,9 @@ const Workspace = () => {
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Password Verification State
+  const [passwordPromptFile, setPasswordPromptFile] = useState<FileType | null>(null);
 
   // Breadcrumb visibility state
   const [showHeader, setShowHeader] = useState(true);
@@ -349,6 +353,14 @@ const Workspace = () => {
 
   const handleDoubleClick = (file: FileType) => {
     if (file.scanStatus === "pending" || file.scanStatus === "scanning") return;
+
+    if (file.isShared && file.hasPassword && file.shareToken) {
+      if (!sessionStorage.getItem(`verified_share_${file.shareToken}`)) {
+        setPasswordPromptFile(file);
+        return;
+      }
+    }
+
     if (file.isDir) {
       setCurrentFolder(file.id);
     } else {
@@ -375,6 +387,7 @@ const Workspace = () => {
     onBulkDelete,
     onDelete,
     handlePaste,
+    fs,
   });
 
   useEffect(() => {
@@ -538,6 +551,20 @@ const Workspace = () => {
       )}
 
       {/* Contextual Action Bar (Selection Mode) */}
+      <VerifyPasswordModal
+        isVisible={!!passwordPromptFile}
+        onClose={() => setPasswordPromptFile(null)}
+        shareToken={passwordPromptFile?.shareToken!}
+        onSuccess={() => {
+          if (passwordPromptFile && passwordPromptFile.shareToken) {
+            sessionStorage.setItem(`verified_share_${passwordPromptFile.shareToken}`, "true");
+            const fileToProcess = passwordPromptFile;
+            setPasswordPromptFile(null);
+            handleDoubleClick(fileToProcess);
+          }
+        }}
+      />
+
       <SelectionBar
         selectedIds={selectedIds}
         currentFolderFiles={currentFolderFiles}

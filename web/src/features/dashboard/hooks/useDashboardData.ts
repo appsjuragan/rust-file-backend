@@ -34,6 +34,10 @@ export function useDashboardData() {
   const [hasMoreFiles, setHasMoreFiles] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Sharing Context
+  const [currentShareToken, setCurrentShareToken] = useState<string | null>(null);
+  const [currentSharePermission, setCurrentSharePermission] = useState<"view" | "download" | null>(null);
+
   // Chunk size
   const [chunkSize, setChunkSize] = useState<number>(7 * 1024 * 1024);
 
@@ -131,17 +135,94 @@ export function useDashboardData() {
 
       try {
         const limit = 50;
-        let effectiveParentId = parentId;
+        const effectiveParentId = parentId;
 
-        const data = await fileService.listFiles(
-          effectiveParentId === "0" ? undefined : effectiveParentId,
-          limit,
-          offset,
-        );
+        let data;
+        let activeShareToken: string | null = null;
+        const currentFolderItem = fsRef.current.find((f) => f.id === effectiveParentId);
 
-        const mappedFs: FileSystemType = data.map(mapApiFileToFileType);
+        if (effectiveParentId === "shared-for-you") {
+          // Virtual folder: list shared items for current user
+          data = await fileService.listIncomingShares();
+          setCurrentShareToken(null);
+          setCurrentSharePermission(null);
+        } else {
+          // Check if this folder is itself a shared item (direct share)
+          const sharedItem = fsRef.current.find(
+            (f) => f.id === effectiveParentId && f.isShared && f.shareToken
+          );
 
-        setHasMoreFiles(data.length === limit);
+          if (sharedItem?.shareToken) {
+            // Top-level shared folder - list using public share API
+            activeShareToken = sharedItem.shareToken;
+            const activePermission = sharedItem.permission || null;
+            setCurrentShareToken(activeShareToken);
+            setCurrentSharePermission(activePermission);
+            data = await fileService.listSharedFolder(activeShareToken);
+          } else {
+            // Check if we're already inside a shared tree (token from state)
+            const parentInFs = fsRef.current.find((f) => f.id === effectiveParentId);
+            const inheritedToken = parentInFs?.shareToken || currentShareToken;
+            const inheritedPermission = parentInFs?.permission || currentSharePermission;
+
+            if (inheritedToken && effectiveParentId !== "0") {
+              // Inside a shared subfolder - use regular API (owner's files)
+              // and tag results with token for further navigation
+              activeShareToken = inheritedToken;
+              setCurrentShareToken(inheritedToken);
+              setCurrentSharePermission(inheritedPermission);
+              data = await fileService.listFiles(
+                effectiveParentId,
+                limit,
+                offset,
+              );
+            } else {
+              // Normal owned folder
+              setCurrentShareToken(null);
+              setCurrentSharePermission(null);
+              data = await fileService.listFiles(
+                effectiveParentId === "0" ? undefined : effectiveParentId,
+                limit,
+                offset,
+              );
+            }
+          }
+        }
+
+        const mappedFs: FileSystemType = data.map((item: any) => {
+          if (effectiveParentId === "shared-for-you") {
+            // Map ShareResponse to FileType
+            return {
+              id: item.user_file_id,
+              name: item.filename || "Shared Item",
+              isDir: item.is_folder || false,
+              parentId: "shared-for-you",
+              size: item.size || 0,
+              mimeType: item.mime_type,
+              lastModified: new Date(item.created_at).getTime() / 1000,
+              isShared: true,
+              shareToken: item.share_token,
+              hasPassword: item.has_password,
+              permission: item.permission,
+              sharedBy: item.shared_by,
+              sharedAt: item.created_at,
+              expiresAt: item.expires_at,
+            };
+          }
+          const mapped = mapApiFileToFileType(item);
+          if (activeShareToken) {
+            mapped.isShared = true;
+            mapped.shareToken = activeShareToken;
+            mapped.permission = currentSharePermission || undefined;
+            // Inherit metadata if in a shared folder
+            mapped.sharedAt = currentFolderItem?.sharedAt;
+            mapped.sharedBy = currentFolderItem?.sharedBy;
+            mapped.expiresAt = currentFolderItem?.expiresAt;
+          }
+          return mapped;
+        });
+
+        setHasMoreFiles(effectiveParentId === "shared-for-you" ? false : data.length === limit);
 
         setFs((prevFs: FileSystemType) => {
           let newFs;
@@ -151,7 +232,8 @@ export function useDashboardData() {
               (f) =>
                 (f.parentId || "0") !== effectiveParentId &&
                 !incomingIds.has(f.id) &&
-                f.id !== "0",
+                f.id !== "0" &&
+                f.id !== "shared-for-you"
             );
           } else {
             newFs = [...prevFs];
@@ -173,7 +255,7 @@ export function useDashboardData() {
         setLoadingMore(false);
       }
     },
-    [],
+    [currentShareToken],
   );
 
   const refreshAll = useCallback(
@@ -195,6 +277,8 @@ export function useDashboardData() {
     loading,
     currentFolder,
     setCurrentFolder,
+    currentShareToken,
+    setCurrentShareToken,
     favorites,
     userFacts,
     folderTree,
