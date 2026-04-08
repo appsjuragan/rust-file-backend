@@ -386,9 +386,68 @@ pub async fn list_incoming_shares(
 ) -> Result<Json<Vec<ShareResponse>>, AppError> {
     let shares = ShareService::list_incoming_shares(&state.db, &claims.sub).await?;
 
+    // ── Least-Privilege Deduplication ──────────────────────────────────
+    // When the same file is reachable through multiple shares (e.g. a direct
+    // user-share AND a group-share), we must not show it twice with potentially
+    // different permissions.
+    //
+    // Rule:
+    //   1. Group all shares by `user_file_id`.
+    //   2. "view" is stricter than "download".
+    //   3. Within a group, start with the oldest share.  If a stricter share
+    //      arrives later, it overrides.  If a NEWER (more recently created)
+    //      share comes in AFTER the strictest one has already been applied,
+    //      that newer share overrides (the owner explicitly granted more access
+    //      after the fact).
+    //   => i.e. the win criterion, resolved in creation-time order:
+    //        • pick the strictest share seen so far
+    //        • but if a share created AFTER the current winner is LESS strict,
+    //          it still wins because it represents a later, explicit decision.
+
+    use std::collections::HashMap;
+
+    // permission rank: lower number = stricter
+    let permission_rank = |p: &str| if p == "view" { 0u8 } else { 1u8 };
+
+    // Sort ASC by created_at so we process oldest first
+    let mut sorted = shares;
+    sorted.sort_by_key(|(s, _)| s.created_at.unwrap_or_else(Utc::now));
+
+    // Map: user_file_id -> winning (share, user_file)
+    let mut winners: HashMap<String, (share_links::Model, Option<user_files::Model>)> =
+        HashMap::new();
+
+    for (share, user_file) in sorted {
+        let key = share.user_file_id.clone();
+        match winners.get(&key) {
+            None => {
+                // First share for this file — always wins
+                winners.insert(key, (share, user_file));
+            }
+            Some((current_winner, _)) => {
+                let new_created = share.created_at.unwrap_or_else(Utc::now);
+                let old_created = current_winner.created_at.unwrap_or_else(Utc::now);
+                let new_rank = permission_rank(&share.permission);
+                let old_rank = permission_rank(&current_winner.permission);
+
+                let should_replace = if new_created > old_created {
+                    // Newer share: it wins unconditionally (explicit later grant)
+                    true
+                } else {
+                    // Same time or older: only replace if strictly more restrictive
+                    new_rank < old_rank
+                };
+
+                if should_replace {
+                    winners.insert(key, (share, user_file));
+                }
+            }
+        }
+    }
+
+    // ── Build response from winners ────────────────────────────────────
     let mut result = Vec::new();
-    for (share, user_file) in shares {
-        // Fetch storage file info for size/mime_type
+    for (_, (share, user_file)) in winners {
         let storage_file = if let Some(ref uf) = user_file {
             if let Some(ref sf_id) = uf.storage_file_id {
                 StorageFiles::find_by_id(sf_id).one(&state.db).await?
@@ -420,6 +479,13 @@ pub async fn list_incoming_shares(
             parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
         });
     }
+
+    // Sort result by filename for a consistent display order
+    result.sort_by(|a, b| {
+        let af = a.filename.as_deref().unwrap_or("");
+        let bf = b.filename.as_deref().unwrap_or("");
+        af.cmp(bf)
+    });
 
     Ok(Json(result))
 }

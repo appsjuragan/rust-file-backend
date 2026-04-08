@@ -455,13 +455,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
             </label>
             {usePassword && (
               <input
-                type="password"
-                name="create-share-password"
-                autoComplete="new-password"
+                type="text"
+                autoComplete="off"
                 className="rfm-share-input"
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                style={{ WebkitTextSecurity: "disc" } as any}
               />
             )}
           </div>

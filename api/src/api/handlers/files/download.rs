@@ -44,15 +44,20 @@ pub async fn download_file(
     let user_file = if let Some(uf) = user_file_result {
         uf
     } else {
-        // Not owner. Check if it's shared with this user.
-        let is_shared = crate::services::share_service::ShareService::check_file_access(
+        // Not owner. Check if it's shared with this user and get effective permission.
+        let permission = crate::services::share_service::ShareService::get_effective_permission(
             &state.db,
             &file_id,
             &claims.sub,
         )
         .await?;
 
-        if is_shared {
+        if let Some(perm) = permission {
+            if perm == "view" {
+                return Err(AppError::Forbidden(
+                    "You only have view-only access to this file".to_string(),
+                ));
+            }
             UserFiles::find_by_id(file_id.clone())
                 .filter(user_files::Column::DeletedAt.is_null())
                 .one(&state.db)

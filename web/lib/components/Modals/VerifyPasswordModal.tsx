@@ -54,11 +54,16 @@ const VerifyPasswordModal: React.FC<IVerifyPasswordModalProps> = ({
                 </p>
                 <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
                     <input
-                        type="password"
-                        name="share-access-password"
-                        autoComplete="new-password"
+                        type="text"
+                        autoComplete="off"
                         className="rfm-new-folder-modal-input w-full p-2 rounded text-black"
-                        style={{ backgroundColor: "var(--rfm-bg-element)", color: "var(--rfm-text-primary)", borderColor: "var(--rfm-border-color)", border: "1px solid" }}
+                        style={{
+                            backgroundColor: "var(--rfm-bg-element)",
+                            color: "var(--rfm-text-primary)",
+                            borderColor: "var(--rfm-border-color)",
+                            border: "1px solid",
+                            WebkitTextSecurity: "disc"
+                        } as any}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         autoFocus

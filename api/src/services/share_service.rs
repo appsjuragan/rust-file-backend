@@ -271,6 +271,7 @@ impl ShareService {
             .filter(Condition::all()
                 .add(condition)
                 .add(share_links::Column::ExpiresAt.gt(Utc::now()))
+                .add(share_links::Column::CreatedBy.ne(user_id))
             )
             .find_also_related(UserFiles)
             .order_by_desc(share_links::Column::CreatedAt)
@@ -280,14 +281,13 @@ impl ShareService {
         Ok(shares)
     }
 
-    /// Check if a user has access to a file via ANY active share.
-    /// This checks the file itself AND walks up parent folders to find
-    /// if any ancestor folder has been shared with the user.
-    pub async fn check_file_access(
+    /// Get the effective permission (e.g. "view" or "download") for a user on a file
+    /// following the Least Privilege rule: strictest wins, except newer overrides.
+    pub async fn get_effective_permission(
         db: &sea_orm::DatabaseConnection,
         file_id: &str,
         user_id: &str,
-    ) -> Result<bool, AppError> {
+    ) -> Result<Option<String>, AppError> {
         // 1. Get user groups
         let groups = UserGroupMembers::find()
             .filter(user_group_members::Column::UserId.eq(user_id))
@@ -296,45 +296,33 @@ impl ShareService {
         let group_ids: Vec<String> = groups.into_iter().map(|m| m.group_id).collect();
 
         // 2. Build the user/group condition once
-        let build_user_condition = |gids: &[String]| {
-            let mut cond = Condition::any().add(share_links::Column::SharedWithUserId.eq(user_id));
-            if !gids.is_empty() {
-                cond = cond.add(share_links::Column::SharedWithGroupId.is_in(gids.to_vec()));
-            }
-            cond
-        };
+        let mut condition = Condition::any().add(share_links::Column::SharedWithUserId.eq(user_id));
+        if !group_ids.is_empty() {
+            condition = condition.add(share_links::Column::SharedWithGroupId.is_in(group_ids));
+        }
 
-        // 3. Walk up the folder tree starting from the file itself
+        // 3. Walk up the folder tree starting from the file itself to find ALL relevant shares
         let mut current_id = file_id.to_string();
+        let mut all_shares = Vec::new();
         let mut depth = 0;
-        let max_depth = 20; // prevent infinite loop
+        let max_depth = 20;
 
         loop {
-            if depth >= max_depth {
-                break;
-            }
+            if depth >= max_depth { break; }
 
-            // Check if there's an active share for current_id targeting this user
-            let user_cond = build_user_condition(&group_ids);
-            let count = ShareLinks::find()
+            let level_shares = ShareLinks::find()
                 .filter(
                     Condition::all()
                         .add(share_links::Column::UserFileId.eq(&current_id))
-                        .add(user_cond)
+                        .add(condition.clone())
                         .add(share_links::Column::ExpiresAt.gt(Utc::now())),
                 )
-                .count(db)
+                .all(db)
                 .await?;
+            
+            all_shares.extend(level_shares);
 
-            if count > 0 {
-                return Ok(true);
-            }
-
-            // Look up the parent of current_id
-            let file = UserFiles::find_by_id(&current_id)
-                .one(db)
-                .await?;
-
+            let file = UserFiles::find_by_id(&current_id).one(db).await?;
             match file {
                 Some(f) => {
                     match f.parent_id {
@@ -342,13 +330,51 @@ impl ShareService {
                             current_id = pid;
                             depth += 1;
                         }
-                        _ => break, // reached root
+                        _ => break,
                     }
                 }
-                None => break, // file not found
+                None => break,
             }
         }
 
-        Ok(false)
+        if all_shares.is_empty() {
+            return Ok(None);
+        }
+
+        // 4. Resolve winner using Least Privilege + Time-Based Exception
+        // Sort ASC by created_at so we process oldest first
+        all_shares.sort_by_key(|s| s.created_at.unwrap_or_else(Utc::now));
+
+        let permission_rank = |p: &str| if p == "view" { 0u8 } else { 1u8 };
+        let mut winner_permission = all_shares[0].permission.clone();
+        let mut winner_created = all_shares[0].created_at.unwrap_or_else(Utc::now);
+
+        for share in all_shares.into_iter().skip(1) {
+            let next_created = share.created_at.unwrap_or_else(Utc::now);
+            let next_rank = permission_rank(&share.permission);
+            let winner_rank = permission_rank(&winner_permission);
+
+            if next_created > winner_created {
+                // Newer share - explicit later grant wins
+                winner_permission = share.permission;
+                winner_created = next_created;
+            } else if next_rank < winner_rank {
+                // Same age or older, but stricter - stricter wins
+                winner_permission = share.permission;
+                winner_created = next_created;
+            }
+        }
+
+        Ok(Some(winner_permission))
+    }
+
+    /// Check if a user has access to a file via ANY active share.
+    pub async fn check_file_access(
+        db: &sea_orm::DatabaseConnection,
+        file_id: &str,
+        user_id: &str,
+    ) -> Result<bool, AppError> {
+        let permission = Self::get_effective_permission(db, file_id, user_id).await?;
+        Ok(permission.is_some())
     }
 }
