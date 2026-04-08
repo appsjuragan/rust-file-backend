@@ -1,14 +1,14 @@
-# AppJuragan Sync Client
+# AppsJuragan Sync Client
 
-This directory contains the source code for the AppJuragan Desktop Sync Client, a companion .NET application to the Rust File Backend.
+This directory contains the source code for the AppsJuragan Desktop Sync Client, a companion .NET application to the Rust File Backend.
 
-It provides automatic, best-effort two-way synchronization of a designated local folder (`%UserProfile%\AppJuragan` by default) with the user's remote files.
+It provides automatic, best-effort two-way synchronization of a designated local folder (`%UserProfile%\AppsJuragan` by default) with the user's remote files.
 
 ## Components
 
 The solution comprises two projects:
-1. **AppJuragan.SyncClient**: The main WPF desktop application running in the system tray.
-2. **AppJuragan.ShellExtension**: An in-process COM server that integrates with Windows Explorer to provide visual icon overlays (green check marks for synced, blue linking for shared, yellow star for favorites).
+1. **AppsJuragan.SyncClient**: The main WPF desktop application running in the system tray.
+2. **AppsJuragan.ShellExtension**: An in-process COM server that integrates with Windows Explorer to provide visual icon overlays (green check marks for synced, blue linking for shared, yellow star for favorites).
 
 ## Prerequisites
 
@@ -21,8 +21,8 @@ The solution comprises two projects:
 2. **Build and Run**:
    From a PowerShell or Command Prompt in the `desktop-sync` directory, run:
    ```cmd
-   dotnet build src\AppJuragan.SyncClient\AppJuragan.SyncClient.csproj -c Release
-   dotnet run --project src\AppJuragan.SyncClient\AppJuragan.SyncClient.csproj -c Release
+   dotnet build src\AppsJuragan.SyncClient\AppsJuragan.SyncClient.csproj -c Release
+   dotnet run --project src\AppsJuragan.SyncClient\AppsJuragan.SyncClient.csproj -c Release
    ```
    *Note: Because the .NET Core API requires Windows Forms or WPF tooling to be present, you must use `dotnet build` rather than rely strictly on a text editor.*
 
@@ -40,6 +40,6 @@ The solution comprises two projects:
 
 ## Troubleshooting
 
-- **Icon Overlays Missing**: Windows strictly limits the number of overlay icons system-wide to 15. If Dropbox, OneDrive, or similar software uses these up, the Shell extension registrar adds three spaces (`   AppJuragan`) to cheat the alphabetical sorting rank. Restart `explorer.exe` or sign out and in if they aren't appearing immediately.
+- **Icon Overlays Missing**: Windows strictly limits the number of overlay icons system-wide to 15. If Dropbox, OneDrive, or similar software uses these up, the Shell extension registrar adds three spaces (`   AppsJuragan`) to cheat the alphabetical sorting rank. Restart `explorer.exe` or sign out and in if they aren't appearing immediately.
 - **Settings Crash**: If the app fails to open the Settings window, check that the `.NET 8.0 Desktop Runtime` is installed.
 - **Login OTP fails**: Make sure the backend project is running locally, and ensure your web front-end is logged in.
