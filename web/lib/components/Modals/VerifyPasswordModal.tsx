@@ -48,7 +48,7 @@ const VerifyPasswordModal: React.FC<IVerifyPasswordModalProps> = ({
             title="Enter Password"
             autoHeight
         >
-            <div className="p-2 sm:p-4 text-slate-200">
+            <div className="p-2 sm:p-4" style={{ color: "var(--rfm-text-primary)" }}>
                 <p className="text-sm mb-4">
                     This shared item is password protected.
                 </p>

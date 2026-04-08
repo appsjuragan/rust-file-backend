@@ -243,8 +243,19 @@
 }
 
 .rfm-sidebar-indent {
-  margin-left: 1rem;
-  padding-left: 0.25rem;
+  margin-left: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+.rfm-sidebar-subfolders {
+  margin-top: -0.125rem;
+}
+
+.rfm-sidebar-indent .rfm-sidebar-item,
+.rfm-sidebar-subfolders .rfm-sidebar-item {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.125rem;
 }
 
 /* Storage Statistics (Sidebar Facts) */
@@ -258,7 +269,7 @@
   border-top-color: rgb(30, 41, 59);
 }
 
-.rfm-sidebar-list + .rfm-sidebar-facts {
+.rfm-sidebar-list+.rfm-sidebar-facts {
   margin-top: auto;
 }
 

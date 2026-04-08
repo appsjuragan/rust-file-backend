@@ -80,12 +80,12 @@ const MetadataModal: React.FC<IMetadataModalProps> = ({
               <input type="text" value={file.sharedBy || "System"} readOnly />
             </div>
             <div className="rfm-form-group">
-              <label>ACL / Permissions</label>
+              <label>Permissions</label>
               <input
                 type="text"
                 value={
                   file.permission === "view"
-                    ? "View Only (No Download/Copy)"
+                    ? "View Only"
                     : "View & Download"
                 }
                 readOnly

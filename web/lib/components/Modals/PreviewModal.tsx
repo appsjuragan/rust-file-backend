@@ -381,7 +381,7 @@ const PreviewFileItem: React.FC<IPreviewFileItemProps> = ({
             {extension || "Unknown"} File
           </div>
           <div className="rfm-metadata-row mt-4">
-            <span>Scan Status</span>&nbsp;
+            <p className="text-sm font-medium">Scan Status</p>
             <div className={`rfm-status-badge is-${scanStatus || "unchecked"}`}>
               <SvgIcon svgType="shield" className="w-3.5 h-3.5 mr-1" />
               {scanStatus || "unchecked"}

@@ -182,8 +182,10 @@ const Sidebar = () => {
           <span className="rfm-sidebar-item-text" data-text="Home">
             Home
           </span>
+
         </div>
-        <div className="rfm-sidebar-indent">
+
+        <div className="rfm-sidebar-indent opacity-60">
           {rootFolders
             .filter((n) => !(n.is_system && n.filename === ".Trash"))
             .map((node) => (
@@ -197,39 +199,44 @@ const Sidebar = () => {
                 idToNodeMap={idToNodeMap}
               />
             ))}
-
-          {/* Shared for You virtual folder */}
-          <div
-            className={`rfm-sidebar-item ${currentFolder === "shared-for-you" ? "active" : ""
-              }`}
-            onClick={() => {
-              setCurrentFolder("shared-for-you");
-              if (isMobile && setSidebarVisible) {
-                setSidebarVisible(false);
-              }
-            }}
-          >
-            <SvgIcon svgType="share" className="rfm-sidebar-icon" />
-            <span className="rfm-sidebar-item-text" data-text="Shared for You">
-              Shared for You
-            </span>
-          </div>
-
-          {/* Trash folder (system item) */}
-          {rootFolders
-            .filter((n) => n.is_system && n.filename === ".Trash")
-            .map((node) => (
-              <FolderTreeItem
-                key={node.id}
-                node={node}
-                childrenMap={childrenMap}
-                level={1}
-                expandedIds={expandedIds}
-                onToggle={handleToggle}
-                idToNodeMap={idToNodeMap}
-              />
-            ))}
         </div>
+
+        <div
+          className={`rfm-sidebar-item ${currentFolder === "shared-for-you" ? "active" : ""}`}
+          onClick={() => {
+            setCurrentFolder("shared-for-you");
+            if (isMobile && setSidebarVisible) {
+              setSidebarVisible(false);
+            }
+          }}
+        >
+          <SvgIcon svgType="share" className="rfm-sidebar-icon" />
+          <span className="rfm-sidebar-item-text" data-text="Shared for You">
+            Shared for You
+          </span>
+        </div>
+
+        {rootFolders
+          .filter((n) => n.is_system && n.filename === ".Trash")
+          .map((node) => (
+            <div
+              key={node.id}
+              className={`rfm-sidebar-item ${currentFolder === node.id ? "active" : ""}`}
+              onClick={() => {
+                setCurrentFolder(node.id);
+                if (isMobile && setSidebarVisible) {
+                  setSidebarVisible(false);
+                }
+              }}
+            >
+              <SvgIcon svgType="trash" className="rfm-sidebar-icon" />
+              <span className="rfm-sidebar-item-text" data-text="Trash">
+                Trash
+              </span>
+            </div>
+          ))}
+
+
       </div>
 
       {/* Favorites Accordion */}
