@@ -167,6 +167,12 @@
   touch-action: manipulation;
 }
 
+.dark .rfm-sidebar-item {
+  color: rgb(203, 213, 225);
+  /* slate-300 */
+}
+
+
 .rfm-sidebar-chevron {
   width: 16px;
   height: 16px;
@@ -194,8 +200,10 @@
 }
 
 .dark .rfm-chevron-icon {
-  color: rgb(71, 85, 105);
+  color: rgb(148, 163, 184);
+  /* slate-400 */
 }
+
 
 .rfm-chevron-spacer {
   pointer-events: none;
@@ -305,8 +313,10 @@
 }
 
 .dark .rfm-facts-title {
-  color: rgb(148, 163, 184);
+  color: rgb(226, 232, 240);
+  /* slate-200 */
 }
+
 
 .rfm-facts-toggle-btn {
   width: 24px;
@@ -392,8 +402,10 @@
 }
 
 .dark .rfm-fact-sub-item {
-  color: rgb(148, 163, 184);
+  color: rgb(203, 213, 225);
+  /* slate-300 */
 }
+
 
 .rfm-sidebar-favorites-scroll {
   max-height: 240px;

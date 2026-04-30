@@ -38,8 +38,9 @@
 }
 
 .rfm-empty-folder p {
-  @apply px-6 py-2 bg-stone-100 border border-stone-200 rounded-lg text-stone-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500;
+  @apply px-6 py-2 bg-stone-100 border border-stone-200 rounded-lg text-stone-400 font-medium text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400;
 }
+
 
 /* List View */
 .rfm-workspace-list-th {
@@ -466,20 +467,23 @@
 }
 
 .rfm-breadcrumb-item {
-  @apply flex items-center cursor-pointer hover:text-teal-700 transition-colors duration-200 dark:text-slate-400 dark:hover:text-sky-400 whitespace-nowrap;
+  @apply flex items-center cursor-pointer hover:text-teal-700 transition-colors duration-200 dark:text-slate-300 dark:hover:text-sky-300 whitespace-nowrap;
 }
+
 
 .rfm-breadcrumb-item.active {
   @apply text-stone-900 font-bold cursor-default dark:text-slate-100;
 }
 
 .rfm-breadcrumb-count {
-  @apply ml-auto px-3 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-[10px] uppercase font-black tracking-widest text-stone-400 dark:text-slate-500 border border-stone-200 dark:border-slate-700 select-none whitespace-nowrap;
+  @apply ml-auto px-3 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-[10px] uppercase font-black tracking-widest text-stone-400 dark:text-slate-400 border border-stone-200 dark:border-slate-700 select-none whitespace-nowrap;
 }
 
+
 .rfm-breadcrumb-separator {
-  @apply text-stone-300 select-none dark:text-slate-600;
+  @apply text-stone-300 select-none dark:text-slate-500;
 }
+
 
 /* Sort container & Menu */
 .rfm-sort-group {
@@ -492,8 +496,9 @@
 }
 
 .rfm-sort-trigger svg {
-  @apply text-stone-500 dark:text-slate-400;
+  @apply text-stone-500 dark:text-slate-300;
 }
+
 
 .rfm-sort-chevron {
   @apply text-stone-400 transition-transform duration-200;
@@ -789,8 +794,9 @@
 }
 
 .rfm-selection-label {
-  @apply text-stone-500 dark:text-white/50 text-[10px] uppercase font-black tracking-widest;
+  @apply text-stone-500 dark:text-white/70 text-[10px] uppercase font-black tracking-widest;
 }
+
 
 .rfm-selection-action-btn {
   @apply w-12 h-12 flex items-center justify-center rounded-xl bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white hover:bg-stone-200 dark:hover:bg-white/20 active:scale-90 transition-all cursor-pointer;

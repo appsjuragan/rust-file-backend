@@ -167,9 +167,12 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
           handleItemClick(f, e);
         } else {
           setTappingId(f.id);
-          setTimeout(() => setTappingId(null), 350);
+          setTimeout(() => setTappingId(null), 400);
           if (f.scanStatus !== "infected") {
-            handleDoubleClick(f);
+            // Delay navigation slightly to show animation
+            setTimeout(() => {
+              handleDoubleClick(f);
+            }, 150);
           }
         }
       } else {
@@ -178,6 +181,7 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
     },
     [selectedIds, handleItemClick, handleDoubleClick],
   );
+
 
   const contextData = {
     rows,

@@ -449,9 +449,26 @@
 /* ==================== Tap/Open Animations ==================== */
 
 .rfm-tap-effect .rfm-file-icon-wrapper {
-  animation: rfm-tap-pulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-  z-index: 10;
+  animation: rfm-tap-pulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  z-index: 50;
+  position: relative;
+}
+
+.rfm-tap-effect {
+  position: relative;
+  z-index: 100;
+}
+
+/* Add a glowing ripple behind the icon during tap */
+.rfm-tap-effect::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(56, 189, 248, 0.4);
+  border-radius: 1rem;
+  animation: rfm-ripple 0.45s ease-out forwards;
+  pointer-events: none;
+  z-index: -1;
 }
 
 @keyframes rfm-tap-pulse {
@@ -459,11 +476,25 @@
     transform: scale(1);
   }
 
-  30% {
-    transform: scale(0.85);
+  40% {
+    transform: scale(0.8);
+    filter: brightness(1.2);
   }
 
   100% {
     transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes rfm-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
   }
 }

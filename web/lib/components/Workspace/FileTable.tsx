@@ -150,10 +150,13 @@ export const FileTable: React.FC<FileTableProps> = ({
           handleItemClick(f, e);
         } else {
           setTappingId(f.id);
-          setTimeout(() => setTappingId(null), 350);
+          setTimeout(() => setTappingId(null), 400);
 
           if (f.scanStatus !== "infected") {
-            handleDoubleClick(f);
+            // Delay navigation slightly to show animation
+            setTimeout(() => {
+              handleDoubleClick(f);
+            }, 150);
           }
         }
       } else {
@@ -162,6 +165,7 @@ export const FileTable: React.FC<FileTableProps> = ({
     },
     [isMobile, selectedIds, handleItemClick, handleDoubleClick],
   );
+
 
   const onDoubleClick = React.useCallback(
     (f: FileType) => {

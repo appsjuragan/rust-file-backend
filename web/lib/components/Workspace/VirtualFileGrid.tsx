@@ -151,9 +151,12 @@ export const VirtualFileGrid: React.FC<VirtualFileGridProps> = ({
           handleItemClick(f, e);
         } else {
           setTappingId(f.id);
-          setTimeout(() => setTappingId(null), 350);
+          setTimeout(() => setTappingId(null), 400);
           if (f.scanStatus !== "infected") {
-            handleDoubleClick(f);
+            // Delay navigation to show animation
+            setTimeout(() => {
+              handleDoubleClick(f);
+            }, 150);
           }
         }
       } else {
@@ -162,6 +165,7 @@ export const VirtualFileGrid: React.FC<VirtualFileGridProps> = ({
     },
     [selectedIds, handleItemClick, handleDoubleClick],
   );
+
 
   // Interaction handlers (Passed to Cell via cellProps)
   const handlers = {
