@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-2024_edition-brightgreen.svg)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/appsjuragan/rust-file-backend)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue)](https://github.com/appsjuragan/rust-file-backend)
 
 **Rust File Backend (RFB)** is a high-performance, enterprise-grade file management system combining the memory safety and speed of **Rust** with a modern **React** frontend. Built for cost-efficiency through content-addressable storage (deduplication) and scalability via parallel multipart uploads.
 
@@ -27,6 +27,7 @@
 - **Path Traversal Protection:** Aggressive filename sanitization
 - **JWT Authentication:** Secure token-based access control
 - **CAPTCHA Registration:** Bot-resistant account creation
+- **Group Access Control:** Dynamic sharing with user groups and multi-user collaboration
 - **S3-Compatible Storage:** Encrypted transport layer
 
 ### 🧩 Resilient Parallel Uploads
@@ -41,6 +42,7 @@
 - **Granular Permissions:** `view` (no download/copy) or `download` (full access) modes
 - **View-Only Enforcement:** Strict UI and shortcut blocking (Copy/Download) for restricted items
 - **Folder Sharing:** Share entire folders with browsable file listings and password gates
+- **Group Sharing (New):** Direct file and folder sharing with specific user groups for simplified collaboration
 - **Enhanced Metadata:** Real-time visibility of who shared an item, its ACL, and time until expiration
 - **Access Logging:** Track views, downloads, and password attempts with IP/User-Agent
 - **Public Share Page:** Beautiful, responsive frontend for recipients
@@ -58,7 +60,8 @@
 - **Native Experience:** High-performance WPF client for Windows (.NET 8).
 - **Personalized Paths:** Automatic sync folder isolation to `JuraganCloudSync\[Username]`.
 - **Cloud-First Protection:** Intelligent safety logic that prioritizes cloud data on initialization.
-- **Premium UI:** Dark-mode interface with shell overlays and system tray integration.
+- **Premium UI:** Refined Dark Mode interface with improved text legibility and system tray integration.
+- **Tap-Open Animations:** Responsive glowing ripple feedback when opening items on mobile and desktop.
 - **Public Share Exposure:** View and copy active public share links directly from the sync window.
 - **Icon Indicators:** Visual status icons for Shared Items and Favorites (green check, blue share, yellow star).
 - **Background Sync:** Reliable periodic synchronization with configurable intervals.
@@ -75,9 +78,10 @@
 
 ### 📋 Advanced File Operations
 - **Copy/Paste:** Recursive folder duplication with deduplication
-- **Bulk Actions:** Move, delete, and copy multiple items
+- **Bulk Operations:** Secure bulk download, move, and copy multiple items
 - **Archive Preview:** Inspect ZIP, 7z, RAR, TAR without extraction
 - **Favorites:** Star/unstar files and folders for quick access
+- **Context Menus:** Comprehensive right-click actions including Trash management and Sharing
 
 ### 🔍 Advanced Search & Filtering
 - **Full-Text Search:** Real-time filename search with debouncing
@@ -88,6 +92,7 @@
 - **Date Range:** Filter files by creation date
 - **Size Range:** Filter files by size boundaries
 - **Favorites Filter:** Show only starred items
+- **Caching Policies (New):** Admin-configurable browser caching (1h default) for static assets, fonts, and thumbnails.
 
 ---
 
