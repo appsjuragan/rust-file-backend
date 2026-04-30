@@ -240,11 +240,19 @@ pub async fn get_avatar(
     Err(AppError::NotFound("Avatar not found".to_string()))
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct UserFactsResponse {
+    #[serde(flatten)]
+    pub facts: user_file_facts::Model,
+    pub storage_limit: i64,
+    pub bandwidth_limit: i64,
+}
+
 #[utoipa::path(
     get,
     path = "/users/me/facts",
     responses(
-        (status = 200, description = "Facts retrieved successfully", body = user_file_facts::Model),
+        (status = 200, description = "Facts retrieved successfully", body = UserFactsResponse),
         (status = 401, description = "Unauthorized")
     ),
     security(
@@ -254,7 +262,7 @@ pub async fn get_avatar(
 pub async fn get_user_facts(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
-) -> Result<Json<user_file_facts::Model>, AppError> {
+) -> Result<Json<UserFactsResponse>, AppError> {
     let facts = UserFileFacts::find_by_id(&claims.sub)
         .one(&state.db)
         .await
@@ -268,25 +276,32 @@ pub async fn get_user_facts(
         }
     };
 
-    if should_update {
+    let resolved_facts = if should_update {
         crate::services::facts_service::FactsService::update_user_facts(&state.db, &claims.sub)
             .await?;
-        let updated_facts = UserFileFacts::find_by_id(&claims.sub)
+        UserFileFacts::find_by_id(&claims.sub)
             .one(&state.db)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?
-            .ok_or_else(|| AppError::Internal("Failed to generate facts".to_string()))?;
-        Ok(Json(updated_facts))
+            .ok_or_else(|| AppError::Internal("Failed to generate facts".to_string()))?
     } else {
-        Ok(Json(facts.unwrap()))
-    }
+        facts.unwrap()
+    };
+
+    let quota = crate::services::tier_service::TierService::get_user_quota(&state.db, &claims.sub).await?;
+
+    Ok(Json(UserFactsResponse {
+        facts: resolved_facts,
+        storage_limit: quota.total_size_limit,
+        bandwidth_limit: quota.bandwidth_limit_bps,
+    }))
 }
 
 pub async fn list_my_groups(
     State(state): State<crate::AppState>,
     Extension(claims): Extension<Claims>,
 ) -> Result<Json<Vec<crate::api::handlers::admin_groups::GroupResponse>>, AppError> {
-    use crate::entities::{user_group_members, user_groups, users};
+    use crate::entities::{user_group_members, user_groups};
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     // Check if user is admin

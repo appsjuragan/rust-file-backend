@@ -18,6 +18,10 @@ interface ProfileModalProps {
   setEditEmail: (val: string) => void;
   editPassword: string;
   setEditPassword: (val: string) => void;
+  trashCleanupDays: number;
+  setTrashCleanupDays: (val: number) => void;
+  editPin: string;
+  setEditPin: (val: string) => void;
   onSave: () => void;
   onAvatarChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }
@@ -33,6 +37,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   setEditEmail,
   editPassword,
   setEditPassword,
+  trashCleanupDays,
+  setTrashCleanupDays,
+  editPin,
+  setEditPin,
   onSave,
   onAvatarChange,
 }) => {
@@ -99,6 +107,36 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             placeholder="Leave blank to keep current"
             className="rfm-input"
           />
+        </div>
+        <div className="rfm-form-group">
+          <label>Trash Retention Period (Days)</label>
+          <input
+            type="number"
+            value={trashCleanupDays}
+            onChange={(e) => setTrashCleanupDays(parseInt(e.target.value) || 0)}
+            placeholder="30"
+            className="rfm-input"
+            min="1"
+            max="365"
+          />
+          <span style={{ fontSize: "11px", opacity: 0.6, marginTop: "4px", display: "block" }}>
+            Items in trash will be permanently deleted after this many days. Default is 30.
+          </span>
+        </div>
+
+        <div className="rfm-form-group">
+          <label>Security PIN (6 Digits)</label>
+          <input
+            type="password"
+            maxLength={6}
+            value={editPin}
+            onChange={(e) => setEditPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="Set or update PIN"
+            className="rfm-input"
+          />
+          <span style={{ fontSize: "11px", opacity: 0.6, marginTop: "4px", display: "block" }}>
+            Used for locking/unlocking sensitive files and folders.
+          </span>
         </div>
 
         <div className="rfm-modal-actions right">

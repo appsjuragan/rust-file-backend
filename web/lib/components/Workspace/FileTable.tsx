@@ -29,6 +29,7 @@ interface FileTableItemProps {
   isSelected: boolean;
   isDragOver: boolean;
   isHighlighted: boolean;
+  isTapped: boolean;
   handleTap: (f: FileType, e: React.MouseEvent) => void;
   handleDoubleClick: (file: FileType) => void;
   handleDragStart: (e: React.DragEvent, file: FileType) => void;
@@ -56,6 +57,7 @@ const FileTableItem = React.memo(
     handleDropOnFolder,
     handleContextMenu,
     isMobile,
+    isTapped,
   }: FileTableItemProps) => {
     const isPending =
       row.original.scanStatus === "pending" ||
@@ -99,7 +101,7 @@ const FileTableItem = React.memo(
         className={`rfm-file-item rfm-workspace-list-icon-row ${isPending ? "rfm-pending" : ""
           } ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""} ${isSelected ? "rfm-selected" : ""
           } ${isDragOver ? "rfm-drag-over" : ""} ${isHighlighted ? "rfm-highlighted" : ""
-          }`}
+          } ${isTapped ? "rfm-tap-effect" : ""}`}
         onContextMenu={(e) => {
           const isMobile = window.innerWidth <= 768;
           if (isMobile) {
@@ -139,6 +141,7 @@ export const FileTable: React.FC<FileTableProps> = ({
   iconSize,
 }) => {
   const isMobile = window.innerWidth <= 768;
+  const [tappingId, setTappingId] = useState<string | null>(null);
 
   const handleTap = React.useCallback(
     (f: FileType, e: React.MouseEvent) => {
@@ -146,6 +149,9 @@ export const FileTable: React.FC<FileTableProps> = ({
         if (selectedIds.length > 0) {
           handleItemClick(f, e);
         } else {
+          setTappingId(f.id);
+          setTimeout(() => setTappingId(null), 350);
+
           if (f.scanStatus !== "infected") {
             handleDoubleClick(f);
           }
@@ -156,6 +162,17 @@ export const FileTable: React.FC<FileTableProps> = ({
     },
     [isMobile, selectedIds, handleItemClick, handleDoubleClick],
   );
+
+  const onDoubleClick = React.useCallback(
+    (f: FileType) => {
+      if (f.scanStatus === "infected") return;
+      setTappingId(f.id);
+      setTimeout(() => setTappingId(null), 350);
+      handleDoubleClick(f);
+    },
+    [handleDoubleClick],
+  );
+
 
   return (
     <table
@@ -204,8 +221,9 @@ export const FileTable: React.FC<FileTableProps> = ({
             isSelected={selectedIds.includes(row.original.id)}
             isDragOver={dragOverId === row.original.id}
             isHighlighted={highlightedId === row.original.id}
+            isTapped={tappingId === row.original.id}
             handleTap={handleTap}
-            handleDoubleClick={handleDoubleClick}
+            handleDoubleClick={onDoubleClick}
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
             handleDragLeave={handleDragLeave}

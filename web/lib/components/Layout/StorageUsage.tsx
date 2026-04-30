@@ -31,12 +31,13 @@ const StorageUsage = ({
   isMinimized,
   onToggleMinimized,
 }: StorageUsageProps) => {
-  const totalStorage = userFacts?.storage_limit || 5 * 1024 * 1024 * 1024;
+  const totalStorage = userFacts?.storage_limit !== undefined ? userFacts.storage_limit : 5 * 1024 * 1024 * 1024;
   const usedStorage = userFacts?.total_size || 0;
-  const storagePercentage = Math.min(
-    100,
-    Math.round((usedStorage / totalStorage) * 100),
-  );
+
+  const isUnlimited = totalStorage < 0;
+  const storagePercentage = isUnlimited
+    ? 0
+    : Math.min(100, Math.round((usedStorage / totalStorage) * 100));
 
   const sortedCategories = useMemo(() => {
     if (!userFacts) return [];
@@ -98,9 +99,8 @@ const StorageUsage = ({
                       fill="transparent"
                       stroke="#0d9488"
                       strokeWidth="4"
-                      strokeDasharray={`${
-                        (storagePercentage / 100) * 75.4
-                      } 75.4`}
+                      strokeDasharray={`${(storagePercentage / 100) * 75.4
+                        } 75.4`}
                       strokeLinecap="round"
                     />
                     <text
@@ -110,7 +110,7 @@ const StorageUsage = ({
                       dominantBaseline="central"
                       className="rfm-pie-percentage"
                     >
-                      {storagePercentage}%
+                      {isUnlimited ? "\u221e" : `${storagePercentage}%`}
                     </text>
                   </svg>
                 ) : (
@@ -150,7 +150,7 @@ const StorageUsage = ({
           className="rfm-facts-minimized-info"
           onClick={() => onToggleMinimized()}
         >
-          {storagePercentage}% used • {formatSize(usedStorage)}
+          {isUnlimited ? "\u221e" : `${storagePercentage}%`} used • {formatSize(usedStorage)}
         </div>
       )}
     </div>

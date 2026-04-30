@@ -25,6 +25,7 @@ import {
   DialogModal,
   ShareModal,
   ShareAccessLogModal,
+  PinModal,
 } from "./components";
 // Types
 import type { FileSystemType, FileType, FolderNode, ShareLink } from "./types";
@@ -158,6 +159,15 @@ export const ReactFileManager = ({
   const [isZipping, setIsZipping] = useState<boolean>(false);
   const [editVisible, setEditVisible] = useState<boolean>(false);
   const [editFile, setEditFile] = useState<FileType | null>(null);
+  const [pinModalVisible, setPinModalVisible] = useState<boolean>(false);
+  const [pinModalTitle, setPinModalTitle] = useState<string>("");
+  const [pinModalFile, setPinModalFile] = useState<FileType | null>(null);
+  const [pinModalMode, setPinModalMode] = useState<
+    "lock" | "unlock" | "access" | "bulk_unlock"
+  >("lock");
+  const [pinModalOnConfirm, setPinModalOnConfirm] = useState<
+    ((pin: string) => Promise<void>) | null
+  >(null);
   // Responsive sidebar
   const isDesktop = useMediaQuery("(min-width: 769px)");
   const [internalSidebarVisible, setInternalSidebarVisible] =
@@ -712,6 +722,16 @@ export const ReactFileManager = ({
       setAccessLogFile,
       isZipping,
       setIsZipping,
+      pinModalVisible,
+      setPinModalVisible,
+      pinModalFile,
+      setPinModalFile,
+      pinModalMode,
+      setPinModalMode,
+      pinModalTitle,
+      setPinModalTitle,
+      pinModalOnConfirm,
+      setPinModalOnConfirm,
     }),
     [
       newFolderModalVisible,
@@ -732,6 +752,11 @@ export const ReactFileManager = ({
       accessLogVisible,
       accessLogFile,
       isZipping,
+      pinModalVisible,
+      pinModalFile,
+      pinModalMode,
+      pinModalTitle,
+      pinModalOnConfirm,
     ],
   );
 
@@ -886,8 +911,29 @@ export const ReactFileManager = ({
             onClose={() => setContextMenu(null)}
             onPreview={(file) => {
               setModalPosition({ x: contextMenu.x, y: contextMenu.y });
-              setPreviewFile(file);
-              setPreviewVisible(true);
+              if (file.isLocked) {
+                setPinModalFile(file);
+                setPinModalTitle(`Unlock ${file.name} to view`);
+                setPinModalMode("access");
+                setPinModalVisible(true);
+              } else {
+                setPreviewFile(file);
+                setPreviewVisible(true);
+              }
+            }}
+            onLock={(file) => {
+              setModalPosition({ x: contextMenu.x, y: contextMenu.y });
+              setPinModalFile(file);
+              setPinModalTitle(`Lock ${file.name}`);
+              setPinModalMode("lock");
+              setPinModalVisible(true);
+            }}
+            onUnlock={(file) => {
+              setModalPosition({ x: contextMenu.x, y: contextMenu.y });
+              setPinModalFile(file);
+              setPinModalTitle(`Unlock ${file.name}`);
+              setPinModalMode("unlock");
+              setPinModalVisible(true);
             }}
             onViewMetadata={(file) => {
               setModalPosition({ x: contextMenu.x, y: contextMenu.y });
@@ -978,6 +1024,29 @@ export const ReactFileManager = ({
             if (renameFile && onRename) {
               onRename(renameFile.id, newName);
             }
+          }}
+        />
+        <PinModal
+          isVisible={pinModalVisible}
+          title={pinModalTitle}
+          onClose={() => setPinModalVisible(false)}
+          onConfirm={async (pin) => {
+            if (pinModalMode === "bulk_unlock" && pinModalOnConfirm) {
+              await pinModalOnConfirm(pin);
+              setPinModalVisible(false);
+              setPinModalOnConfirm(null);
+            } else if (pinModalFile) {
+              if (pinModalMode === "lock") {
+                await fileService.lockItem(pinModalFile.id, pin);
+              } else if (pinModalMode === "unlock" || pinModalMode === "access") {
+                await fileService.unlockItem(pinModalFile.id, pin);
+                if (pinModalMode === "access") {
+                  setPreviewFile(pinModalFile);
+                  setPreviewVisible(true);
+                }
+              }
+            }
+            if (onRefresh) await onRefresh(currentFolder);
           }}
         />
       </div>

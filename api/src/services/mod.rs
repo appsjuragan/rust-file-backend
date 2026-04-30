@@ -8,5 +8,6 @@ pub mod share_service;
 pub mod storage;
 pub mod storage_lifecycle;
 pub mod thumbnail_service;
+pub mod tier_service;
 pub mod upload_service;
 pub mod worker;

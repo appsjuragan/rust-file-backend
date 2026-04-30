@@ -207,6 +207,7 @@ export function useDashboardData() {
               sharedBy: item.shared_by,
               sharedAt: item.created_at,
               expiresAt: item.expires_at,
+              isLocked: item.is_locked || false,
             };
           }
           const mapped = mapApiFileToFileType(item);

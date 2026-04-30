@@ -152,13 +152,19 @@
   grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
 }
 
+.rfm-icons-grid .rfm-skeleton-icon {
+  width: 48px;
+  height: 48px;
+}
+
 .rfm-icons-grid.size-small {
   grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
   @apply gap-1 p-2;
 }
 
 .rfm-icons-grid.size-small .rfm-file-icon-svg,
-.rfm-icons-grid.size-small .rfm-file-icon-wrapper {
+.rfm-icons-grid.size-small .rfm-file-icon-wrapper,
+.rfm-icons-grid.size-small .rfm-skeleton-icon {
   width: 32px;
   height: 32px;
 }
@@ -173,7 +179,8 @@
 }
 
 .rfm-icons-grid.size-medium .rfm-file-icon-svg,
-.rfm-icons-grid.size-medium .rfm-file-icon-wrapper {
+.rfm-icons-grid.size-medium .rfm-file-icon-wrapper,
+.rfm-icons-grid.size-medium .rfm-skeleton-icon {
   width: 60px;
   height: 60px;
 }
@@ -188,7 +195,8 @@
 }
 
 .rfm-icons-grid.size-large .rfm-file-icon-svg,
-.rfm-icons-grid.size-large .rfm-file-icon-wrapper {
+.rfm-icons-grid.size-large .rfm-file-icon-wrapper,
+.rfm-icons-grid.size-large .rfm-skeleton-icon {
   width: 80px;
   height: 80px;
 }
@@ -208,7 +216,8 @@
 }
 
 .rfm-icons-grid.size-extra-large .rfm-file-icon-svg,
-.rfm-icons-grid.size-extra-large .rfm-file-icon-wrapper {
+.rfm-icons-grid.size-extra-large .rfm-file-icon-wrapper,
+.rfm-icons-grid.size-extra-large .rfm-skeleton-icon {
   width: 255px;
   height: 255px;
 }
@@ -799,6 +808,27 @@
 .rfm-selection-action-btn svg {
   @apply w-6 h-6;
 }
+
+/* Mobile Tap Animation */
+@keyframes rfm-tap-pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.92);
+    filter: brightness(0.8);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.rfm-tap-effect {
+  animation: rfm-tap-pulse 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 
 @media (max-width: 768px) {
   .rfm-selection-bar {

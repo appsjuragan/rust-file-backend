@@ -83,6 +83,7 @@ pub async fn create_folder(
         is_shared: false,
         share_token: None,
         is_system: res.is_system,
+        is_locked: false,
     }))
 }
 
@@ -247,6 +248,7 @@ pub async fn toggle_favorite(
         is_shared: false,
         share_token: None,
         is_system: res.is_system,
+        is_locked: res.is_locked,
     }))
 }
 
@@ -501,7 +503,119 @@ pub(crate) async fn return_file_metadata(
         is_shared: false,
         share_token: None,
         is_system: updated.is_system,
+        is_locked: updated.is_locked,
     }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/{id}/lock",
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Item locked", body = FileMetadataResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Passphrase incorrect or not set"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn lock_item(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+    Json(req): Json<LockUnlockRequest>,
+) -> Result<Json<FileMetadataResponse>, AppError> {
+    // 1. Check if user has a lock passphrase
+    let settings = UserSettings::find_by_id(claims.sub.clone())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User settings not found".to_string()))?;
+
+    let passphrase_hash = settings
+        .lock_passphrase
+        .ok_or_else(|| AppError::Forbidden("Lock passphrase not set in settings".to_string()))?;
+
+    // 2. Verify passphrase
+    let req_pass = req
+        .passphrase
+        .ok_or_else(|| AppError::Forbidden("Passphrase required to lock".to_string()))?;
+    if crate::utils::hash::calculate_hash(req_pass.as_bytes()) != passphrase_hash {
+        return Err(AppError::Forbidden("Passphrase incorrect".to_string()));
+    }
+
+    // 3. Update item
+    let item = UserFiles::find_by_id(&id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Item not found".to_string()))?;
+
+    let mut active = item.into_active_model();
+    active.is_locked = Set(true);
+    active.updated_at = Set(Some(Utc::now()));
+    let res = active.update(&state.db).await?;
+
+    return_file_metadata(state, res).await
+}
+
+#[utoipa::path(
+    post,
+    path = "/files/{id}/unlock",
+    params(
+        ("id" = String, Path, description = "File/Folder ID")
+    ),
+    responses(
+        (status = 200, description = "Item unlocked", body = FileMetadataResponse),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Passphrase incorrect"),
+        (status = 404, description = "Item not found")
+    ),
+    security(
+        ("jwt" = [])
+    )
+)]
+pub async fn unlock_item(
+    State(state): State<crate::AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<String>,
+    Json(req): Json<LockUnlockRequest>,
+) -> Result<Json<FileMetadataResponse>, AppError> {
+    // 1. Verify passphrase
+    let settings = UserSettings::find_by_id(claims.sub.clone())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User settings not found".to_string()))?;
+
+    let passphrase_hash = settings
+        .lock_passphrase
+        .ok_or_else(|| AppError::Forbidden("Lock passphrase not set".to_string()))?;
+
+    let req_pass = req
+        .passphrase
+        .ok_or_else(|| AppError::Forbidden("Passphrase required to unlock".to_string()))?;
+    if crate::utils::hash::calculate_hash(req_pass.as_bytes()) != passphrase_hash {
+        return Err(AppError::Forbidden("Passphrase incorrect".to_string()));
+    }
+
+    // 2. Update item
+    let item = UserFiles::find_by_id(&id)
+        .filter(user_files::Column::UserId.eq(&claims.sub))
+        .filter(user_files::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Item not found".to_string()))?;
+
+    let mut active = item.into_active_model();
+    active.is_locked = Set(false);
+    active.updated_at = Set(Some(Utc::now()));
+    let res = active.update(&state.db).await?;
+
+    return_file_metadata(state, res).await
 }
 
 #[utoipa::path(

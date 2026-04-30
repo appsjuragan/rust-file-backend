@@ -62,5 +62,21 @@ export const adminService = {
         return request(`/admin/cache-settings/groups/${groupId}`, {
             method: 'DELETE'
         });
+    },
+
+    async updateTierSettings(tier: string, quota: number, bandwidth: number): Promise<any> {
+        return request('/admin/tiers', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tier, quota, bandwidth })
+        });
+    },
+
+    async updateUserTier(userId: string, tier: string): Promise<any> {
+        return request(`/admin/users/${userId}/tier`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tier })
+        });
     }
 };

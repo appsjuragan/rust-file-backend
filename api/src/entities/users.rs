@@ -17,6 +17,8 @@ pub struct Model {
     pub created_at: Option<DateTimeUtc>,
     #[sea_orm(default_value = false)]
     pub is_admin: bool,
+    #[sea_orm(default_value = "free")]
+    pub tier: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

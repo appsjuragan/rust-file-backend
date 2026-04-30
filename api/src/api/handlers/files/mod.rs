@@ -19,6 +19,7 @@ pub use download::{
 };
 pub use list::{folder_tree, get_folder_path, get_folder_stats, list_files};
 pub use manage::{
-    create_folder, delete_item, empty_trash, rename_item, restore_item, toggle_favorite,
+    create_folder, delete_item, empty_trash, lock_item, rename_item, restore_item, toggle_favorite,
+    unlock_item,
 };
 pub use upload::{link_file, pre_check_dedup, upload_file};

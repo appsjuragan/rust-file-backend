@@ -245,6 +245,58 @@ impl BackgroundWorker {
             }
         }
 
+        // 5. Clean up Trash
+        let trash_folders = UserFiles::find()
+            .filter(user_files::Column::Filename.eq(".Trash"))
+            .filter(user_files::Column::IsSystem.eq(true))
+            .all(&self.db)
+            .await;
+
+        if let Ok(folders) = trash_folders {
+            for trash_folder in folders {
+                let settings = UserSettings::find_by_id(trash_folder.user_id.clone())
+                    .one(&self.db)
+                    .await
+                    .unwrap_or_default();
+
+                let days = settings.map(|s| s.trash_cleanup_days).unwrap_or(30);
+                if days <= 0 {
+                    continue;
+                }
+
+                let cutoff = Utc::now() - chrono::Duration::days(days as i64);
+
+                let old_trash_items = UserFiles::find()
+                    .filter(user_files::Column::ParentId.eq(trash_folder.id.clone()))
+                    .filter(user_files::Column::UpdatedAt.lt(cutoff))
+                    .all(&self.db)
+                    .await;
+
+                if let Ok(items) = old_trash_items {
+                    for item in items {
+                        tracing::info!("🗑️ Automatically deleting old trash item: {}", item.id);
+                        let db_tx = self.db.begin().await.ok();
+                        if let Some(tx) = db_tx {
+                            if item.is_folder {
+                                let _ = crate::services::storage_lifecycle::StorageLifecycleService::delete_folder_recursive(
+                                    &tx,
+                                    self.storage.as_ref(),
+                                    &item.id,
+                                ).await;
+                            }
+                            let _ = crate::services::storage_lifecycle::StorageLifecycleService::soft_delete_user_file(
+                                &tx,
+                                self.storage.as_ref(),
+                                &item,
+                            ).await;
+                            let _ = tx.commit().await;
+                        }
+                    }
+                }
+            }
+        }
+
         tracing::info!("✅ Background cleanup completed");
+
     }
 }

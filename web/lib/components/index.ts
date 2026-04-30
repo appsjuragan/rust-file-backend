@@ -21,3 +21,4 @@ export { default as ShareModal } from "./Modals/ShareModal";
 export { default as ShareAccessLogModal } from "./Modals/ShareAccessLogModal";
 export { default as NewTextFileModal } from "./Modals/NewTextFileModal";
 export { default as TextEditorModal } from "./Modals/TextEditorModal";
+export { default as PinModal } from "./Modals/PinModal";

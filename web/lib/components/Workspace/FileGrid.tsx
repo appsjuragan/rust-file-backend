@@ -27,6 +27,7 @@ interface FileGridItemProps {
   isSelected: boolean;
   isDragOver: boolean;
   isHighlighted: boolean;
+  isTapped?: boolean;
   iconSize?: IconSize;
   handleTap: (f: FileType, e: React.MouseEvent) => void;
   handleDoubleClick: (file: FileType) => void;
@@ -56,6 +57,7 @@ const FileGridItem = React.memo(
     handleDropOnFolder,
     handleContextMenu,
     isMobile,
+    isTapped,
   }: FileGridItemProps) => {
     const isPending = f.scanStatus === "pending" || f.scanStatus === "scanning";
     const isScanning = f.scanStatus === "scanning";
@@ -115,7 +117,7 @@ const FileGridItem = React.memo(
         }}
         className={`rfm-file-item ${isPending ? "rfm-pending" : ""} ${isInfected ? "rfm-suspicious opacity-60 grayscale" : ""
           } ${isSelected ? "rfm-selected" : ""} ${isDragOver ? "rfm-drag-over" : ""
-          } ${isHighlighted ? "rfm-highlighted" : ""}`}
+          } ${isHighlighted ? "rfm-highlighted" : ""} ${isTapped ? "rfm-tap-effect" : ""}`}
         disabled={isPending}
       >
         <FileIcon
@@ -128,6 +130,7 @@ const FileGridItem = React.memo(
           scanStatus={f.scanStatus}
           isSystem={f.isSystem}
           hasPassword={f.hasPassword}
+          isLocked={f.isLocked}
           permission={f.permission}
           className="rfm-grid-icon"
         />
@@ -172,6 +175,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
   iconSize,
 }) => {
   const isMobile = window.innerWidth <= 768;
+  const [tappingId, setTappingId] = useState<string | null>(null);
 
   const handleTap = React.useCallback(
     (f: FileType, e: React.MouseEvent) => {
@@ -179,6 +183,9 @@ export const FileGrid: React.FC<FileGridProps> = ({
         if (selectedIds.length > 0) {
           handleItemClick(f, e);
         } else {
+          setTappingId(f.id);
+          setTimeout(() => setTappingId(null), 350);
+
           if (f.scanStatus !== "infected") {
             handleDoubleClick(f);
           }
@@ -190,6 +197,16 @@ export const FileGrid: React.FC<FileGridProps> = ({
     [isMobile, selectedIds, handleItemClick, handleDoubleClick],
   );
 
+  const onDoubleClick = React.useCallback(
+    (f: FileType) => {
+      if (f.scanStatus === "infected") return;
+      setTappingId(f.id);
+      setTimeout(() => setTappingId(null), 350);
+      handleDoubleClick(f);
+    },
+    [handleDoubleClick],
+  );
+
   return (
     <div className={`rfm-icons-grid ${iconSize ? `size-${iconSize}` : ""}`}>
       {currentFolderFiles.map((f: FileType, key: number) => (
@@ -199,9 +216,10 @@ export const FileGrid: React.FC<FileGridProps> = ({
           isSelected={selectedIds.includes(f.id)}
           isDragOver={dragOverId === f.id}
           isHighlighted={highlightedId === f.id}
+          isTapped={tappingId === f.id}
           iconSize={iconSize}
           handleTap={handleTap}
-          handleDoubleClick={handleDoubleClick}
+          handleDoubleClick={onDoubleClick}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
           handleDragLeave={handleDragLeave}
@@ -212,4 +230,5 @@ export const FileGrid: React.FC<FileGridProps> = ({
       ))}
     </div>
   );
+
 };

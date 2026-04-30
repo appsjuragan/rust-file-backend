@@ -47,6 +47,7 @@ pub struct ShareResponse {
     pub size: Option<i64>,
     pub mime_type: Option<String>,
     pub parent_id: Option<String>,
+    pub is_locked: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -301,6 +302,7 @@ pub async fn create_share(
             size: None,
             mime_type: None,
             parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
+            is_locked: user_file.as_ref().map(|f| f.is_locked).unwrap_or(false),
         }),
     ))
 }
@@ -365,6 +367,7 @@ pub async fn list_shares(
                 size: None,
                 mime_type: None,
                 parent_id: uf.and_then(|f| f.parent_id.clone()),
+                is_locked: uf.map(|f| f.is_locked).unwrap_or(false),
             }
         })
         .collect();
@@ -479,6 +482,7 @@ pub async fn list_incoming_shares(
             size: storage_file.as_ref().map(|s| s.size),
             mime_type: storage_file.as_ref().and_then(|s| s.mime_type.clone()),
             parent_id: user_file.as_ref().and_then(|f| f.parent_id.clone()),
+            is_locked: user_file.as_ref().map(|f| f.is_locked).unwrap_or(false),
         });
     }
 
@@ -904,16 +908,42 @@ pub async fn download_shared_file(
     })?;
 
     let path = url.path();
-    let query = url.query().unwrap_or("");
-    let internal_redirect_uri = format!("/minio_protected{}?{}", path, query);
+    let url_qs = url.query().unwrap_or("");
+    let internal_redirect_uri = format!("/minio_protected{}?{}", path, url_qs);
 
-    Ok(Response::builder()
+    // Resolve bandwidth limit for the downloader
+    let downloader_id = try_extract_claims(&headers, query.auth_token.as_deref(), &state.config.jwt_secret)
+        .map(|c| c.sub)
+        .unwrap_or_else(|| "".to_string()); // Fallback to empty/guest
+
+    let quota = if !downloader_id.is_empty() {
+        crate::services::tier_service::TierService::get_user_quota(&state.db, &downloader_id).await?
+    } else {
+        // Guest/Public limit - use "free" tier settings
+        let quota_key = "bandwidth_free".to_string();
+        let val = system_settings::Entity::find_by_id(quota_key)
+            .one(&state.db)
+            .await?
+            .map(|s| s.value.parse::<i64>().unwrap_or(5000000))
+            .unwrap_or(5000000);
+        crate::services::tier_service::QuotaInfo {
+            total_size_limit: 0,
+            bandwidth_limit_bps: val,
+        }
+    };
+
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header("X-Accel-Redirect", internal_redirect_uri)
         .header(header::CONTENT_TYPE, content_type)
         .header(header::CONTENT_DISPOSITION, content_disposition)
-        .header(header::CACHE_CONTROL, "no-cache")
-        .body(Body::empty())
+        .header(header::CACHE_CONTROL, "no-cache");
+
+    if quota.bandwidth_limit_bps > 0 {
+        builder = builder.header("X-Accel-Limit-Rate", quota.bandwidth_limit_bps.to_string());
+    }
+
+    Ok(builder.body(Body::empty())
         .unwrap())
 }
 

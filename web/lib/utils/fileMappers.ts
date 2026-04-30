@@ -28,8 +28,12 @@ export const mapApiFileToFileType = (item: BackendFile): FileType => {
     isFavorite: item.is_favorite ?? item.isFavorite ?? false,
     hasThumbnail: item.has_thumbnail ?? item.hasThumbnail ?? false,
     isEncrypted: item.is_encrypted ?? item.isEncrypted ?? false,
+    isShared: item.is_shared ?? item.isShared ?? false,
+    shareToken: item.share_token || item.shareToken,
     extraMetadata: item.extra_metadata || item.extraMetadata,
     isSystem: item.is_system ?? item.isSystem ?? false,
     hasPassword: item.has_password,
+    isLocked: item.is_locked ?? item.isLocked ?? false,
+    expiresAt: item.expires_at || item.expiresAt,
   };
 };

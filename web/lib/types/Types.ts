@@ -55,6 +55,12 @@ export interface BackendFile {
   is_system?: boolean;
   isSystem?: boolean;
   has_password?: boolean;
+  is_locked?: boolean;
+  isLocked?: boolean;
+  share_token?: string;
+  shareToken?: string;
+  expires_at?: string;
+  expiresAt?: string;
 }
 
 // Be careful: even a folder is a file!
@@ -84,6 +90,7 @@ export type FileType = {
   shareToken?: string;
   isSystem?: boolean;
   hasPassword?: boolean;
+  isLocked?: boolean;
   permission?: "view" | "download";
   sharedBy?: string;
   sharedAt?: string;

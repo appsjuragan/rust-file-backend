@@ -147,6 +147,38 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
     }
   };
 
+  const [tappingId, setTappingId] = useState<string | null>(null);
+
+  const onDoubleClick = React.useCallback(
+    (f: FileType) => {
+      if (f.scanStatus === "infected") return;
+      setTappingId(f.id);
+      setTimeout(() => setTappingId(null), 350);
+      handleDoubleClick(f);
+    },
+    [handleDoubleClick],
+  );
+
+  const onTap = React.useCallback(
+    (f: FileType, e: React.MouseEvent) => {
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        if (selectedIds.length > 0) {
+          handleItemClick(f, e);
+        } else {
+          setTappingId(f.id);
+          setTimeout(() => setTappingId(null), 350);
+          if (f.scanStatus !== "infected") {
+            handleDoubleClick(f);
+          }
+        }
+      } else {
+        handleItemClick(f, e);
+      }
+    },
+    [selectedIds, handleItemClick, handleDoubleClick],
+  );
+
   const contextData = {
     rows,
     selectedIds,
@@ -157,14 +189,15 @@ export const VirtualFileTable: React.FC<VirtualFileTableProps> = ({
     handleDragLeave,
     handleDropOnFolder,
     handleContextMenu,
-    handleItemClick,
-    handleDoubleClick,
+    handleItemClick: onTap,
+    handleDoubleClick: onDoubleClick,
     isLongPress,
     setIsLongPress,
     longPressTimer,
     focusedIndex,
     setFocusedIndex,
     containerRef,
+    tappingId,
   };
 
   return (
@@ -288,6 +321,7 @@ interface CustomRowProps {
   focusedIndex: number;
   setFocusedIndex: (idx: number) => void;
   containerRef: React.RefObject<HTMLDivElement>;
+  tappingId: string | null;
 }
 
 // Row Component
@@ -313,6 +347,7 @@ const RowComponent = memo(
     focusedIndex,
     setFocusedIndex,
     containerRef,
+    tappingId,
   }: CustomRowProps & {
     ariaAttributes: any;
     index: number;
@@ -328,6 +363,7 @@ const RowComponent = memo(
       file.scanStatus === "pending" || file.scanStatus === "scanning";
     const isInfected = file.scanStatus === "infected";
     const isFocused = focusedIndex === index;
+    const isTapped = tappingId === file.id;
 
     const startLongPress = (e: React.PointerEvent) => {
       setIsLongPress(false);
@@ -346,8 +382,8 @@ const RowComponent = memo(
             {
               clientX,
               clientY,
-              preventDefault: () => {},
-              stopPropagation: () => {},
+              preventDefault: () => { },
+              stopPropagation: () => { },
             } as any,
             file,
           );
@@ -357,7 +393,7 @@ const RowComponent = memo(
           // Simulate Ctrl+Click behavior for multi-select
           handleItemClick(file, {
             ctrlKey: true,
-            stopPropagation: () => {},
+            stopPropagation: () => { },
           } as any);
           if (navigator.vibrate) navigator.vibrate(50);
         }
@@ -379,18 +415,7 @@ const RowComponent = memo(
         setIsLongPress(false);
         return;
       }
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
-        if (selectedIds.length > 0) {
-          handleItemClick(file, e);
-        } else {
-          if (file.scanStatus !== "infected") {
-            handleDoubleClick(file);
-          }
-        }
-      } else {
-        handleItemClick(file, e);
-      }
+      handleItemClick(file, e);
     };
 
     return (
@@ -423,7 +448,8 @@ const RowComponent = memo(
                 ${isSelected ? "rfm-selected" : ""}
                 ${isFocused ? "bg-blue-100 dark:bg-blue-900/30" : ""}
                 ${dragOverId === file.id ? "rfm-drag-over" : ""}
-                ${highlightedId === file.id ? "rfm-highlighted" : ""}`}
+                ${highlightedId === file.id ? "rfm-highlighted" : ""}
+                ${isTapped ? "rfm-tap-effect" : ""}`}
         aria-selected={isSelected}
         tabIndex={-1}
       >

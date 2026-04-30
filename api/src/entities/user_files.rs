@@ -20,6 +20,8 @@ pub struct Model {
     pub file_signature: Option<String>,
     pub original_parent_id: Option<String>,
     #[sea_orm(default_value = "false")]
+    pub is_locked: bool,
+    #[sea_orm(default_value = "false")]
     pub is_system: bool,
 }
 

@@ -234,6 +234,7 @@ pub async fn list_files(
             is_shared,
             share_token,
             is_system: user_file.is_system,
+            is_locked: user_file.is_locked,
         });
     }
 
@@ -302,6 +303,7 @@ pub async fn get_folder_path(
                 is_shared: false,
                 share_token: None,
                 is_system: folder.is_system,
+                is_locked: folder.is_locked,
             },
         );
 

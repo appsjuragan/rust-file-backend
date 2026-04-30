@@ -565,19 +565,21 @@ const Workspace = () => {
         }}
       />
 
-      <SelectionBar
-        selectedIds={selectedIds}
-        currentFolderFiles={currentFolderFiles}
-        fs={fs}
-        currentFolder={currentFolder}
-        setSelectedIds={setSelectedIds}
-        setClipboardIds={setClipboardIds}
-        setIsCut={setIsCut}
-        setClipboardSourceFolder={setClipboardSourceFolder}
-        setContextMenu={setContextMenu}
-        setDialogState={setDialogState}
-        handleShare={handleShare}
-      />
+      {isMobile && (
+        <SelectionBar
+          selectedIds={selectedIds}
+          currentFolderFiles={currentFolderFiles}
+          fs={fs}
+          currentFolder={currentFolder}
+          setSelectedIds={setSelectedIds}
+          setClipboardIds={setClipboardIds}
+          setIsCut={setIsCut}
+          setClipboardSourceFolder={setClipboardSourceFolder}
+          setContextMenu={setContextMenu}
+          setDialogState={setDialogState}
+          handleShare={handleShare}
+        />
+      )}
     </section>
   );
 };

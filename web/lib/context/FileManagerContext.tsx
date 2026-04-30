@@ -93,6 +93,10 @@ interface ProviderInterface {
     type: "alert" | "confirm";
     onConfirm?: () => void;
     onCancel?: () => void;
+    lockedItems?: FileType[];
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onAcknowledge?: () => void;
   };
   setDialogState: Dispatch<{
     isVisible: boolean;
@@ -101,6 +105,10 @@ interface ProviderInterface {
     type: "alert" | "confirm";
     onConfirm?: () => void;
     onCancel?: () => void;
+    lockedItems?: FileType[];
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onAcknowledge?: () => void;
   }>;
   showAlert: (message: string, title?: string) => void;
   showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
@@ -141,6 +149,11 @@ interface ProviderInterface {
   setShowThumbnails: Dispatch<boolean>;
   autoplay: boolean;
   setAutoplay: Dispatch<boolean>;
+  setPinModalVisible: Dispatch<boolean>;
+  setPinModalFile: Dispatch<FileType | null>;
+  setPinModalMode: Dispatch<"lock" | "unlock" | "access" | "bulk_unlock">;
+  setPinModalTitle: Dispatch<string>;
+  setPinModalOnConfirm: Dispatch<((pin: string) => Promise<void>) | null>;
 }
 
 export const FileManagerContext = createContext<ProviderInterface | null>(null);

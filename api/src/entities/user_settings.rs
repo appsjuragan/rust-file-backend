@@ -8,6 +8,9 @@ pub struct Model {
     pub user_id: String,
     pub theme: String,
     pub view_style: String,
+    #[sea_orm(default_value = 30)]
+    pub trash_cleanup_days: i32,
+    pub lock_passphrase: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

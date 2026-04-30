@@ -1,5 +1,6 @@
 use crate::api::error::AppError;
 use crate::entities::{prelude::*, *};
+use crate::services::tier_service::TierService;
 use crate::utils::auth::Claims;
 use crate::utils::validation::sanitize_filename;
 use axum::{
@@ -28,11 +29,14 @@ use super::types::*;
 )]
 pub async fn pre_check_dedup(
     State(state): State<crate::AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Json(req): Json<PreCheckRequest>,
 ) -> Result<Json<PreCheckResponse>, AppError> {
     req.validate()
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    // 0. Check Quota
+    TierService::check_upload_allowed(&state.db, &claims.sub, req.size as u64).await?;
 
     let existing = StorageFiles::find()
         .filter(storage_files::Column::Hash.eq(&req.full_hash))
@@ -184,6 +188,9 @@ pub async fn upload_file(
         }
 
         let staged = staged_file.ok_or(AppError::BadRequest("No file provided".to_string()))?;
+
+        // 3.5 Check Quota
+        TierService::check_upload_allowed(&state.db, &claims.sub, staged.size.max(0) as u64).await?;
 
         // 4. Process Upload
         let (user_file_id, expires_at) = state

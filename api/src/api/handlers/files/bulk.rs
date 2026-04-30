@@ -179,7 +179,7 @@ pub async fn get_archive_status(
         let expiry = chrono::Utc::now() + chrono::Duration::hours(12);
         state
             .download_tickets
-            .insert(ticket.clone(), (format!("archive_{}", id), expiry));
+            .insert(ticket.clone(), (format!("archive_{}", id), expiry, None::<i64>));
         status.url = Some(format!("/api/download/{}", ticket));
     }
     Ok(Json(status))

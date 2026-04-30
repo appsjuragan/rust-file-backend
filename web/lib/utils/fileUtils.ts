@@ -58,6 +58,7 @@ export const formatShareExpiry = (dateStr: string): string => {
 };
 
 export const formatSize = (bytes: number): string => {
+  if (bytes < 0) return "\u221e"; // Infinity symbol for unlimited
   if (bytes === 0) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB", "TB"];

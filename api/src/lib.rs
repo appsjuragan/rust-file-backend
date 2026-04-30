@@ -59,6 +59,11 @@ use utoipa_swagger_ui::SwaggerUi;
         api::handlers::files::manage::empty_trash,
         api::handlers::user_settings::get_settings,
         api::handlers::user_settings::update_settings,
+        api::handlers::user_settings::set_lock_passphrase,
+        api::handlers::admin::tier::update_tier_settings,
+        api::handlers::admin::tier::update_user_tier,
+        api::handlers::files::manage::lock_item,
+        api::handlers::files::manage::unlock_item,
         api::handlers::health::get_validation_rules,
         api::handlers::health::health_check,
         api::handlers::users::get_profile,
@@ -108,6 +113,10 @@ use utoipa_swagger_ui::SwaggerUi;
             api::handlers::files::list::FolderStatsResponse,
             api::handlers::user_settings::UserSettingsResponse,
             api::handlers::user_settings::UpdateUserSettingsRequest,
+            api::handlers::user_settings::SetLockPassphraseRequest,
+            api::handlers::admin::tier::UpdateTierSettingsRequest,
+            api::handlers::admin::tier::UpdateUserTierRequest,
+            api::handlers::files::LockUnlockRequest,
             api::handlers::health::HealthResponse,
             crate::utils::validation::ValidationRules,
             api::handlers::users::UserProfileResponse,
@@ -145,7 +154,7 @@ pub struct AppState {
     pub file_service: Arc<FileService>,
     pub upload_service: Arc<crate::services::upload_service::UploadService>,
     pub config: SecurityConfig,
-    pub download_tickets: Arc<DashMap<String, (String, DateTime<Utc>)>>,
+    pub download_tickets: Arc<DashMap<String, (String, DateTime<Utc>, Option<i64>)>>,
     pub captchas: Arc<DashMap<String, CaptchaChallenge>>,
     pub cooldowns: Arc<DashMap<String, CooldownEntry>>,
     /// In-memory OTP device-auth sessions for desktop sync client (keyed by device_code)
@@ -255,6 +264,11 @@ pub fn create_app(state: AppState) -> Router {
             "/files/:id/ticket",
             post(api::handlers::files::generate_download_ticket),
         )
+        .route("/files/:id/lock", post(api::handlers::files::lock_item))
+        .route(
+            "/files/:id/unlock",
+            post(api::handlers::files::unlock_item),
+        )
         .route(
             "/files/:id/rename",
             axum::routing::put(api::handlers::files::rename_item),
@@ -301,6 +315,10 @@ pub fn create_app(state: AppState) -> Router {
             "/settings",
             get(api::handlers::user_settings::get_settings)
                 .put(api::handlers::user_settings::update_settings),
+        )
+        .route(
+            "/settings/lock-passphrase",
+            post(api::handlers::user_settings::set_lock_passphrase),
         )
         .route(
             "/users/me",
@@ -372,6 +390,8 @@ pub fn create_app(state: AppState) -> Router {
             axum::routing::put(api::handlers::admin_cache_settings::set_group_cache_ttl)
                 .delete(api::handlers::admin_cache_settings::delete_group_cache_override),
         )
+        .route("/admin/tiers", axum::routing::put(api::handlers::admin::tier::update_tier_settings))
+        .route("/admin/users/:id/tier", axum::routing::put(api::handlers::admin::tier::update_user_tier))
         .layer(auth_middleware);
 
     // Configure CORS based on allowed_origins

@@ -28,10 +28,16 @@ export const userService = {
 
   getSettings: () => request("/settings"),
 
-  updateSettings: (settings: { theme?: string; view_style?: string }) =>
+  updateSettings: (settings: { theme?: string; view_style?: string; trash_cleanup_days?: number }) =>
     request("/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings),
+    }),
+  setLockPassphrase: (data: { passphrase?: string; current_passphrase?: string }) =>
+    request("/settings/lock-passphrase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     }),
 };

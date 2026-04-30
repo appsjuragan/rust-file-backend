@@ -74,10 +74,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editPin, setEditPin] = useState("");
   const [adminGroupsModalVisible, setAdminGroupsModalVisible] = useState(false);
   const [adminCacheSettingsModalVisible, setAdminCacheSettingsModalVisible] = useState(false);
   const [cropModalVisible, setCropModalVisible] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [trashCleanupDays, setTrashCleanupDays] = useState(30);
 
   // Folder Navigation
   const { navigateToFolder } = useFolderNavigation(
@@ -106,6 +108,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       .getSettings()
       .then((settings: any) => {
         if (settings && settings.theme) setTheme(settings.theme);
+        if (settings && settings.trash_cleanup_days) setTrashCleanupDays(settings.trash_cleanup_days);
       })
       .catch(console.error);
 
@@ -167,6 +170,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         email: editEmail || undefined,
         password: editPassword || undefined,
       });
+      if (editPin) {
+        await userService.setLockPassphrase({ passphrase: editPin });
+      }
       await fetchProfile();
       setProfileModalVisible(false);
     } catch (err: any) {
@@ -320,6 +326,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         setEditEmail={setEditEmail}
         editPassword={editPassword}
         setEditPassword={setEditPassword}
+        trashCleanupDays={trashCleanupDays}
+        setTrashCleanupDays={setTrashCleanupDays}
+        editPin={editPin}
+        setEditPin={setEditPin}
         onSave={handleSaveProfile}
         onAvatarChange={handleAvatarChange}
       />

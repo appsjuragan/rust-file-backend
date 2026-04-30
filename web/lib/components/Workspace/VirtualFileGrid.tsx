@@ -131,10 +131,42 @@ export const VirtualFileGrid: React.FC<VirtualFileGridProps> = ({
     }
   };
 
+  const [tappingId, setTappingId] = useState<string | null>(null);
+
+  const onDoubleClick = React.useCallback(
+    (f: FileType) => {
+      if (f.scanStatus === "infected") return;
+      setTappingId(f.id);
+      setTimeout(() => setTappingId(null), 350);
+      handleDoubleClick(f);
+    },
+    [handleDoubleClick],
+  );
+
+  const onTap = React.useCallback(
+    (f: FileType, e: React.MouseEvent) => {
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        if (selectedIds.length > 0) {
+          handleItemClick(f, e);
+        } else {
+          setTappingId(f.id);
+          setTimeout(() => setTappingId(null), 350);
+          if (f.scanStatus !== "infected") {
+            handleDoubleClick(f);
+          }
+        }
+      } else {
+        handleItemClick(f, e);
+      }
+    },
+    [selectedIds, handleItemClick, handleDoubleClick],
+  );
+
   // Interaction handlers (Passed to Cell via cellProps)
   const handlers = {
-    handleItemClick,
-    handleDoubleClick,
+    handleItemClick: onTap,
+    handleDoubleClick: onDoubleClick,
     handleDragStart,
     handleDragOver,
     handleDragLeave,
@@ -149,6 +181,7 @@ export const VirtualFileGrid: React.FC<VirtualFileGridProps> = ({
     focusedIndex,
     setFocusedIndex,
     containerRef,
+    tappingId,
   };
 
   return (
@@ -258,6 +291,7 @@ const Cell = memo(
       focusedIndex,
       setFocusedIndex,
       containerRef,
+      tappingId,
     } = handlers;
 
     const isPending = f.scanStatus === "pending" || f.scanStatus === "scanning";
@@ -265,6 +299,7 @@ const Cell = memo(
     const isInfected = f.scanStatus === "infected";
     const isSelected = selectedIds.includes(f.id);
     const isFocused = focusedIndex === index;
+    const isTapped = tappingId === f.id;
 
     let timeLeft = "soon";
     if (isInfected && f.expiresAt) {
@@ -319,18 +354,7 @@ const Cell = memo(
         return;
       }
 
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
-        if (selectedIds.length > 0) {
-          handleItemClick(f, e);
-        } else {
-          if (f.scanStatus !== "infected") {
-            handleDoubleClick(f);
-          }
-        }
-      } else {
-        handleItemClick(f, e);
-      }
+      handleItemClick(f, e);
     };
 
     // Adjust style to account for gap (subtract margin from width/height or use padding)
@@ -374,7 +398,8 @@ const Cell = memo(
               : ""
             }
                     ${dragOverId === f.id ? "rfm-drag-over" : ""} 
-                    ${highlightedId === f.id ? "rfm-highlighted" : ""}`}
+                    ${highlightedId === f.id ? "rfm-highlighted" : ""}
+                    ${isTapped ? "rfm-tap-effect" : ""}`}
           disabled={isPending}
           tabIndex={-1} // Manage focus via container
           aria-label={f.name}
@@ -388,6 +413,7 @@ const Cell = memo(
             isEncrypted={f.isEncrypted}
             scanStatus={f.scanStatus as any}
             hasPassword={f.hasPassword}
+            isLocked={f.isLocked}
             permission={f.permission}
           />
           {isPending && (

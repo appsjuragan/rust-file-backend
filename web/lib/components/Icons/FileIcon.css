@@ -187,6 +187,36 @@
   padding: 2px;
 }
 
+.rfm-file-icon-lock-badge {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  padding: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rfm-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dark .rfm-file-icon-lock-badge {
+  background-color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.rfm-list-icon .rfm-file-icon-lock-badge {
+  width: 12px;
+  height: 12px;
+  bottom: -1px;
+  left: -1px;
+  padding: 2px;
+}
+
 .rfm-file-icon-password-badge {
   position: absolute;
   top: -2px;
@@ -413,5 +443,27 @@
 
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* ==================== Tap/Open Animations ==================== */
+
+.rfm-tap-effect .rfm-file-icon-wrapper {
+  animation: rfm-tap-pulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  z-index: 10;
+}
+
+@keyframes rfm-tap-pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(0.85);
+  }
+
+  100% {
+    transform: scale(1);
   }
 }

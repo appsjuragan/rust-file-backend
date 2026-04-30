@@ -22,6 +22,8 @@ interface IContextMenuProps {
   onUpload: () => void;
   onShare?: (file: FileType) => void;
   onViewAccessLog?: (file: FileType) => void;
+  onLock?: (file: FileType) => void;
+  onUnlock?: (file: FileType) => void;
 }
 
 const ContextMenu: React.FC<IContextMenuProps> = ({
@@ -38,6 +40,8 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
   onUpload,
   onShare,
   onViewAccessLog,
+  onLock,
+  onUnlock,
 }) => {
   const {
     fs,
@@ -601,6 +605,24 @@ const ContextMenu: React.FC<IContextMenuProps> = ({
                                 </>
                               );
                             })()}
+                          </div>
+                        )}
+
+                        {/* Lock / Unlock */}
+                        {!isSharedReadOnly && targetFile && (
+                          <div
+                            className="rfm-context-menu-item"
+                            onClick={() =>
+                              triggerAction(() =>
+                                targetFile.isLocked ? onUnlock?.(targetFile) : onLock?.(targetFile)
+                              )
+                            }
+                          >
+                            <SvgIcon
+                              svgType={targetFile.isLocked ? "unlock" : "lock"}
+                              className="rfm-context-menu-icon"
+                            />
+                            {targetFile.isLocked ? "Unlock Item" : "Lock Item"}
                           </div>
                         )}
 

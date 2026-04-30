@@ -218,4 +218,18 @@ export const fileService = {
   getFolderStats: (id: string) => request(`/files/${id}/stats`),
 
   emptyTrash: (id: string) => request(`/trash/${id}/empty`, { method: "DELETE" }),
+
+  lockItem: (id: string, passphrase?: string) =>
+    request(`/files/${id}/lock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passphrase }),
+    }),
+
+  unlockItem: (id: string, passphrase?: string) =>
+    request(`/files/${id}/unlock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passphrase }),
+    }),
 };

@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod admin_cache_settings;
 pub mod admin_groups;
 pub mod auth;

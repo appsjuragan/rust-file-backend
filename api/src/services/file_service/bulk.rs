@@ -32,11 +32,15 @@ impl FileService {
                 .ok_or_else(|| AppError::NotFound(format!("Item {} not found", id)))?;
 
             // Basic circularity check (simplified for bulk)
-            if let Some(ref target_id) = new_parent_id
-                && item.is_folder
-                && target_id == &item.id
-            {
-                continue; // Skip invalid moves in bulk
+            if let Some(ref target_id) = new_parent_id {
+                if item.is_folder && target_id == &item.id {
+                    continue; // Skip invalid moves in bulk
+                }
+            }
+
+            // 🛡 Protection: Cannot move locked items
+            if item.is_locked {
+                continue; // Skip locked items in bulk move
             }
 
             let mut active: user_files::ActiveModel = item.into();

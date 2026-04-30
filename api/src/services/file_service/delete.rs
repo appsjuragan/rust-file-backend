@@ -57,6 +57,13 @@ impl FileService {
             ));
         }
 
+        // 🛡 Protection: Cannot delete locked items
+        if item.is_locked {
+            return Err(AppError::BadRequest(
+                "Cannot delete locked items. Please unlock them first.".to_string(),
+            ));
+        }
+
         let trash_folder = self.get_or_create_trash_folder(user_id).await?;
 
         // Check if item is already in trash
@@ -99,6 +106,7 @@ impl FileService {
             let mut active: user_files::ActiveModel = item.clone().into();
             active.original_parent_id = Set(item.parent_id.clone());
             active.parent_id = Set(Some(trash_folder.id));
+            active.updated_at = Set(Some(chrono::Utc::now()));
             // We DON'T set deleted_at here, because we want it to be visible in the Trash folder
             // for restoration. If we set deleted_at, it disappears from folder listings.
             active.update(&self.db).await?;

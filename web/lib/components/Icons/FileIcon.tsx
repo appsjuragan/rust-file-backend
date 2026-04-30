@@ -63,6 +63,7 @@ interface IFileIcon {
   isSystem?: boolean;
   hasPassword?: boolean;
   permission?: "view" | "download";
+  isLocked?: boolean;
 }
 
 const FileIcon = (props: IFileIcon) => {
@@ -375,6 +376,14 @@ const FileIcon = (props: IFileIcon) => {
             <SvgIcon
               svgType="eye"
               className="w-full h-full text-amber-500 fill-current shadow-sm"
+            />
+          </div>
+        )}
+        {props.isLocked && (
+          <div className="rfm-file-icon-lock-badge z-10">
+            <SvgIcon
+              svgType="lock"
+              className="w-full h-full text-rose-500 fill-current shadow-sm"
             />
           </div>
         )}

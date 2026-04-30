@@ -44,7 +44,10 @@ interface ISvgIconProps extends Omit<
   | "user"
   | "search"
   | "lock"
-  | "log";
+  | "unlock"
+  | "log"
+  | "map-pin"
+  | "check-circle";
   size?: number | string;
 }
 
@@ -676,6 +679,57 @@ const SvgIcon: React.FC<ISvgIconProps> = ({
           >
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        );
+      }
+      case "unlock": {
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 9.33-2.5" />
+          </svg>
+        );
+      }
+      case "map-pin": {
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        );
+      }
+      case "check-circle": {
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
         );
       }

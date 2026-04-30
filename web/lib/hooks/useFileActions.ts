@@ -24,6 +24,12 @@ export const useFileActions = () => {
     setShareModalVisible,
     isZipping,
     setIsZipping,
+    setPinModalVisible,
+    setPinModalTitle,
+    setPinModalMode,
+    setPinModalOnConfirm,
+    refreshFolderTree,
+    fs,
   } = useFileManager();
 
   const handleCopy = useCallback(
@@ -78,6 +84,58 @@ export const useFileActions = () => {
 
     try {
       if (isCut) {
+        const targetFiles = clipboardIds.map(id => (fs as FileType[]).find(f => f.id === id)).filter(Boolean) as FileType[];
+        const lockedItems = targetFiles.filter(f => f.isLocked);
+
+        if (lockedItems.length > 0) {
+          setDialogState({
+            isVisible: true,
+            title: "Move Protection",
+            message: `Some items in your clipboard are locked and cannot be moved directly.`,
+            type: "confirm",
+            lockedItems,
+            confirmLabel: "Move Anyway",
+            cancelLabel: "Acknowledge",
+            onAcknowledge: async () => {
+              // Proceed with only unlocked ones
+              const unlockedIds = targetFiles.filter(f => !f.isLocked).map(f => f.id);
+              if (unlockedIds.length > 0) {
+                try {
+                  if (onBulkMove) await onBulkMove(unlockedIds, currentFolder);
+                  else {
+                    for (const id of unlockedIds) await onMove?.(id, currentFolder);
+                  }
+                } catch (e) { console.error(e); }
+              }
+              setClipboardIds([]);
+              setIsCut(false);
+              if (onRefresh) await onRefresh(currentFolder);
+            },
+            onConfirm: () => {
+              setPinModalTitle("Verify PIN to Move Locked Items");
+              setPinModalMode("bulk_unlock");
+              setPinModalOnConfirm(async (pin: string) => {
+                try {
+                  for (const item of lockedItems) {
+                    await fileService.unlockItem(item.id, pin);
+                  }
+                  if (onBulkMove) await onBulkMove(clipboardIds, currentFolder);
+                  else {
+                    for (const id of clipboardIds) await onMove?.(id, currentFolder);
+                  }
+                  setClipboardIds([]);
+                  setIsCut(false);
+                  if (onRefresh) await onRefresh(currentFolder);
+                } catch (err: any) {
+                  alert(err.message || "Action failed");
+                }
+              });
+              setPinModalVisible(true);
+            }
+          });
+          return;
+        }
+
         if (onBulkMove) {
           await onBulkMove(clipboardIds, currentFolder);
         } else if (onMove) {
@@ -109,6 +167,12 @@ export const useFileActions = () => {
     setIsCut,
     setClipboardSourceFolder,
     onRefresh,
+    fs,
+    setDialogState,
+    setPinModalVisible,
+    setPinModalTitle,
+    setPinModalMode,
+    setPinModalOnConfirm,
   ]);
 
   const handleDelete = useCallback(
@@ -118,6 +182,58 @@ export const useFileActions = () => {
 
       const count = ids.length;
       const name = targetName || (count === 1 ? "this item" : `${count} items`);
+
+      const targetFiles = ids.map(id => (fs as FileType[]).find(f => f.id === id)).filter(Boolean) as FileType[];
+      const lockedItems = targetFiles.filter(f => f.isLocked);
+      const unlockedIds = targetFiles.filter(f => !f.isLocked).map(f => f.id);
+
+      if (lockedItems.length > 0) {
+        setDialogState({
+          isVisible: true,
+          title: "Delete Protection",
+          message: `The following items are locked. You cannot delete them directly.`,
+          type: "confirm",
+          lockedItems,
+          confirmLabel: "Delete Anyway",
+          cancelLabel: "Acknowledge",
+          onAcknowledge: async () => {
+            if (unlockedIds.length > 0) {
+              try {
+                if (onBulkDelete) await onBulkDelete(unlockedIds);
+                else {
+                  for (const id of unlockedIds) await onDelete?.(id);
+                }
+                if (onRefresh) await onRefresh(currentFolder);
+              } catch (e) { console.error(e); }
+            }
+            setSelectedIds([]);
+          },
+          onConfirm: () => {
+            setPinModalTitle("Verify PIN to Delete Locked Items");
+            setPinModalMode("bulk_unlock");
+            setPinModalOnConfirm(async (pin: string) => {
+              try {
+                // Frontend should probably unlock them first or backend should handle PIN.
+                // User said "continue action on correct pin". 
+                // Since bulkDelete doesn't take a PIN, we must unlock them first.
+                for (const item of lockedItems) {
+                  await fileService.unlockItem(item.id, pin);
+                }
+                if (onBulkDelete) await onBulkDelete(ids);
+                else {
+                  for (const id of ids) await onDelete?.(id);
+                }
+                setSelectedIds([]);
+                if (onRefresh) await onRefresh(currentFolder);
+              } catch (err: any) {
+                alert(err.message || "Action failed");
+              }
+            });
+            setPinModalVisible(true);
+          }
+        });
+        return;
+      }
 
       setDialogState({
         isVisible: true,
@@ -149,6 +265,11 @@ export const useFileActions = () => {
       onDelete,
       setSelectedIds,
       onRefresh,
+      fs,
+      setPinModalVisible,
+      setPinModalTitle,
+      setPinModalMode,
+      setPinModalOnConfirm,
     ],
   );
 

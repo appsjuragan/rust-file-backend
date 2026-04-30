@@ -155,15 +155,22 @@ pub async fn download_file(
         format!("private, max-age={}", cache_ttl)
     };
 
-    Ok(Response::builder()
+    // Resolve bandwidth limit from tier
+    let quota = crate::services::tier_service::TierService::get_user_quota(&state.db, &claims.sub).await?;
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         // Nginx internal redirect
         .header("X-Accel-Redirect", internal_redirect_uri)
         // Content headers for the client
         .header(header::CONTENT_TYPE, content_type)
         .header(header::CONTENT_DISPOSITION, content_disposition)
-        .header(header::CACHE_CONTROL, cache_control)
-        .body(Body::empty())
+        .header(header::CACHE_CONTROL, cache_control);
+
+    if quota.bandwidth_limit_bps > 0 {
+        builder = builder.header("X-Accel-Limit-Rate", quota.bandwidth_limit_bps.to_string());
+    }
+
+    Ok(builder.body(Body::empty())
         .unwrap())
 }
 
@@ -338,9 +345,13 @@ pub async fn generate_download_ticket(
     let ticket = Uuid::new_v4().to_string();
     let expiry = Utc::now() + chrono::Duration::hours(12);
 
+    // Get user quota for bandwidth limit
+    let quota = crate::services::tier_service::TierService::get_user_quota(&state.db, &claims.sub).await?;
+    let bandwidth_limit = if quota.bandwidth_limit_bps > 0 { Some(quota.bandwidth_limit_bps) } else { None };
+
     state
         .download_tickets
-        .insert(ticket.clone(), (file_id.clone(), expiry));
+        .insert(ticket.clone(), (file_id.clone(), expiry, bandwidth_limit));
 
     // Generate presigned URL (12 hours)
     let storage_file_id = user_file
@@ -399,13 +410,13 @@ pub async fn download_file_with_ticket(
     Path(ticket): Path<String>,
     axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Response, AppError> {
-    let (file_id, _) = {
+    let (file_id, _, bandwidth_limit) = {
         if let Some(entry) = state.download_tickets.get(&ticket) {
-            let (fid, exp) = entry.value();
+            let (fid, exp, bl) = entry.value();
             if *exp < Utc::now() {
                 return Err(AppError::Forbidden("Ticket expired".to_string()));
             }
-            (fid.clone(), *exp)
+            (fid.clone(), *exp, *bl)
         } else {
             return Err(AppError::Forbidden("Invalid ticket".to_string()));
         }
@@ -530,7 +541,7 @@ pub async fn download_file_with_ticket(
     let query_str = url.query().unwrap_or("");
     let internal_redirect_uri = format!("/minio_protected{}?{}", path, query_str);
 
-    Ok(Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         // Nginx internal redirect
         .header("X-Accel-Redirect", internal_redirect_uri)
@@ -539,8 +550,13 @@ pub async fn download_file_with_ticket(
         .header(header::CONTENT_DISPOSITION, content_disposition)
         // Cache for ticket duration approx? Or strict validation.
         // We'll trust the browser cache for a bit if needed.
-        .header(header::CACHE_CONTROL, "private, max-age=3600")
-        .body(Body::empty())
+        .header(header::CACHE_CONTROL, "private, max-age=3600");
+
+    if let Some(limit) = bandwidth_limit {
+        builder = builder.header("X-Accel-Limit-Rate", limit.to_string());
+    }
+
+    Ok(builder.body(Body::empty())
         .unwrap())
 }
 

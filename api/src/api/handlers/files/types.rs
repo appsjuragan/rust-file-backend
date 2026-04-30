@@ -32,6 +32,7 @@ pub struct FileMetadataResponse {
     pub is_shared: bool,
     pub share_token: Option<String>,
     pub is_system: bool,
+    pub is_locked: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -99,6 +100,11 @@ pub struct CreateFolderRequest {
 pub struct RenameRequest {
     pub name: Option<String>,
     pub parent_id: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct LockUnlockRequest {
+    pub passphrase: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
