@@ -114,7 +114,7 @@ export const useFileActions = () => {
             onConfirm: () => {
               setPinModalTitle("Verify PIN to Move Locked Items");
               setPinModalMode("bulk_unlock");
-              setPinModalOnConfirm(async (pin: string) => {
+              setPinModalOnConfirm(() => async (pin: string) => {
                 try {
                   for (const item of lockedItems) {
                     await fileService.unlockItem(item.id, pin);
@@ -211,7 +211,7 @@ export const useFileActions = () => {
           onConfirm: () => {
             setPinModalTitle("Verify PIN to Delete Locked Items");
             setPinModalMode("bulk_unlock");
-            setPinModalOnConfirm(async (pin: string) => {
+            setPinModalOnConfirm(() => async (pin: string) => {
               try {
                 // Frontend should probably unlock them first or backend should handle PIN.
                 // User said "continue action on correct pin". 
